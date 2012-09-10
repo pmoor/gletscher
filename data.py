@@ -16,11 +16,9 @@ class DataFile(object):
 
     self._file_id = file_id
 
-    self._file_name = os.path.join(dir, "%06d.data.tmp" % self._file_id)
+    self._file_name = os.path.join(dir, "%d.data" % self._file_id)
     self._file = open(self._file_name, "w")
-    self._file.write(struct.pack(">L", self._file_id))
-    self._tree_hasher.update(struct.pack(">L", self._file_id))
-    self._offset = 4
+    self._offset = 0
 
   def _calculateIv(self, offset):
     hmac = self._crypter.newHMAC()
@@ -42,7 +40,7 @@ class DataFile(object):
     return self._offset + len(chunk) < self._max_size
 
   def is_empty(self):
-    return self._offset == 4
+    return not self._offset
 
   def finalize(self):
     self._file.close()

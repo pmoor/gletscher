@@ -130,6 +130,20 @@ class MyTestCase(unittest.TestCase):
           self._hash("5", 1))),
       h.get_tree_hash(0, 5 * 1024 * 1024 + 1))
 
+  def test_starting_at_one(self):
+    h = crypto.TreeHasher()
+    h.update(self._testBlock("0"))
+    h.update(self._testBlock("1"))
+    h.update(self._testBlock("2"))
+    h.update(self._testBlock("3"))
+    h.update(self._testBlock("4"))
+
+    self.assertEqual(
+      self._combine(
+        self._combine(self._hash("1"), self._hash("2")),
+        self._hash("3")),
+      h.get_tree_hash(1024 * 1024, 4 * 1024 * 1024))
+
 if __name__ == '__main__':
   unittest.main()
 

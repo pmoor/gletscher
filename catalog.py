@@ -37,6 +37,15 @@ class CatalogEntry(object):
     data += struct.pack(">LQQLL", self._mode, self._size, self._mtime, self._uid, self._gid)
     return data
 
+  def is_regular_file(self):
+    return stat.S_ISREG(self._mode)
+
+  def is_directory(self):
+    return stat.S_ISDIR(self._mode)
+
+  def is_link(self):
+    return stat.S_ISLNK(self._mode)
+
   @staticmethod
   def unserialize(entry):
     f = StringIO.StringIO(entry)
@@ -121,3 +130,14 @@ class Catalog(object):
 
   def raw_entries(self):
     return self._db.iteritems()
+
+  def match(self, or_patterns):
+    for full_path_raw in self._db:
+      full_path = full_path_raw.decode("utf8")
+      matches = False
+      for pattern in or_patterns:
+        if pattern.search(full_path):
+          matches = True
+          break
+      if matches:
+        yield full_path, CatalogEntry.unserialize(self._db[full_path_raw])

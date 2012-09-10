@@ -1,5 +1,5 @@
 import httplib
-from datetime import datetime
+from datetime import datetime, timedelta
 import hashlib
 import hmac
 import json
@@ -21,6 +21,11 @@ class GlacierClient(object):
     self._aws_secret_access_key = aws_secret_access_key.encode("utf8")
     self._upload_chunk_size = upload_chunk_size
     self._host = "glacier.%s.amazonaws.com" % self._aws_region
+
+  def _log_headers(self, response):
+    logger.debug("response: %d %s\n%s" % (
+      response.status, response.reason,
+      "\n".join("  %s: %s" % x for x in sorted(response.getheaders()))))
 
   def _sha256(self, content):
     digest = hashlib.sha256()
@@ -75,6 +80,7 @@ class GlacierClient(object):
 
     body = response.read()
     assert response.status == httplib.CREATED, "%d: %s" % (response.status, body)
+    self._log_headers(response)
     return response.getheader("x-amz-multipart-upload-id")
 
   def _uploadPart(self, connection, upload_id, payload, tree_hash, offset):
@@ -93,6 +99,7 @@ class GlacierClient(object):
     body = response.read()
     assert response.status == httplib.NO_CONTENT, "%d: %s" % (response.status, body)
     assert response.getheader("x-amz-sha256-tree-hash") == tree_hash, body
+    self._log_headers(response)
 
   def _completeUpload(self, connection, upload_id, tree_hash, total_size):
     path = "/%d/vaults/%s/multipart-uploads/%s" % (self._aws_account_id, self._vault_name, upload_id)
@@ -107,6 +114,7 @@ class GlacierClient(object):
     body = response.read()
     assert response.status == httplib.CREATED, "%d: %s" % (response.status, body)
     assert response.getheader("x-amz-sha256-tree-hash") == tree_hash, body
+    self._log_headers(response)
     return response.getheader("x-amz-archive-id")
 
   def _listPendingUploads(self, connection):
@@ -118,6 +126,7 @@ class GlacierClient(object):
 
     assert response.status == httplib.OK, response.status
 
+    self._log_headers(response)
     body = json.load(response)
     return [upload[u"MultipartUploadId"] for upload in body[u"UploadsList"]]
 
@@ -129,6 +138,7 @@ class GlacierClient(object):
     response = connection.getresponse()
     body = response.read()
     assert response.status == httplib.NO_CONTENT, "%d: %s" % (response.status, body)
+    self._log_headers(response)
 
   def _initiateInventoryRetrieval(self, connection):
     path = "/%d/vaults/%s/jobs" % (self._aws_account_id, self._vault_name)
@@ -136,13 +146,47 @@ class GlacierClient(object):
     headers = self._compute_all_headers("POST", path, payload=payload)
     connection.request("POST", path, headers=headers, body=payload)
     response = connection.getresponse()
-    body = response.read()
-    print response.status
-    print response.getheaders()
-    print body
+    self._log_headers(response)
+    print response.read()
+
+  def _initiateArchiveRetrieval(self, connection, archive_id):
+    path = "/%d/vaults/%s/jobs" % (self._aws_account_id, self._vault_name)
+    payload = json.dumps({"Type": "archive-retrieval", "Description": "test job", "ArchiveId": archive_id})
+    headers = self._compute_all_headers("POST", path, payload=payload)
+    connection.request("POST", path, headers=headers, body=payload)
+    response = connection.getresponse()
+    self._log_headers(response)
+    print response.read()
+
+
+  def _listJobs(self, connection):
+    path = "/%d/vaults/%s/jobs" % (self._aws_account_id, self._vault_name)
+    headers = self._compute_all_headers("GET", path)
+    connection.request("GET", path, headers=headers)
+    response = connection.getresponse()
+    self._log_headers(response)
+    print json.dumps(json.loads(response.read()), indent=2, sort_keys=True)
+
+  def _getJobOutput(self, connection, job_id, range=None):
+    path = "/%d/vaults/%s/jobs/%s/output" % (self._aws_account_id, self._vault_name, job_id)
+    headers = {}
+    if range:
+      headers["Range"] = "bytes %d-%d" % range
+    headers = self._compute_all_headers("GET", path, headers=headers)
+    connection.request("GET", path, headers=headers)
+    response = connection.getresponse()
+    self._log_headers(response)
+    return response.read()
+
+  def _deleteArchive(self, connection, archive_id):
+    path = "/%d/vaults/%s/archives/%s" % (self._aws_account_id, self._vault_name, archive_id)
+    headers = self._compute_all_headers("DELETE", path)
+    connection.request("DELETE", path, headers=headers)
+    response = connection.getresponse()
+    self._log_headers(response)
+    assert response.status == httplib.NO_CONTENT, "%d: %s" % (response.status, response.reason)
 
   def upload_file(self, file, description, existing_tree_hasher=None):
-    return "123", "1" * 32
     description = json.dumps(description)
     assert len(description) < 1024
 
@@ -188,7 +232,3 @@ class GlacierClient(object):
       self._abortPendingUpload(connection, upload_id)
 
     return archive_id, tree_hash
-#
-#aws = GlacierClient()
-#connection = httplib.HTTPSConnection(aws._host)
-#aws._initiateInventoryRetrieval(connection)
