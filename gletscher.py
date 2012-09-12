@@ -31,7 +31,6 @@ def new_command(args):
   assert os.path.isdir(args.config)
 
   config = BackupConfiguration.NewEmptyConfiguration(args.config)
-  config.write()
 
   os.mkdir(config.index_dir_location())
   os.mkdir(config.tmp_dir_location())
@@ -42,7 +41,7 @@ def new_command(args):
 
 def backup_command(args):
   assert not args.catalog.startswith("_")
-  config = BackupConfiguration.LoadFromFile(args.config, passphrase=args.passphrase)
+  config = BackupConfiguration.LoadFromFile(args.config)
 
   assert os.path.isdir(config.catalog_dir_location()), "catalog directory does not exist: " + config.catalog_dir_location()
   assert os.path.isdir(config.tmp_dir_location()), "temp directory does not exist: " + config.tmp_dir_location()
@@ -135,7 +134,7 @@ def backup_command(args):
 
 def upload_catalog_command(args):
   assert not args.catalog.startswith("_")
-  config = BackupConfiguration.LoadFromFile(args.config, passphrase=args.passphrase)
+  config = BackupConfiguration.LoadFromFile(args.config)
 
   assert os.path.isdir(config.catalog_dir_location()), "catalog directory does not exist: " + config.catalog_dir_location()
   assert os.path.isdir(config.tmp_dir_location()), "temp directory does not exist: " + config.tmp_dir_location()
@@ -195,7 +194,7 @@ def search_catalog_command(args):
   patterns = [re.compile(x.decode("utf8")) for x in args.reg_exps]
 
   assert not args.catalog.startswith("_")
-  config = BackupConfiguration.LoadFromFile(args.config, passphrase=args.passphrase)
+  config = BackupConfiguration.LoadFromFile(args.config)
 
   assert os.path.isdir(config.catalog_dir_location()), "catalog directory does not exist: " + config.catalog_dir_location()
   assert os.path.isdir(config.tmp_dir_location()), "temp directory does not exist: " + config.tmp_dir_location()
@@ -241,7 +240,7 @@ def search_catalog_command(args):
     print "  %d (~%d MB)" % (index, len(files_needed[index]))
 
 def experimental_command(args):
-  config = BackupConfiguration.LoadFromFile(args.config, passphrase=args.passphrase)
+  config = BackupConfiguration.LoadFromFile(args.config)
 
   glacier_client = GlacierClient(
     config.aws_region(),
@@ -283,8 +282,6 @@ backup_parser = subparsers.add_parser("backup", help="start backing-up some dire
 backup_parser.add_argument(
   "-c", "--config", help="config file for backup set", required=True)
 backup_parser.add_argument(
-  "--passphrase", help="passphrase to read the configuration")
-backup_parser.add_argument(
   "--catalog", help="catalog name to use", required=False, default="default")
 backup_parser.add_argument(
   "-d", "--dir", nargs="+", help="a set of directories to be backed-up", required=True)
@@ -300,8 +297,6 @@ upload_catalog_parser.add_argument(
   "-c", "--config", help="configuration directory to use", required=True)
 upload_catalog_parser.add_argument(
   "--catalog", help="catalog to upload", required=True, default="default")
-upload_catalog_parser.add_argument(
-  "--passphrase", help="passphrase to read the configuration")
 upload_catalog_parser.set_defaults(fn=upload_catalog_command)
 
 search_catalog_parser = subparsers.add_parser("search_catalog", help="looks for files in a catalog")
@@ -310,16 +305,12 @@ search_catalog_parser.add_argument(
 search_catalog_parser.add_argument(
   "--catalog", help="catalog to search", required=True, default="default")
 search_catalog_parser.add_argument(
-  "--passphrase", help="passphrase to read the configuration")
-search_catalog_parser.add_argument(
   "reg_exps", help="regular expressions to match against", nargs="+")
 search_catalog_parser.set_defaults(fn=search_catalog_command)
 
 experimental_parser = subparsers.add_parser("experimental", help="looks for files in a catalog")
 experimental_parser.add_argument(
   "-c", "--config", help="configuration directory to use", required=True)
-experimental_parser.add_argument(
-  "--passphrase", help="passphrase to read the configuration")
 experimental_parser.set_defaults(fn=experimental_command)
 
 args = parser.parse_args()
