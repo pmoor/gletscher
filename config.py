@@ -1,3 +1,4 @@
+import logging
 import os
 from Crypto import Random
 import uuid
@@ -10,7 +11,14 @@ class BackupConfiguration(object):
   def LoadFromFile(config_dir):
     config = ConfigParser.RawConfigParser()
     config.read(os.path.join(config_dir, "backup.config"))
-    return BackupConfiguration(config_dir, config)
+    backup_config = BackupConfiguration(config_dir, config)
+
+    assert os.path.isdir(backup_config.catalog_dir_location()), "catalog directory does not exist: " + backup_config.catalog_dir_location()
+    assert os.path.isdir(backup_config.tmp_dir_location()), "temp directory does not exist: " + backup_config.tmp_dir_location()
+
+    logging.basicConfig(level=logging.DEBUG, filename=backup_config.log_file_location(), datefmt="%Y-%m-%d %H:%M:%S", format="%(asctime)s %(levelname)s %(name)s#%(funcName)s: %(message)s")
+
+    return backup_config
 
   @staticmethod
   def NewEmptyConfiguration(config_dir):
@@ -109,3 +117,6 @@ class BackupConfiguration(object):
           return input.strip()
       except:
         pass
+
+  def log_file_location(self):
+    return os.path.join(self._config_dir, "log.txt")
