@@ -1,12 +1,5 @@
 import os
 from Crypto import Random
-from Crypto.Protocol.KDF import PBKDF2
-from Crypto import Hash
-from Crypto.Cipher import AES
-import getpass
-import bz2
-import sys
-import json
 import uuid
 import ConfigParser
 from crypto import Crypter
@@ -23,7 +16,6 @@ class BackupConfiguration(object):
   def NewEmptyConfiguration(config_dir):
     id = uuid.uuid4()
     secret_key = Random.get_random_bytes(32)
-
     crypter = Crypter(secret_key)
     signature = crypter.hash(id.bytes)
 
@@ -43,7 +35,7 @@ class BackupConfiguration(object):
       "",
       "[glacier]",
       "vault_name = %s" % BackupConfiguration.Prompt("Glacier Vault Name", verifier=lambda x: len(x.strip()) > 0),
-      ""
+      "",
       "[dirs]",
       "index = index",
       "catalogs = catalogs",
@@ -56,9 +48,8 @@ class BackupConfiguration(object):
       "",
     ])
 
-    f = open(os.path.join(config_dir, "backup.config"), "w")
-    f.write(min_config)
-    f.close()
+    with open(os.path.join(config_dir, "backup.config"), "w") as f:
+      f.write(min_config)
     return BackupConfiguration.LoadFromFile(config_dir)
 
   def __init__(self, config_dir, config):
@@ -66,7 +57,7 @@ class BackupConfiguration(object):
     self._config = config
     crypter = Crypter(self.secret_key())
     signature = crypter.hash(self.uuid().bytes)
-    assert signature == self._config.get("id", "signature").decode("hex")
+    assert signature == self._config.get("id", "signature").decode("hex"), "signature is wrong"
 
   def secret_key(self):
     key = self._config.get("id", "key").decode("hex")

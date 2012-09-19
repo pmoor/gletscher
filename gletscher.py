@@ -9,6 +9,7 @@ import argparse
 import sys
 import bz2
 import re
+import crypto
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -89,26 +90,26 @@ def backup_command(args):
           logger.debug("new chunk: %s", digest.encode("hex"))
 
           if not data_file:
+            data_file_slot = index.reserve_file_slot()
             data_file = DataFile(
-              index.reserve_file_id(),
               config.tmp_dir_location(),
-              config.max_data_file_size(), crypter)
+              config.max_data_file_size(),
+              crypter)
 
           if not data_file.fits(chunk):
             # upload the file
-            data_file.finalize()
+            tree_hash = data_file.finalize()
+            index.add_data_file_pre_upload(data_file_slot, tree_hash)
 
             archive_id, tree_hash = glacier_client.upload_file(
-              data_file.file_name(), {"backup": str(config.uuid()), "type": "data", "id": "%d" % data_file.id()},
-              data_file.tree_hasher())
+                data_file.file_name(), data_file.tree_hasher(), description={"backup": str(config.uuid()), "type": "data", "tree-hash": "%s" % tree_hash.encode("hex")})
 
-            index.add_data_file(data_file.id(), archive_id, tree_hash)
-
+            index.finalize_data_file(data_file_slot, tree_hash, archive_id)
             data_file.delete()
             data_file = None
 
-          position = data_file.add(chunk)
-          index.add(digest, position)
+          offset, length = data_file.add(chunk)
+          index.add(digest, len(chunk), data_file_slot, offset, length)
         digests.append(digest)
 
       catalog.add_file(full_path, file_stat, digests)
@@ -118,18 +119,97 @@ def backup_command(args):
       global_catalog.add(full_path, file_stat)
 
   if data_file:
-    data_file.finalize()
+    tree_hash = data_file.finalize()
+    index.add_data_file_pre_upload(data_file_slot, tree_hash)
+
     archive_id, tree_hash = glacier_client.upload_file(
-      data_file.file_name(), {"backup": str(config.uuid()), "type": "data", "id": "%d" % data_file.id()},
-      data_file.tree_hasher())
+      data_file.file_name(), data_file.tree_hasher(), description={"backup": str(config.uuid()), "type": "data", "tree-hash": "%s" % tree_hash.encode("hex")})
 
-    index.add_data_file(data_file.id(), archive_id, tree_hash)
-
+    index.finalize_data_file(data_file_slot, tree_hash, archive_id)
     data_file.delete()
 
   index.close()
   catalog.close()
   global_catalog.close()
+
+def repair_command(args):
+  config = BackupConfiguration.LoadFromFile(args.config)
+
+  glacier_client = GlacierClient(
+    config.aws_region(),
+    config.aws_account_id(),
+    config.vault_name(),
+    config.aws_access_key(),
+    config.aws_secret_access_key(),
+    config.upload_chunk_size())
+
+  index = Index(config.index_dir_location(), consistency_check=False)
+
+  file_entries = index.FindAllFileEntries()
+
+  for file_id in sorted(file_entries.keys()):
+    entry = file_entries[file_id]
+
+    if not entry:
+      print "data file id [%d] is referenced by index entries, but no entry for the file is found." % file_id
+      answer = None
+      while True:
+        answer = raw_input("remove all index references to this file? [y|n] ").strip().lower()
+        if answer == "y" or answer == "n":
+          break
+      if answer == "y":
+        print "Removing all index entries for %d" % file_id
+        index.RemoveAllEntriesForFile(file_id)
+        print "All entries removed."
+      else:
+        print "Not removing stale index entries. The index will remain corrupt."
+
+    elif not entry.archive_id:
+      data_file = os.path.join(config.tmp_dir_location(), "%s.data" % entry.tree_hash.encode("hex"))
+      if not os.path.isfile(data_file):
+        print "The data file for [%d] does no longer exist." % file_id
+        print "You can either remove all index entries pointing to it, or you can "
+        print "attempt a reconciliation."
+        answer = None
+        while True:
+          answer = raw_input("Remove all index references to this file? [y|n] ").strip().lower()
+          if answer == "y" or answer == "n":
+            break
+        if answer == "y":
+          print "Removing all index entries for %d" % file_id
+          index.RemoveAllEntriesForFile(file_id)
+          print "All entries removed."
+        else:
+          print "Not removing stale index entries."
+
+      else:
+        # check tree hash
+        tree_hasher = crypto.TreeHasher()
+        with open(data_file) as f:
+          tree_hasher.consume(f)
+
+        computed_tree_hash = tree_hasher.get_tree_hash()
+        logger.info("computed tree hash %s", computed_tree_hash.encode("hex"))
+        expected_tree_hash = entry.tree_hash
+        logger.info("expected tree hash %s", expected_tree_hash.encode("hex"))
+
+        pending_upload = glacier_client.find_pending_upload(
+          config.uuid(), expected_tree_hash)
+
+        if not pending_upload:
+          archive_id, tree_hash = glacier_client.upload_file(
+            data_file, tree_hasher, description={"backup": str(config.uuid()), "type": "data", "tree-hash": "%s" % expected_tree_hash.encode("hex")})
+          index.finalize_data_file(file_id, tree_hash, archive_id)
+          os.remove(data_file)
+        else:
+          archive_id, tree_hash = glacier_client.upload_file(
+            data_file, tree_hasher, pending_upload=pending_upload)
+          index.finalize_data_file(file_id, tree_hash, archive_id)
+          os.remove(data_file)
+
+    else:
+      logger.info("everything looks fine for id %d: %s (%s)",
+          file_id, entry.tree_hash.encode("hex"), entry.archive_id)
 
 
 def upload_catalog_command(args):
@@ -263,16 +343,6 @@ def experimental_command(args):
     "_KRktzs7_zwgPQ99xQnELuH-dn5rMntWdp5Ovupf5s6XAUN0OsH-xbrXummqkTUDF9jCsv-EQ6z92S3V_eETv9IK4sCA")
   print data.encode("hex")
 
-  data = open("test/tmp/17.data", "r").read()
-  frequency = {}
-  for i in range(0, 256):
-    frequency[i] = 0
-  for char in data:
-    frequency[ord(char)] += 1
-  for i in sorted(frequency.keys(), key=lambda x: frequency[x]):
-    print "%3d: %d" % (i, frequency[i])
-
-
 
 
 parser = argparse.ArgumentParser(description="Tool for backing up files to Amazon's Glacier Service.")
@@ -287,10 +357,15 @@ backup_parser.add_argument(
   "-d", "--dir", nargs="+", help="a set of directories to be backed-up", required=True)
 backup_parser.set_defaults(fn=backup_command)
 
-restore_parser = subparsers.add_parser("new", help="creates a new back-up configuration")
-restore_parser.add_argument(
+new_parser = subparsers.add_parser("new", help="creates a new back-up configuration")
+new_parser.add_argument(
   "-c", "--config", help="name of the configuration file to be created", required=True)
-restore_parser.set_defaults(fn=new_command)
+new_parser.set_defaults(fn=new_command)
+
+repair_parser = subparsers.add_parser("repair", help="repairs a broken index")
+repair_parser.add_argument(
+  "-c", "--config", help="name of the configuration file to be created", required=True)
+repair_parser.set_defaults(fn=repair_command)
 
 upload_catalog_parser = subparsers.add_parser("upload_catalog", help="uploads a catalog/index")
 upload_catalog_parser.add_argument(
@@ -303,7 +378,7 @@ search_catalog_parser = subparsers.add_parser("search_catalog", help="looks for 
 search_catalog_parser.add_argument(
   "-c", "--config", help="configuration directory to use", required=True)
 search_catalog_parser.add_argument(
-  "--catalog", help="catalog to search", required=True, default="default")
+  "--catalog", help="catalog to search", default="default")
 search_catalog_parser.add_argument(
   "reg_exps", help="regular expressions to match against", nargs="+")
 search_catalog_parser.set_defaults(fn=search_catalog_command)

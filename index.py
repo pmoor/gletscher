@@ -3,6 +3,7 @@ import struct
 import logging
 import anydbm
 import time
+import xdrlib
 
 logger = logging.getLogger(__name__)
 
@@ -27,13 +28,36 @@ class IndexEntry(object):
 
 class FileEntry(object):
 
-  def __init__(self, archive_id, tree_hash):
-    self._archive_id = archive_id
-    self._tree_hash = tree_hash
+  def __init__(self, archive_id=None, tree_hash=None):
+    self.archive_id = archive_id
+    self.tree_hash = tree_hash
 
   def serialize(self):
-    encoded = self._archive_id.encode("utf8")
-    return struct.pack(">L", len(encoded)) + encoded + self._tree_hash
+    packer = xdrlib.Packer()
+    if self.archive_id:
+      packer.pack_bool(True)
+      packer.pack_string(self.archive_id.encode("utf8"))
+    else:
+      packer.pack_bool(False)
+
+    if self.tree_hash:
+      packer.pack_bool(True)
+      packer.pack_bytes(self.tree_hash)
+    else:
+      packer.pack_bool(False)
+
+    return packer.get_buffer()
+
+  @staticmethod
+  def unserialize(packed):
+    unpacker = xdrlib.Unpacker(packed)
+    archive_id = None
+    if unpacker.unpack_bool():
+      archive_id = unpacker.unpack_string().decode("utf8")
+    tree_hash = None
+    if unpacker.unpack_bool():
+      tree_hash = unpacker.unpack_bytes()
+    return FileEntry(archive_id, tree_hash)
 
 
 class Index(object):
@@ -41,51 +65,64 @@ class Index(object):
   NEXT_FILE_ID_KEY = "_next-file-id"
   FILE_ENTRY_KEY_FORMAT = "_file-%d"
 
-  def __init__(self, index_dir):
+  def __init__(self, index_dir, consistency_check=True):
     self._index_dir = index_dir
     self._main_index_file = os.path.join(index_dir, "index.anydbm")
     self._db = anydbm.open(self._main_index_file, "w")
-    self._cleanDb()
+    if consistency_check:
+      self._assert_consistent()
 
-  def _cleanDb(self):
-    logger.debug("starting db cleanup")
+  def FindAllFileEntries(self):
+    entries = {}
+    for key, value in self._db.iteritems():
+      if not key.startswith("_"):
+        entry = IndexEntry.unserialize(value)
+        if entry.file_id in entries:
+          continue
+        else:
+          key_name = Index.FILE_ENTRY_KEY_FORMAT % entry.file_id
+          if not key_name in self._db:
+            entries[entry.file_id] = None
+          else:
+            entries[entry.file_id] = FileEntry.unserialize(self._db[key_name])
+    return entries
+
+  def _assert_consistent(self):
+    logger.info("starting index consistency checks")
     start_time = time.time()
     valid_files = set()
     invalid_files = set()
-    to_be_removed = set()
 
     for key, value in self._db.iteritems():
       if not key.startswith("_"):
         entry = IndexEntry.unserialize(value)
         if entry.file_id in valid_files:
           continue
-        elif entry.file_id in invalid_files:
-          to_be_removed.add(key)
         else:
-          if Index.FILE_ENTRY_KEY_FORMAT % entry.file_id in self._db:
-            valid_files.add(entry.file_id)
-          else:
+          key_name = Index.FILE_ENTRY_KEY_FORMAT % entry.file_id
+          if not key_name in self._db:
             invalid_files.add(entry.file_id)
-            to_be_removed.add(key)
+          else:
+            existing_entry = FileEntry.unserialize(self._db[key_name])
+            if existing_entry.tree_hash is None or existing_entry.archive_id is None:
+              invalid_files.add(entry.file_id)
+            else:
+              valid_files.add(entry.file_id)
 
     if valid_files:
-      logger.debug("valid file indices: %s", sorted(valid_files))
+      logger.info("valid file indices: %s", sorted(valid_files))
     if invalid_files:
-      logger.debug("INvalid file indices: %s", sorted(invalid_files))
+      logger.warning("invalid file indices: %s", sorted(invalid_files))
 
     logger.debug("analysis completed in %0.2fs", time.time() - start_time)
 
-    if to_be_removed:
-      logger.debug("removing %d index entries", len(to_be_removed))
-      start_time = time.time()
-      for key in to_be_removed:
-        del self._db[key]
-      self._db.sync()
-      logger.debug("removed index entries in %0.2fs", time.time() - start_time)
+    if invalid_files:
+      raise Exception("the index contains partial data file information, cleanup first")
 
-  def reserve_file_id(self):
+  def reserve_file_slot(self):
     next_id = int(self._db[Index.NEXT_FILE_ID_KEY])
-    assert not Index.FILE_ENTRY_KEY_FORMAT % next_id in self._db
+    while Index.FILE_ENTRY_KEY_FORMAT % next_id in self._db:
+      next_id += 1
     self._db[Index.NEXT_FILE_ID_KEY] = "%d" % (next_id + 1)
     self._db.sync()
     return next_id
@@ -95,13 +132,38 @@ class Index(object):
     if entry:
       return IndexEntry.unserialize(entry)
 
-  def add(self, digest, position):
-    self._db[digest] = IndexEntry(*position).serialize()
+  def add(self, digest, chunk_length, file_slot, offset, persisted_length):
+    self._db[digest] = IndexEntry(file_slot, offset, persisted_length, chunk_length).serialize()
 
-  def add_data_file(self, file_id, archive_id, tree_hash):
+  def add_data_file_pre_upload(self, file_id, tree_hash):
     key_name = Index.FILE_ENTRY_KEY_FORMAT % file_id
     assert not key_name in self._db
-    self._db[key_name] = FileEntry(archive_id, tree_hash).serialize()
+    self._db[key_name] = FileEntry(None, tree_hash).serialize()
+    self._db.sync()
+
+  def finalize_data_file(self, file_id, tree_hash, archive_id):
+    key_name = Index.FILE_ENTRY_KEY_FORMAT % file_id
+    existing_entry = FileEntry.unserialize(self._db[key_name])
+    assert existing_entry.tree_hash == tree_hash
+    assert existing_entry.archive_id is None
+
+    existing_entry.archive_id = archive_id
+    self._db[key_name] = existing_entry.serialize()
+    self._db.sync()
+
+  def RemoveAllEntriesForFile(self, file_id):
+    remove = set()
+    for key, value in self._db.iteritems():
+      if not key.startswith("_"):
+        entry = IndexEntry.unserialize(value)
+        if entry.file_id == file_id:
+          remove.add(key)
+
+    logger.info("removing %d entries for file %d" % (len(remove), file_id))
+    key_name = Index.FILE_ENTRY_KEY_FORMAT % file_id
+    del self._db[key_name]
+    for key in remove:
+      del self._db[key]
     self._db.sync()
 
   @staticmethod

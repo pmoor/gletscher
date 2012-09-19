@@ -59,7 +59,15 @@ class TreeHasher(object):
         self._length += len(data)
         data = ""
 
-  def get_tree_hash(self, start, end):
+  def consume(self, f):
+    chunk = f.read(TreeHasher.BLOCK_SIZE)
+    while chunk:
+      self.update(chunk)
+      chunk = f.read(TreeHasher.BLOCK_SIZE)
+
+  def get_tree_hash(self, start=0, end=None):
+    if end is None:
+      end = self._length
     assert (0 <= start < end <= self._length) or (start == end == self._length), "start must be smaller than end"
     assert start % TreeHasher.BLOCK_SIZE == 0, "must start on a block boundary"
     assert end == self._length or end % TreeHasher.BLOCK_SIZE == 0, "must extend to the end or end on a block boundary"

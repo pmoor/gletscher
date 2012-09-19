@@ -1,5 +1,5 @@
 import httplib
-from datetime import datetime, timedelta
+from datetime import datetime
 import hashlib
 import hmac
 import json
@@ -8,6 +8,8 @@ import stat
 import time
 import crypto
 import logging
+import uuid
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -124,11 +126,21 @@ class GlacierClient(object):
     connection.request("GET", path, headers=headers)
     response = connection.getresponse()
 
-    assert response.status == httplib.OK, response.status
-
+    assert response.status == httplib.OK, "%d: %s" % (response.status, response.reason)
     self._log_headers(response)
     body = json.load(response)
-    return [upload[u"MultipartUploadId"] for upload in body[u"UploadsList"]]
+    return body[u"UploadsList"]
+
+  def _listParts(self, connection, upload_id):
+    path = "/%d/vaults/%s/multipart-uploads/%s" % (self._aws_account_id, self._vault_name, upload_id)
+    headers = self._compute_all_headers("GET", path)
+    connection.request("GET", path, headers=headers)
+    response = connection.getresponse()
+
+    assert response.status == httplib.OK, "%d: %s" % (response.status, response.reason)
+    self._log_headers(response)
+    body = json.load(response)
+    return int(body[u"PartSizeInBytes"]), body[u"Parts"]
 
   def _abortPendingUpload(self, connection, upload_id):
     path = "/%d/vaults/%s/multipart-uploads/%s" % (self._aws_account_id, self._vault_name, upload_id)
@@ -158,7 +170,6 @@ class GlacierClient(object):
     self._log_headers(response)
     print response.read()
 
-
   def _listJobs(self, connection):
     path = "/%d/vaults/%s/jobs" % (self._aws_account_id, self._vault_name)
     headers = self._compute_all_headers("GET", path)
@@ -186,49 +197,68 @@ class GlacierClient(object):
     self._log_headers(response)
     assert response.status == httplib.NO_CONTENT, "%d: %s" % (response.status, response.reason)
 
-  def upload_file(self, file, description, existing_tree_hasher=None):
-    description = json.dumps(description)
-    assert len(description) < 1024
+  def upload_file(self, file, existing_tree_hasher=None, description=None, pending_upload=None):
+    logger.info("starting upload of %s", file)
+    assert description or pending_upload
 
-    logger.info("starting upload of %s (%s)", file, description)
-
-    connection = httplib.HTTPSConnection(self._host)
-
-    upload_id = self._initiateMultipartUpload(connection, self._upload_chunk_size, description)
-
-    f = open(file, "r")
     f_stat = os.stat(file)
     assert stat.S_ISREG(f_stat.st_mode), "must be a regular file: " + file
+    with open(file, "r") as f:
 
-    start_time = time.time()
-    total_size = f_stat.st_size
-    tree_hasher = crypto.TreeHasher()
-    for start in xrange(0, total_size, self._upload_chunk_size):
-      end = min(start + self._upload_chunk_size, total_size)
+      connection = httplib.HTTPSConnection(self._host)
+      if description:
+        description = json.dumps(description)
+        assert len(description) < 1024
 
-      data = f.read(end - start)
-      tree_hasher.update(data)
+        pending_upload = self._initiateMultipartUpload(connection, self._upload_chunk_size, description)
+        available_parts = set()
+        chunk_size = self._upload_chunk_size
+      else:
+        # TODO(patrick): handle more than 1000 parts (marker)
+        chunk_size, parts = self._listParts(connection, pending_upload)
+        available_parts = set()
+        for part in parts:
+          start, end = re.match("(\d+)-(\d+)", part[u"RangeInBytes"]).groups()
+          # TODO(patrick): remove [-64:] once Amazon bug is fixed
+          available_parts.add((int(start), int(end), part[u"SHA256TreeHash"][-64:].decode("hex")))
+        logger.debug("available parts: %s", "\n".join(["%d-%d:%s" % (a, b, c.encode("hex")) for a, b, c in available_parts]))
 
-      tree_hash = tree_hasher.get_tree_hash(start, end)
-      if existing_tree_hasher:
-        existing_tree_hash = existing_tree_hasher.get_tree_hash(start, end)
-        assert tree_hash == existing_tree_hash, "computed tree hash does not match expected hash"
+      start_time = time.time()
+      total_size = f_stat.st_size
+      tree_hasher = crypto.TreeHasher()
+      for start in xrange(0, total_size, chunk_size):
+        end = min(start + chunk_size, total_size)
+        data = f.read(end - start)
+        tree_hasher.update(data)
 
-      logger.debug("uploading %s [%d,%d)", tree_hash.encode("hex"), start, end)
-      self._uploadPart(connection, upload_id, data, tree_hash.encode("hex"), start)
+        tree_hash = tree_hasher.get_tree_hash(start, end)
+        if existing_tree_hasher:
+          existing_tree_hash = existing_tree_hasher.get_tree_hash(start, end)
+          assert tree_hash == existing_tree_hash, "computed tree hash does not match expected hash"
 
-      logger.debug("completed %0.2f MB out of %0.2f MB (%0.3f MB/s)",
-          end / 1024.0 / 1024.0,
-          total_size / 1024.0 / 1024.0 ,
-          end / 1024.0 / 1024.0  / (time.time() - start_time))
+        logger.debug("uploading %s [%d,%d)", tree_hash.encode("hex"), start, end)
+        if (start, end, tree_hash) in available_parts:
+          # TODO(patrick): this should be end-1, according to the amazon documentation
+          logger.debug("this part is already available - skipping upload")
+          continue
+        self._uploadPart(connection, pending_upload, data, tree_hash.encode("hex"), start)
 
-    tree_hash = tree_hasher.get_tree_hash(0, total_size)
-    archive_id = self._completeUpload(connection, upload_id, tree_hash.encode("hex"), total_size)
+        logger.debug("completed %0.2f MB out of %0.2f MB (%0.3f MB/s)",
+            end / 1024.0 / 1024.0,
+            total_size / 1024.0 / 1024.0 ,
+            end / 1024.0 / 1024.0  / (time.time() - start_time))
 
-    f.close()
-
-    for upload_id in self._listPendingUploads(connection):
-      logger.info("deleting pending upload: %s", upload_id)
-      self._abortPendingUpload(connection, upload_id)
+      tree_hash = tree_hasher.get_tree_hash(0, total_size)
+      archive_id = self._completeUpload(connection, pending_upload, tree_hash.encode("hex"), total_size)
 
     return archive_id, tree_hash
+
+  def find_pending_upload(self, backup_uuid, tree_hash):
+    connection = httplib.HTTPSConnection(self._host)
+    for pending_upload in self._listPendingUploads(connection):
+      description = json.loads(pending_upload[u"ArchiveDescription"])
+      their_uuid = uuid.UUID(description[u"backup"])
+      if their_uuid == backup_uuid:
+        their_tree_hash = description[u"tree-hash"].decode("hex")
+        if their_tree_hash == tree_hash:
+          return pending_upload[u"MultipartUploadId"].encode("utf8")
