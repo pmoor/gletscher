@@ -1,0 +1,49 @@
+Traceback (most recent call last):
+  File "gletscher.py", line 53, in <module>
+    args.fn(args)
+  File "/home/pmoor/gletschter/commands/repair.py", line 81, in repair_command
+    data_file, tree_hasher, pending_upload=pending_upload)
+  File "/home/pmoor/gletschter/aws.py", line 244, in upload_file
+    self._uploadPart(connection, pending_upload, data, tree_hash.encode("hex"), start)
+  File "/home/pmoor/gletschter/aws.py", line 98, in _uploadPart
+    connection.request("PUT", path, body=payload, headers=headers)
+  File "/usr/lib64/python2.7/httplib.py", line 958, in request
+    self._send_request(method, url, body, headers)
+  File "/usr/lib64/python2.7/httplib.py", line 992, in _send_request
+    self.endheaders(body)
+  File "/usr/lib64/python2.7/httplib.py", line 954, in endheaders
+    self._send_output(message_body)
+  File "/usr/lib64/python2.7/httplib.py", line 814, in _send_output
+    self.send(msg)
+  File "/usr/lib64/python2.7/httplib.py", line 790, in send
+    self.sock.sendall(data)
+  File "/usr/lib64/python2.7/ssl.py", line 229, in sendall
+    v = self.send(data[count:])
+  File "/usr/lib64/python2.7/ssl.py", line 198, in send
+    v = self._sslobj.write(data)
+socket.error: [Errno 110] Connection timed out
+
+Traceback (most recent call last):
+  File "gletscher.py", line 53, in <module>
+    args.fn(args)
+  File "/home/pmoor/gletschter/commands/repair.py", line 81, in repair_command
+    data_file, tree_hasher, pending_upload=pending_upload)
+  File "/home/pmoor/gletschter/aws.py", line 256, in upload_file
+    self._uploadPart(connection, pending_upload, data, tree_hash.encode("hex"), start)
+  File "/home/pmoor/gletschter/aws.py", line 98, in _uploadPart
+    connection.request("PUT", path, body=payload, headers=headers)
+  File "/usr/lib64/python2.7/httplib.py", line 958, in request
+    self._send_request(method, url, body, headers)
+  File "/usr/lib64/python2.7/httplib.py", line 992, in _send_request
+    self.endheaders(body)
+  File "/usr/lib64/python2.7/httplib.py", line 954, in endheaders
+    self._send_output(message_body)
+  File "/usr/lib64/python2.7/httplib.py", line 814, in _send_output
+    self.send(msg)
+  File "/usr/lib64/python2.7/httplib.py", line 790, in send
+    self.sock.sendall(data)
+  File "/usr/lib64/python2.7/ssl.py", line 229, in sendall
+    v = self.send(data[count:])
+  File "/usr/lib64/python2.7/ssl.py", line 198, in send
+    v = self._sslobj.write(data)
+socket.error: [Errno 104] Connection reset by peer

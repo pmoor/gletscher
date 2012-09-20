@@ -15,6 +15,16 @@ logger = logging.getLogger(__name__)
 
 class GlacierClient(object):
 
+  @staticmethod
+  def FromConfig(config):
+    return GlacierClient(
+      config.aws_region(),
+      config.aws_account_id(),
+      config.vault_name(),
+      config.aws_access_key(),
+      config.aws_secret_access_key(),
+      config.upload_chunk_size())
+
   def __init__(self, aws_region, aws_account_id, vault_name, aws_access_key, aws_secret_access_key, upload_chunk_size):
     self._aws_region = aws_region.encode("utf8")
     self._aws_account_id = aws_account_id
@@ -132,15 +142,27 @@ class GlacierClient(object):
     return body[u"UploadsList"]
 
   def _listParts(self, connection, upload_id):
-    path = "/%d/vaults/%s/multipart-uploads/%s" % (self._aws_account_id, self._vault_name, upload_id)
-    headers = self._compute_all_headers("GET", path)
-    connection.request("GET", path, headers=headers)
-    response = connection.getresponse()
+    parts = []
+    marker = None
 
-    assert response.status == httplib.OK, "%d: %s" % (response.status, response.reason)
-    self._log_headers(response)
-    body = json.load(response)
-    return int(body[u"PartSizeInBytes"]), body[u"Parts"]
+    while True:
+      query_string = "limit=1000"
+      if marker:
+        query_string += "&marker=%s" % marker
+      path = "/%d/vaults/%s/multipart-uploads/%s" % (self._aws_account_id, self._vault_name, upload_id)
+      headers = self._compute_all_headers("GET", path, query_string=query_string)
+      connection.request("GET", path + "?" + query_string, headers=headers)
+      response = connection.getresponse()
+
+      assert response.status == httplib.OK, "%d: %s\n---%s\n---" % (response.status, response.reason, response.read())
+      self._log_headers(response)
+      body = json.load(response)
+      parts += body[u"Parts"]
+      part_size = int(body[u"PartSizeInBytes"])
+      if body[u"Marker"]:
+        marker = body[u"Marker"].encode("utf8")
+      else:
+        return part_size, parts
 
   def _abortPendingUpload(self, connection, upload_id):
     path = "/%d/vaults/%s/multipart-uploads/%s" % (self._aws_account_id, self._vault_name, upload_id)
@@ -176,7 +198,7 @@ class GlacierClient(object):
     connection.request("GET", path, headers=headers)
     response = connection.getresponse()
     self._log_headers(response)
-    print json.dumps(json.loads(response.read()), indent=2, sort_keys=True)
+    return json.loads(response.read())[u"JobList"]
 
   def _getJobOutput(self, connection, job_id, range=None):
     path = "/%d/vaults/%s/jobs/%s/output" % (self._aws_account_id, self._vault_name, job_id)

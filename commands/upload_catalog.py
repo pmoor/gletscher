@@ -16,13 +16,7 @@ def upload_catalog_command(args):
   config = BackupConfiguration.LoadFromFile(args.config)
 
   crypter = Crypter(config.secret_key())
-  glacier_client = GlacierClient(
-    config.aws_region(),
-    config.aws_account_id(),
-    config.vault_name(),
-    config.aws_access_key(),
-    config.aws_secret_access_key(),
-    config.upload_chunk_size())
+  glacier_client = GlacierClient.FromConfig(config)
 
   index = Index(config.index_dir_location())
   catalog = Catalog(config.catalog_dir_location(), args.catalog, truncate=False)

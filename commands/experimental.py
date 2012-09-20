@@ -9,18 +9,22 @@ logger = logging.getLogger(__name__)
 def experimental_command(args):
   config = BackupConfiguration.LoadFromFile(args.config)
 
-  glacier_client = GlacierClient(
-    config.aws_region(),
-    config.aws_account_id(),
-    config.vault_name(),
-    config.aws_access_key(),
-    config.aws_secret_access_key(),
-    config.upload_chunk_size())
+  glacier_client = GlacierClient.FromConfig(config)
 
   connection = httplib.HTTPSConnection(glacier_client._host)
   # glacier_client._initiateInventoryRetrieval(connection)
   # glacier_client._initiateArchiveRetrieval(connection, "Jf0lifwWZez9tw0H6lGxMeQXiHCVyW8TNjCmTdx0D93SqloCsnDvl3tnJjD0DBa2aqsqtHzMqPacsLgX3jdUrdShtexU-G4S1B3EBUGH_cr8DgvFvAL85IRVCe3rn7KvsBnDqG83-Q")
-  glacier_client._listJobs(connection)
+
+  jobs = glacier_client._listJobs(connection)
+  print json.dumps(jobs, indent=2, sort_keys=True)
+
+  for job in jobs:
+    if job[u"Action"] == u"InventoryRetrieval":
+      status_code = job[u"StatusCode"].encode("utf8")
+
+      print repr(status_code)
+
+
   list = json.loads(glacier_client._getJobOutput(connection, "YhYnrWzRV4YXmnLE4Vzo0AdRoJQfyDvoRTFiZcnM2gIexQyT_tobHB3wRXhYjwcncbo0qG9DvJ4OJmwzmMQUAxCvCeUj"))
   for archive in list[u"ArchiveList"]:
     archive_id = archive[u"ArchiveId"]

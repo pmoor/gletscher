@@ -1,6 +1,5 @@
 import os
 from Crypto.Cipher import AES
-import struct
 import crypto
 import tempfile
 
@@ -35,7 +34,7 @@ class DataFile(object):
 
   def fits(self, chunk):
     # approximate (ignoring compression/encryption)
-    return self._offset + len(chunk) < self._max_size
+    return self._offset + 1.05 * len(chunk) + DataFile.IV_LENGTH < self._max_size
 
   def is_empty(self):
     return not self._offset
