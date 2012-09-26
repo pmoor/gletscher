@@ -1,7 +1,7 @@
 import os
 import struct
 import logging
-import anydbm
+import dbm
 import time
 import xdrlib
 
@@ -36,7 +36,7 @@ class FileEntry(object):
     packer = xdrlib.Packer()
     if self.archive_id:
       packer.pack_bool(True)
-      packer.pack_string(self.archive_id.encode("utf8"))
+      packer.pack_string(self.archive_id)
     else:
       packer.pack_bool(False)
 
@@ -53,7 +53,7 @@ class FileEntry(object):
     unpacker = xdrlib.Unpacker(packed)
     archive_id = None
     if unpacker.unpack_bool():
-      archive_id = unpacker.unpack_string().decode("utf8")
+      archive_id = unpacker.unpack_string()
     tree_hash = None
     if unpacker.unpack_bool():
       tree_hash = unpacker.unpack_bytes()
@@ -68,15 +68,15 @@ class Index(object):
   def __init__(self, index_dir, consistency_check=True):
     self._index_dir = index_dir
     self._main_index_file = os.path.join(index_dir, "index.anydbm")
-    self._db = anydbm.open(self._main_index_file, "w")
+    self._db = dbm.open(self._main_index_file, "w")
     if consistency_check:
       self._assert_consistent()
 
   def FindAllFileEntries(self):
     entries = {}
-    for key, value in self._db.iteritems():
-      if not key.startswith("_"):
-        entry = IndexEntry.unserialize(value)
+    for key in self._db.keys():
+      if not key.startswith(b"_"):
+        entry = IndexEntry.unserialize(self._db[key])
         if entry.file_id in entries:
           continue
         else:
@@ -93,9 +93,9 @@ class Index(object):
     valid_files = set()
     invalid_files = set()
 
-    for key, value in self._db.iteritems():
-      if not key.startswith("_"):
-        entry = IndexEntry.unserialize(value)
+    for key in self._db.keys():
+      if not key.startswith(b"_"):
+        entry = IndexEntry.unserialize(self._db[key])
         if entry.file_id in valid_files:
           continue
         else:
@@ -153,9 +153,9 @@ class Index(object):
 
   def RemoveAllEntriesForFile(self, file_id):
     remove = set()
-    for key, value in self._db.iteritems():
-      if not key.startswith("_"):
-        entry = IndexEntry.unserialize(value)
+    for key in self._db.keys():
+      if not key.startswith(b"_"):
+        entry = IndexEntry.unserialize(self._db[key])
         if entry.file_id == file_id:
           remove.add(key)
 
@@ -168,7 +168,7 @@ class Index(object):
 
   @staticmethod
   def CreateEmpty(index_dir):
-    db = anydbm.open(os.path.join(index_dir, "index.anydbm"), "n")
+    db = dbm.open(os.path.join(index_dir, "index.anydbm"), "n")
     db[Index.NEXT_FILE_ID_KEY] = "1"
     db.close()
 
@@ -176,4 +176,4 @@ class Index(object):
     self._db.close()
 
   def raw_entries(self):
-    return self._db.iteritems()
+    return self._db.items()

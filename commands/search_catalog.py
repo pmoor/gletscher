@@ -1,5 +1,6 @@
 import os
 import re
+import hex
 from catalog import Catalog
 from config import BackupConfiguration
 from index import Index
@@ -10,7 +11,7 @@ logger = logging.getLogger(__name__)
 def search_catalog_command(args):
   config = BackupConfiguration.LoadFromFile(args.config)
 
-  patterns = [re.compile(x.decode("utf8")) for x in args.reg_exps]
+  patterns = [re.compile(x) for x in args.reg_exps]
   assert not args.catalog.startswith("_")
 
   index = Index(config.index_dir_location())
@@ -31,15 +32,15 @@ def search_catalog_command(args):
     else:
       type = "misc"
       additional = ""
-    print "  %s [%s]%s" % (full_path, type, additional)
+    print("  %s [%s]%s" % (full_path, type, additional))
 
     if entry.is_regular_file():
       for digest in entry.digests():
         index_entry = index.find(digest)
-        print "    %s (file %d, offset %d, size %d/%d [%0.2f%%])" % (
-          digest.encode("hex"), index_entry.file_id, index_entry.offset,
+        print("    %s (file %d, offset %d, size %d/%d [%0.2f%%])" % (
+          hex.b2h(digest), index_entry.file_id, index_entry.offset,
           index_entry.original_length, index_entry.persisted_length,
-          100.0 * index_entry.persisted_length / index_entry.original_length)
+          100.0 * index_entry.persisted_length / index_entry.original_length))
 
         if not index_entry.file_id in files_needed:
           files_needed[index_entry.file_id] = set()
@@ -48,7 +49,7 @@ def search_catalog_command(args):
         for i in range(first_mb_block, last_mb_block + 1):
           files_needed[index_entry.file_id].add(i)
 
-  print
-  print "files needed for restore:"
+  print()
+  print("files needed for restore:")
   for index in sorted(files_needed.keys()):
-    print "  %d (~%d MB)" % (index, len(files_needed[index]))
+    print("  %d (~%d MB)" % (index, len(files_needed[index])))

@@ -1,4 +1,4 @@
-import httplib
+import http.client
 from datetime import datetime
 import hashlib
 import hmac
@@ -6,6 +6,7 @@ import json
 import os
 import stat
 import time
+import hex
 import crypto
 import logging
 import uuid
@@ -26,11 +27,11 @@ class GlacierClient(object):
       config.upload_chunk_size())
 
   def __init__(self, aws_region, aws_account_id, vault_name, aws_access_key, aws_secret_access_key, upload_chunk_size):
-    self._aws_region = aws_region.encode("utf8")
+    self._aws_region = aws_region
     self._aws_account_id = aws_account_id
-    self._vault_name = vault_name.encode("utf8")
-    self._aws_access_key = aws_access_key.encode("utf8")
-    self._aws_secret_access_key = aws_secret_access_key.encode("utf8")
+    self._vault_name = vault_name
+    self._aws_access_key = aws_access_key
+    self._aws_secret_access_key = aws_secret_access_key
     self._upload_chunk_size = upload_chunk_size
     self._host = "glacier.%s.amazonaws.com" % self._aws_region
 
@@ -44,7 +45,7 @@ class GlacierClient(object):
     digest.update(content)
     return digest.hexdigest()
 
-  def _compute_all_headers(self, method, path, headers={}, query_string="",  payload=""):
+  def _compute_all_headers(self, method, path, headers={}, query_string="",  payload=b""):
     headers = dict(headers)
     full_date = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
     day = full_date[:8]
@@ -61,15 +62,14 @@ class GlacierClient(object):
       method, path, query_string, canonical_headers, signed_headers, self._sha256(payload))
 
     string_to_sign = "%s\n%s\n%s/%s/%s/%s\n%s" % (
-      "AWS4-HMAC-SHA256", full_date, day, self._aws_region, "glacier", "aws4_request", self._sha256(canonical))
+      "AWS4-HMAC-SHA256", full_date, day, self._aws_region, "glacier", "aws4_request", self._sha256(str.encode(canonical)))
 
-    k_secret = self._aws_secret_access_key
-    k_date = hmac.new("AWS4" + k_secret, day, digestmod=hashlib.sha256).digest()
-    k_region = hmac.new(k_date, self._aws_region, digestmod=hashlib.sha256).digest()
-    k_service = hmac.new(k_region, "glacier", digestmod=hashlib.sha256).digest()
-    k_signing = hmac.new(k_service, "aws4_request", digestmod=hashlib.sha256).digest()
+    k_date = hmac.new(str.encode("AWS4" + self._aws_secret_access_key), str.encode(day), digestmod=hashlib.sha256).digest()
+    k_region = hmac.new(k_date, str.encode(self._aws_region), digestmod=hashlib.sha256).digest()
+    k_service = hmac.new(k_region, b"glacier", digestmod=hashlib.sha256).digest()
+    k_signing = hmac.new(k_service, b"aws4_request", digestmod=hashlib.sha256).digest()
 
-    signature = hmac.new(k_signing, string_to_sign, digestmod=hashlib.sha256).hexdigest()
+    signature = hmac.new(k_signing, str.encode(string_to_sign), digestmod=hashlib.sha256).hexdigest()
 
     headers["Authorization"] = "AWS4-HMAC-SHA256 Credential=%s/%s/%s/%s/aws4_request,SignedHeaders=%s,Signature=%s" % (
       self._aws_access_key,
@@ -91,7 +91,7 @@ class GlacierClient(object):
     response = connection.getresponse()
 
     body = response.read()
-    assert response.status == httplib.CREATED, "%d: %s" % (response.status, body)
+    assert response.status == http.client.CREATED, "%d: %s" % (response.status, body)
     self._log_headers(response)
     return response.getheader("x-amz-multipart-upload-id")
 
@@ -109,7 +109,7 @@ class GlacierClient(object):
     response = connection.getresponse()
 
     body = response.read()
-    assert response.status == httplib.NO_CONTENT, "%d: %s" % (response.status, body)
+    assert response.status == http.client.NO_CONTENT, "%d: %s" % (response.status, body)
     assert response.getheader("x-amz-sha256-tree-hash") == tree_hash, body
     self._log_headers(response)
 
@@ -124,7 +124,7 @@ class GlacierClient(object):
     response = connection.getresponse()
 
     body = response.read()
-    assert response.status == httplib.CREATED, "%d: %s" % (response.status, body)
+    assert response.status == http.client.CREATED, "%d: %s" % (response.status, body)
     assert response.getheader("x-amz-sha256-tree-hash") == tree_hash, body
     self._log_headers(response)
     return response.getheader("x-amz-archive-id")
@@ -136,10 +136,10 @@ class GlacierClient(object):
     connection.request("GET", path, headers=headers)
     response = connection.getresponse()
 
-    assert response.status == httplib.OK, "%d: %s" % (response.status, response.reason)
+    assert response.status == http.client.OK, "%d: %s" % (response.status, response.reason)
     self._log_headers(response)
     body = json.load(response)
-    return body[u"UploadsList"]
+    return body["UploadsList"]
 
   def _listParts(self, connection, upload_id):
     parts = []
@@ -154,13 +154,13 @@ class GlacierClient(object):
       connection.request("GET", path + "?" + query_string, headers=headers)
       response = connection.getresponse()
 
-      assert response.status == httplib.OK, "%d: %s\n---%s\n---" % (response.status, response.reason, response.read())
+      assert response.status == http.client.OK, "%d: %s\n---%s\n---" % (response.status, response.reason, response.read())
       self._log_headers(response)
       body = json.load(response)
-      parts += body[u"Parts"]
-      part_size = int(body[u"PartSizeInBytes"])
-      if body[u"Marker"]:
-        marker = body[u"Marker"].encode("utf8")
+      parts += body["Parts"]
+      part_size = int(body["PartSizeInBytes"])
+      if body["Marker"]:
+        marker = body["Marker"]
       else:
         return part_size, parts
 
@@ -171,26 +171,26 @@ class GlacierClient(object):
     connection.request("DELETE", path, headers=headers)
     response = connection.getresponse()
     body = response.read()
-    assert response.status == httplib.NO_CONTENT, "%d: %s" % (response.status, body)
+    assert response.status == http.client.NO_CONTENT, "%d: %s" % (response.status, body)
     self._log_headers(response)
 
   def _initiateInventoryRetrieval(self, connection):
     path = "/%d/vaults/%s/jobs" % (self._aws_account_id, self._vault_name)
-    payload = json.dumps({"Type": "inventory-retrieval", "Description": "test job", "Format": "JSON"})
+    payload = str.encode(json.dumps({"Type": "inventory-retrieval", "Description": "test job", "Format": "JSON"}))
     headers = self._compute_all_headers("POST", path, payload=payload)
     connection.request("POST", path, headers=headers, body=payload)
     response = connection.getresponse()
     self._log_headers(response)
-    print response.read()
+    print(response.read())
 
   def _initiateArchiveRetrieval(self, connection, archive_id):
     path = "/%d/vaults/%s/jobs" % (self._aws_account_id, self._vault_name)
-    payload = json.dumps({"Type": "archive-retrieval", "Description": "test job", "ArchiveId": archive_id})
+    payload = str.encode(json.dumps({"Type": "archive-retrieval", "Description": "test job", "ArchiveId": archive_id}))
     headers = self._compute_all_headers("POST", path, payload=payload)
     connection.request("POST", path, headers=headers, body=payload)
     response = connection.getresponse()
     self._log_headers(response)
-    print response.read()
+    print(response.read())
 
   def _listJobs(self, connection):
     path = "/%d/vaults/%s/jobs" % (self._aws_account_id, self._vault_name)
@@ -198,7 +198,7 @@ class GlacierClient(object):
     connection.request("GET", path, headers=headers)
     response = connection.getresponse()
     self._log_headers(response)
-    return json.loads(response.read())[u"JobList"]
+    return json.loads(bytes.decode(response.read()))["JobList"]
 
   def _getJobOutput(self, connection, job_id, range=None):
     path = "/%d/vaults/%s/jobs/%s/output" % (self._aws_account_id, self._vault_name, job_id)
@@ -217,7 +217,7 @@ class GlacierClient(object):
     connection.request("DELETE", path, headers=headers)
     response = connection.getresponse()
     self._log_headers(response)
-    assert response.status == httplib.NO_CONTENT, "%d: %s" % (response.status, response.reason)
+    assert response.status == http.client.NO_CONTENT, "%d: %s" % (response.status, response.reason)
 
   def upload_file(self, file, existing_tree_hasher=None, description=None, pending_upload=None):
     logger.info("starting upload of %s", file)
@@ -227,7 +227,7 @@ class GlacierClient(object):
     assert stat.S_ISREG(f_stat.st_mode), "must be a regular file: " + file
     with open(file, "r") as f:
 
-      connection = httplib.HTTPSConnection(self._host)
+      connection = http.client.HTTPSConnection(self._host)
       if description:
         description = json.dumps(description)
         assert len(description) < 1024
@@ -240,10 +240,10 @@ class GlacierClient(object):
         chunk_size, parts = self._listParts(connection, pending_upload)
         available_parts = set()
         for part in parts:
-          start, end = re.match("(\d+)-(\d+)", part[u"RangeInBytes"]).groups()
+          start, end = re.match("(\d+)-(\d+)", part["RangeInBytes"]).groups()
           # TODO(patrick): remove [-64:] once Amazon bug is fixed
-          available_parts.add((int(start), int(end), part[u"SHA256TreeHash"][-64:].decode("hex")))
-        logger.debug("available parts: %s", "\n".join(["%d-%d:%s" % (a, b, c.encode("hex")) for a, b, c in available_parts]))
+          available_parts.add((int(start), int(end), hex.h2b(part["SHA256TreeHash"])))
+        logger.debug("available parts: %s", "\n".join(["%d-%d:%s" % (a, b, hex.b2h(c)) for a, b, c in available_parts]))
 
       start_time = time.time()
       total_size = f_stat.st_size
@@ -258,12 +258,12 @@ class GlacierClient(object):
           existing_tree_hash = existing_tree_hasher.get_tree_hash(start, end)
           assert tree_hash == existing_tree_hash, "computed tree hash does not match expected hash"
 
-        logger.debug("uploading %s [%d,%d)", tree_hash.encode("hex"), start, end)
+        logger.debug("uploading %s [%d,%d)", hex.b2h(tree_hash), start, end)
         if (start, end, tree_hash) in available_parts:
           # TODO(patrick): this should be end-1, according to the amazon documentation
           logger.debug("this part is already available - skipping upload")
           continue
-        self._uploadPart(connection, pending_upload, data, tree_hash.encode("hex"), start)
+        self._uploadPart(connection, pending_upload, data, hex.b2h(tree_hash), start)
 
         logger.debug("completed %0.2f MB out of %0.2f MB (%0.3f MB/s)",
             end / 1024.0 / 1024.0,
@@ -271,16 +271,16 @@ class GlacierClient(object):
             end / 1024.0 / 1024.0  / (time.time() - start_time))
 
       tree_hash = tree_hasher.get_tree_hash(0, total_size)
-      archive_id = self._completeUpload(connection, pending_upload, tree_hash.encode("hex"), total_size)
+      archive_id = self._completeUpload(connection, pending_upload, hex.b2h(tree_hash), total_size)
 
     return archive_id, tree_hash
 
   def find_pending_upload(self, backup_uuid, tree_hash):
-    connection = httplib.HTTPSConnection(self._host)
+    connection = http.client.HTTPSConnection(self._host)
     for pending_upload in self._listPendingUploads(connection):
-      description = json.loads(pending_upload[u"ArchiveDescription"])
-      their_uuid = uuid.UUID(description[u"backup"])
+      description = json.loads(pending_upload["ArchiveDescription"])
+      their_uuid = uuid.UUID(description["backup"])
       if their_uuid == backup_uuid:
-        their_tree_hash = description[u"tree-hash"].decode("hex")
+        their_tree_hash = hex.h2b(description["tree-hash"])
         if their_tree_hash == tree_hash:
-          return pending_upload[u"MultipartUploadId"].encode("utf8")
+          return pending_upload["MultipartUploadId"]

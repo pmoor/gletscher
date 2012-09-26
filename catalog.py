@@ -1,5 +1,5 @@
-import StringIO
-import anydbm
+import io
+import dbm
 import os
 import stat
 import struct
@@ -31,7 +31,7 @@ class CatalogEntry(object):
         or int(file_stat.st_gid) != self._gid)
 
   def serialize(self):
-    encoded = self._full_path.encode("utf8")
+    encoded = str.encode(self._full_path)
     data = struct.pack(">L", len(encoded))
     data += encoded
     data += struct.pack(">LQQLL", self._mode, self._size, self._mtime, self._uid, self._gid)
@@ -48,14 +48,14 @@ class CatalogEntry(object):
 
   @staticmethod
   def unserialize(entry):
-    f = StringIO.StringIO(entry)
+    f = io.StringIO(entry)
     path_length, = struct.unpack(">L", f.read(4))
-    full_path = f.read(path_length).decode("utf8")
+    full_path = bytes.decode(f.read(path_length))
     file_stat = _FakeStat(*struct.unpack(">LQQLL", f.read(28)))
 
     if stat.S_ISLNK(file_stat.st_mode):
       target_length, = struct.unpack(">L", f.read(4))
-      target = f.read(target_length).decode("utf8")
+      target = bytes.decode(f.read(target_length))
       return LinkCatalogEntry(full_path, file_stat, target)
     elif stat.S_ISREG(file_stat.st_mode):
       digest_count, = struct.unpack(">L", f.read(4))
@@ -90,7 +90,7 @@ class LinkCatalogEntry(CatalogEntry):
 
   def serialize(self):
     data = super(LinkCatalogEntry, self).serialize()
-    encoded = self._target.encode("utf8")
+    encoded = str.encode(self._target)
     data += struct.pack(">L", len(encoded))
     data += encoded
     return data
@@ -106,19 +106,19 @@ class Catalog(object):
     mode = "c"
     if truncate:
       mode = "n"
-    self._db = anydbm.open(full_path, mode)
+    self._db = dbm.open(full_path, mode)
 
   def add_file(self, full_path, file_stat, digests):
-    self._db[full_path.encode("utf8")] = FileCatalogEntry(full_path, file_stat, digests).serialize()
+    self._db[str.encode(full_path)] = FileCatalogEntry(full_path, file_stat, digests).serialize()
 
   def add(self, full_path, file_stat):
     if stat.S_ISLNK(file_stat.st_mode):
-      self._db[full_path.encode("utf8")] = LinkCatalogEntry(full_path, file_stat, os.readlink(full_path)).serialize()
+      self._db[str.encode(full_path)] = LinkCatalogEntry(full_path, file_stat, os.readlink(full_path)).serialize()
     else:
-      self._db[full_path.encode("utf8")] = CatalogEntry(full_path, file_stat).serialize()
+      self._db[str.encode(full_path)] = CatalogEntry(full_path, file_stat).serialize()
 
   def find(self, full_path):
-    entry = self._db.get(full_path.encode("utf8"))
+    entry = self._db.get(str.encode(full_path))
     if entry:
       return CatalogEntry.unserialize(entry)
 
@@ -126,14 +126,14 @@ class Catalog(object):
     self._db.close()
 
   def transfer(self, full_path, entry):
-    self._db[full_path.encode("utf8")] = entry.serialize()
+    self._db[str.encode(full_path)] = entry.serialize()
 
   def raw_entries(self):
     return self._db.iteritems()
 
   def match(self, or_patterns):
     for full_path_raw in self._db:
-      full_path = full_path_raw.decode("utf8")
+      full_path = bytes.decode(full_path_raw)
       matches = False
       for pattern in or_patterns:
         if pattern.search(full_path):

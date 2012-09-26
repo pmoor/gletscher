@@ -1,5 +1,6 @@
 import os
 from Crypto.Cipher import AES
+import hex
 import crypto
 import tempfile
 
@@ -15,7 +16,7 @@ class DataFile(object):
     self._tree_hasher = crypto.TreeHasher()
 
     fd, self._file_name = tempfile.mkstemp(dir=dir)
-    self._file = os.fdopen(fd, "w")
+    self._file = os.fdopen(fd, "wb")
     self._offset = 0
 
   def add(self, chunk):
@@ -43,7 +44,7 @@ class DataFile(object):
     self._file.close()
     self._file = None
     tree_hash = self.tree_hash()
-    new_file_name = os.path.join(self._dir, "%s.data" % tree_hash.encode("hex"))
+    new_file_name = os.path.join(self._dir, "%s.data" % hex.b2h(tree_hash))
     os.rename(self._file_name, new_file_name)
     self._file_name = new_file_name
     return tree_hash
@@ -59,9 +60,6 @@ class DataFile(object):
 
   def file_name(self):
     return self._file_name
-
-  def id(self):
-    return self._file_id
 
 
 

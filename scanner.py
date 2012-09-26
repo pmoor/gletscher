@@ -8,7 +8,8 @@ class FileScanner(object):
 
   def __iter__(self):
     for file in self._files:
-      file = os.path.abspath(file.decode("utf8"))
+      assert type(file) == str
+      file = os.path.abspath(file)
       file_stat = os.lstat(file)
       if stat.S_ISDIR(file_stat.st_mode):
         for root, dirs, files in os.walk(file, topdown=False):

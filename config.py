@@ -2,14 +2,15 @@ import logging
 import os
 from Crypto import Random
 import uuid
-import ConfigParser
+import configparser
+import hex
 from crypto import Crypter
 
 class BackupConfiguration(object):
 
   @staticmethod
   def LoadFromFile(config_dir):
-    config = ConfigParser.RawConfigParser()
+    config = configparser.RawConfigParser()
     config.read(os.path.join(config_dir, "backup.config"))
     backup_config = BackupConfiguration(config_dir, config)
 
@@ -32,8 +33,8 @@ class BackupConfiguration(object):
       "",
       "[id]",
       "uuid = %s" % str(id),
-      "key = %s" % secret_key.encode("hex"),
-      "signature = %s" % signature.encode("hex"),
+      "key = %s" % hex.b2h(secret_key),
+      "signature = %s" % hex.b2h(signature),
       "",
       "[aws]",
       "region = %s" % BackupConfiguration.Prompt("AWS Region", verifier=lambda x: len(x.strip()) > 0),
@@ -56,6 +57,10 @@ class BackupConfiguration(object):
       "",
     ])
 
+
+    for dir in ("index", "catalogs", "tmp"):
+      os.mkdir(os.path.join(config_dir, dir))
+
     with open(os.path.join(config_dir, "backup.config"), "w") as f:
       f.write(min_config)
     return BackupConfiguration.LoadFromFile(config_dir)
@@ -65,10 +70,10 @@ class BackupConfiguration(object):
     self._config = config
     crypter = Crypter(self.secret_key())
     signature = crypter.hash(self.uuid().bytes)
-    assert signature == self._config.get("id", "signature").decode("hex"), "signature is wrong"
+    assert signature == bytes.fromhex(self._config.get("id", "signature")), "signature is wrong"
 
   def secret_key(self):
-    key = self._config.get("id", "key").decode("hex")
+    key = hex.h2b(self._config.get("id", "key"))
     assert len(key) == 32
     return key
 
@@ -111,10 +116,10 @@ class BackupConfiguration(object):
   @staticmethod
   def Prompt(prompt, verifier):
     while True:
-      input = raw_input("%s: " % prompt)
+      line = input("%s: " % prompt)
       try:
-        if verifier(input.strip()):
-          return input.strip()
+        if verifier(line.strip()):
+          return line.strip()
       except:
         pass
 

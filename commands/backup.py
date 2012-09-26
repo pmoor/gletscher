@@ -1,4 +1,5 @@
 import stat
+import hex
 from aws import GlacierClient
 from catalog import Catalog
 from chunker import FileChunker
@@ -25,7 +26,7 @@ def backup_command(args):
 
   data_file = None
 
-  scanner = FileScanner([x.decode("utf8") for x in args.dir])
+  scanner = FileScanner(args.dir)
   for full_path, file_stat in scanner:
     if stat.S_ISREG(file_stat.st_mode):
       digests = []
@@ -49,7 +50,7 @@ def backup_command(args):
       for chunk in chunker.chunk(full_path, file_stat.st_size, base_entry):
         digest = crypter.hash(chunk)
         if not index.find(digest):
-          logger.debug("new chunk: %s", digest.encode("hex"))
+          logger.debug("new chunk: %s", hex.b2h(digest))
 
           if not data_file:
             data_file_slot = index.reserve_file_slot()
@@ -64,7 +65,7 @@ def backup_command(args):
             index.add_data_file_pre_upload(data_file_slot, tree_hash)
 
             archive_id, tree_hash = glacier_client.upload_file(
-                data_file.file_name(), data_file.tree_hasher(), description={"backup": str(config.uuid()), "type": "data", "tree-hash": "%s" % tree_hash.encode("hex")})
+                data_file.file_name(), data_file.tree_hasher(), description={"backup": str(config.uuid()), "type": "data", "tree-hash": hex.b2h(tree_hash)})
 
             index.finalize_data_file(data_file_slot, tree_hash, archive_id)
             data_file.delete()
@@ -85,7 +86,7 @@ def backup_command(args):
     index.add_data_file_pre_upload(data_file_slot, tree_hash)
 
     archive_id, tree_hash = glacier_client.upload_file(
-      data_file.file_name(), data_file.tree_hasher(), description={"backup": str(config.uuid()), "type": "data", "tree-hash": "%s" % tree_hash.encode("hex")})
+      data_file.file_name(), data_file.tree_hasher(), description={"backup": str(config.uuid()), "type": "data", "tree-hash": hex.b2h(tree_hash)})
 
     index.finalize_data_file(data_file_slot, tree_hash, archive_id)
     data_file.delete()
