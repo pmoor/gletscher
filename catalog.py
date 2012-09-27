@@ -48,7 +48,7 @@ class CatalogEntry(object):
 
   @staticmethod
   def unserialize(entry):
-    f = io.StringIO(entry)
+    f = io.BytesIO(entry)
     path_length, = struct.unpack(">L", f.read(4))
     full_path = bytes.decode(f.read(path_length))
     file_stat = _FakeStat(*struct.unpack(">LQQLL", f.read(28)))
@@ -132,7 +132,7 @@ class Catalog(object):
     return self._db.iteritems()
 
   def match(self, or_patterns):
-    for full_path_raw in self._db:
+    for full_path_raw in self._db.keys():
       full_path = bytes.decode(full_path_raw)
       matches = False
       for pattern in or_patterns:

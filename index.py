@@ -36,7 +36,7 @@ class FileEntry(object):
     packer = xdrlib.Packer()
     if self.archive_id:
       packer.pack_bool(True)
-      packer.pack_string(self.archive_id)
+      packer.pack_string(str.encode(self.archive_id))
     else:
       packer.pack_bool(False)
 
@@ -53,7 +53,7 @@ class FileEntry(object):
     unpacker = xdrlib.Unpacker(packed)
     archive_id = None
     if unpacker.unpack_bool():
-      archive_id = unpacker.unpack_string()
+      archive_id = bytes.decode(unpacker.unpack_string())
     tree_hash = None
     if unpacker.unpack_bool():
       tree_hash = unpacker.unpack_bytes()
@@ -62,7 +62,7 @@ class FileEntry(object):
 
 class Index(object):
 
-  NEXT_FILE_ID_KEY = "_next-file-id"
+  NEXT_FILE_ID_KEY = b"_next-file-id"
   FILE_ENTRY_KEY_FORMAT = "_file-%d"
 
   def __init__(self, index_dir, consistency_check=True):
@@ -72,6 +72,10 @@ class Index(object):
     if consistency_check:
       self._assert_consistent()
 
+  def _constructFileEntryKey(self, file_id):
+    key_name = Index.FILE_ENTRY_KEY_FORMAT % file_id
+    return str.encode(key_name)
+
   def FindAllFileEntries(self):
     entries = {}
     for key in self._db.keys():
@@ -80,7 +84,7 @@ class Index(object):
         if entry.file_id in entries:
           continue
         else:
-          key_name = Index.FILE_ENTRY_KEY_FORMAT % entry.file_id
+          key_name = self._constructFileEntryKey(entry.file_id)
           if not key_name in self._db:
             entries[entry.file_id] = None
           else:
@@ -99,7 +103,7 @@ class Index(object):
         if entry.file_id in valid_files:
           continue
         else:
-          key_name = Index.FILE_ENTRY_KEY_FORMAT % entry.file_id
+          key_name = self._constructFileEntryKey(entry.file_id)
           if not key_name in self._db:
             invalid_files.add(entry.file_id)
           else:
@@ -121,7 +125,7 @@ class Index(object):
 
   def reserve_file_slot(self):
     next_id = int(self._db[Index.NEXT_FILE_ID_KEY])
-    while Index.FILE_ENTRY_KEY_FORMAT % next_id in self._db:
+    while self._constructFileEntryKey(next_id) in self._db:
       next_id += 1
     self._db[Index.NEXT_FILE_ID_KEY] = "%d" % (next_id + 1)
     self._db.sync()
@@ -136,13 +140,13 @@ class Index(object):
     self._db[digest] = IndexEntry(file_slot, offset, persisted_length, chunk_length).serialize()
 
   def add_data_file_pre_upload(self, file_id, tree_hash):
-    key_name = Index.FILE_ENTRY_KEY_FORMAT % file_id
+    key_name = self._constructFileEntryKey(file_id)
     assert not key_name in self._db
     self._db[key_name] = FileEntry(None, tree_hash).serialize()
     self._db.sync()
 
   def finalize_data_file(self, file_id, tree_hash, archive_id):
-    key_name = Index.FILE_ENTRY_KEY_FORMAT % file_id
+    key_name = self._constructFileEntryKey(file_id)
     existing_entry = FileEntry.unserialize(self._db[key_name])
     assert existing_entry.tree_hash == tree_hash
     assert existing_entry.archive_id is None
@@ -160,7 +164,7 @@ class Index(object):
           remove.add(key)
 
     logger.info("removing %d entries for file %d" % (len(remove), file_id))
-    key_name = Index.FILE_ENTRY_KEY_FORMAT % file_id
+    key_name = self._constructFileEntryKey(file_id)
     del self._db[key_name]
     for key in remove:
       del self._db[key]

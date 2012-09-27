@@ -138,7 +138,7 @@ class GlacierClient(object):
 
     assert response.status == http.client.OK, "%d: %s" % (response.status, response.reason)
     self._log_headers(response)
-    body = json.load(response)
+    body = json.loads(bytes.decode(response.read()))
     return body["UploadsList"]
 
   def _listParts(self, connection, upload_id):
@@ -156,7 +156,7 @@ class GlacierClient(object):
 
       assert response.status == http.client.OK, "%d: %s\n---%s\n---" % (response.status, response.reason, response.read())
       self._log_headers(response)
-      body = json.load(response)
+      body = json.loads(bytes.decode(response.read()))
       parts += body["Parts"]
       part_size = int(body["PartSizeInBytes"])
       if body["Marker"]:
@@ -225,7 +225,7 @@ class GlacierClient(object):
 
     f_stat = os.stat(file)
     assert stat.S_ISREG(f_stat.st_mode), "must be a regular file: " + file
-    with open(file, "r") as f:
+    with open(file, "rb") as f:
 
       connection = http.client.HTTPSConnection(self._host)
       if description:
@@ -248,7 +248,7 @@ class GlacierClient(object):
       start_time = time.time()
       total_size = f_stat.st_size
       tree_hasher = crypto.TreeHasher()
-      for start in xrange(0, total_size, chunk_size):
+      for start in range(0, total_size, chunk_size):
         end = min(start + chunk_size, total_size)
         data = f.read(end - start)
         tree_hasher.update(data)

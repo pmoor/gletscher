@@ -55,7 +55,7 @@ def repair_command(args):
       else:
         # check tree hash
         tree_hasher = crypto.TreeHasher()
-        with open(data_file) as f:
+        with open(data_file, "rb") as f:
           tree_hasher.consume(f)
 
         computed_tree_hash = tree_hasher.get_tree_hash()
