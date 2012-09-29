@@ -1,3 +1,4 @@
 *.pyc
 /.idea
 /gletscher.iml
+__pycache__

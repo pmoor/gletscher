@@ -14,6 +14,39 @@ import re
 
 logger = logging.getLogger(__name__)
 
+class GlacierJob(object):
+
+  def __init__(self, js):
+    self._js = js
+
+  def Id(self):
+    return self._js["JobId"]
+
+  def IsInventoryRetrieval(self):
+    return self._js["Action"] == "InventoryRetrieval"
+
+  def CreationDate(self):
+    return datetime.strptime(self._js["CreationDate"], "%Y-%m-%dT%H:%M:%S.%fZ")
+
+  def CompletedSuccessfully(self):
+    return self._js["Completed"] and self._js["StatusCode"] == "Succeeded"
+
+  def CompletionDate(self):
+    return datetime.strptime(self._js["CompletionDate"], "%Y-%m-%dT%H:%M:%S.%fZ")
+
+  def ResultAge(self):
+    return datetime.utcnow() - self.CompletionDate()
+
+  def CreationAge(self):
+    return datetime.utcnow() - self.CreationDate()
+
+  def IsPending(self):
+    return not self._js["Completed"]
+
+  def __str__(self):
+    return "GlacierJob[%s] { created at %s }" % (self.Id(), self.CreationDate())
+
+
 class GlacierClient(object):
 
   @staticmethod
@@ -34,6 +67,9 @@ class GlacierClient(object):
     self._aws_secret_access_key = aws_secret_access_key
     self._upload_chunk_size = upload_chunk_size
     self._host = "glacier.%s.amazonaws.com" % self._aws_region
+
+  def NewConnection(self):
+    return http.client.HTTPSConnection(self._host)
 
   def _log_headers(self, response):
     logger.debug("response: %d %s\n%s" % (
@@ -181,7 +217,7 @@ class GlacierClient(object):
     connection.request("POST", path, headers=headers, body=payload)
     response = connection.getresponse()
     self._log_headers(response)
-    print(response.read())
+    response.read()
 
   def _initiateArchiveRetrieval(self, connection, archive_id):
     path = "/%d/vaults/%s/jobs" % (self._aws_account_id, self._vault_name)
@@ -190,7 +226,7 @@ class GlacierClient(object):
     connection.request("POST", path, headers=headers, body=payload)
     response = connection.getresponse()
     self._log_headers(response)
-    print(response.read())
+    response.read()
 
   def _listJobs(self, connection):
     path = "/%d/vaults/%s/jobs" % (self._aws_account_id, self._vault_name)
@@ -198,7 +234,7 @@ class GlacierClient(object):
     connection.request("GET", path, headers=headers)
     response = connection.getresponse()
     self._log_headers(response)
-    return json.loads(bytes.decode(response.read()))["JobList"]
+    return [GlacierJob(js) for js in json.loads(bytes.decode(response.read()))["JobList"]]
 
   def _getJobOutput(self, connection, job_id, range=None):
     path = "/%d/vaults/%s/jobs/%s/output" % (self._aws_account_id, self._vault_name, job_id)
@@ -266,9 +302,9 @@ class GlacierClient(object):
         self._uploadPart(connection, pending_upload, data, hex.b2h(tree_hash), start)
 
         logger.debug("completed %0.2f MB out of %0.2f MB (%0.3f MB/s)",
-            end / 1024.0 / 1024.0,
-            total_size / 1024.0 / 1024.0 ,
-            end / 1024.0 / 1024.0  / (time.time() - start_time))
+            end / 1024 / 1024,
+            total_size / 1024 / 1024 ,
+            end / 1024 / 1024  / (time.time() - start_time))
 
       tree_hash = tree_hasher.get_tree_hash(0, total_size)
       archive_id = self._completeUpload(connection, pending_upload, hex.b2h(tree_hash), total_size)

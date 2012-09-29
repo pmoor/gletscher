@@ -181,3 +181,9 @@ class Index(object):
 
   def raw_entries(self):
     return self._db.items()
+
+  def GetArchiveId(self, file_id):
+    key_name = self._constructFileEntryKey(file_id)
+    existing_entry = FileEntry.unserialize(self._db[key_name])
+    assert existing_entry.archive_id is not None
+    return existing_entry.archive_id

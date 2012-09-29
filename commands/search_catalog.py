@@ -1,5 +1,6 @@
 import os
 import re
+from aws import GlacierClient
 import hex
 from catalog import Catalog
 from config import BackupConfiguration
@@ -28,7 +29,7 @@ def search_catalog_command(args):
       additional = " -> " + entry.target()
     elif entry.is_regular_file():
       type = "file"
-      additional = " %0.3f MB" % (entry._size / 1024.0 / 1024.0)
+      additional = " %0.3f MB" % (entry._size / 1024 / 1024)
     else:
       type = "misc"
       additional = ""
@@ -40,16 +41,24 @@ def search_catalog_command(args):
         print("    %s (file %d, offset %d, size %d/%d [%0.2f%%])" % (
           hex.b2h(digest), index_entry.file_id, index_entry.offset,
           index_entry.original_length, index_entry.persisted_length,
-          100.0 * index_entry.persisted_length / index_entry.original_length))
+          100 * index_entry.persisted_length / index_entry.original_length))
 
         if not index_entry.file_id in files_needed:
           files_needed[index_entry.file_id] = set()
-        first_mb_block = int(round(index_entry.offset / 1024.0 / 1024.0))
-        last_mb_block = int(round((index_entry.offset + index_entry.persisted_length) / 1024.0 / 1024.0))
+        first_mb_block = round(index_entry.offset / 1024 / 1024)
+        last_mb_block = round((index_entry.offset + index_entry.persisted_length) / 1024 / 1024)
         for i in range(first_mb_block, last_mb_block + 1):
           files_needed[index_entry.file_id].add(i)
 
   print()
   print("files needed for restore:")
-  for index in sorted(files_needed.keys()):
-    print("  %d (~%d MB)" % (index, len(files_needed[index])))
+  for i in sorted(files_needed.keys()):
+    print("  %d (~%d MB)" % (i, len(files_needed[i])))
+
+  glacier_client = GlacierClient.FromConfig(config)
+  connection = glacier_client.NewConnection()
+  for file_id in sorted(files_needed.keys()):
+    print("retrieving file %d" % file_id)
+    archive_name = index.GetArchiveId(file_id)
+    glacier_client._initiateArchiveRetrieval(
+      connection, archive_name)

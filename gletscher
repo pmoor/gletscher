@@ -17,7 +17,7 @@ backup_parser.add_argument(
 backup_parser.add_argument(
   "--catalog", help="catalog name to use", required=False, default="default")
 backup_parser.add_argument(
-  "-d", "--dir", nargs="+", help="a set of directories to be backed-up", required=True)
+  "files", metavar="file", nargs="+", help="a set of files and directories to be backed-up")
 backup_parser.set_defaults(fn=backup_command)
 
 new_parser = subparsers.add_parser("new", help="creates a new back-up configuration")

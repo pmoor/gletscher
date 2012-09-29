@@ -26,7 +26,7 @@ def backup_command(args):
 
   data_file = None
 
-  scanner = FileScanner(args.dir)
+  scanner = FileScanner(args.files)
   for full_path, file_stat in scanner:
     if stat.S_ISREG(file_stat.st_mode):
       digests = []

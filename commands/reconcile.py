@@ -1,6 +1,5 @@
 import http.client
 import json
-import re
 import datetime
 import uuid
 from aws import GlacierClient, GlacierJob
@@ -37,10 +36,11 @@ def FindRecentCompletedArchiveRetrievalJob(glacier_client, max_result_age):
   return most_recent_job
 
 
-def experimental_command(args):
+def reconcile_command(args):
   config = BackupConfiguration.LoadFromFile(args.config)
 
   glacier_client = GlacierClient.FromConfig(config)
+  # glacier_client._initiateArchiveRetrieval(connection, "Jf0lifwWZez9tw0H6lGxMeQXiHCVyW8TNjCmTdx0D93SqloCsnDvl3tnJjD0DBa2aqsqtHzMqPacsLgX3jdUrdShtexU-G4S1B3EBUGH_cr8DgvFvAL85IRVCe3rn7KvsBnDqG83-Q")
 
   most_recent_job = FindRecentCompletedArchiveRetrievalJob(
       glacier_client, datetime.timedelta(seconds=30 * 3600))
