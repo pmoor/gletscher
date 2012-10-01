@@ -187,3 +187,9 @@ class Index(object):
     existing_entry = FileEntry.unserialize(self._db[key_name])
     assert existing_entry.archive_id is not None
     return existing_entry.archive_id
+
+  def GetTreeHash(self, file_id):
+    key_name = self._constructFileEntryKey(file_id)
+    existing_entry = FileEntry.unserialize(self._db[key_name])
+    assert existing_entry.tree_hash is not None
+    return existing_entry.tree_hash

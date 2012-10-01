@@ -25,6 +25,9 @@ class GlacierJob(object):
   def IsInventoryRetrieval(self):
     return self._js["Action"] == "InventoryRetrieval"
 
+  def IsArchiveRetrieval(self):
+    return self._js["Action"] == "ArchiveRetrieval"
+
   def CreationDate(self):
     return datetime.strptime(self._js["CreationDate"], "%Y-%m-%dT%H:%M:%S.%fZ")
 
@@ -32,6 +35,7 @@ class GlacierJob(object):
     return self._js["Completed"] and self._js["StatusCode"] == "Succeeded"
 
   def CompletionDate(self):
+    assert self.CompletedSuccessfully()
     return datetime.strptime(self._js["CompletionDate"], "%Y-%m-%dT%H:%M:%S.%fZ")
 
   def ResultAge(self):
@@ -43,8 +47,19 @@ class GlacierJob(object):
   def IsPending(self):
     return not self._js["Completed"]
 
+  def GetArchiveId(self):
+    assert self.IsArchiveRetrieval()
+    return self._js["ArchiveId"]
+
+  def GetTreeHash(self):
+    assert self.IsArchiveRetrieval()
+    return hex.h2b(self._js["SHA256TreeHash"])
+
   def __str__(self):
-    return "GlacierJob[%s] { created at %s }" % (self.Id(), self.CreationDate())
+    return json.dumps(self._js, indent=2, sort_keys=True)
+
+  def __repr__(self):
+    return self.__str__()
 
 
 class GlacierClient(object):

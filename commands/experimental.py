@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 def FindRecentCompletedArchiveRetrievalJob(glacier_client, max_result_age):
   recent_available_jobs = set()
   while not recent_available_jobs:
-    connection = http.client.HTTPSConnection(glacier_client._host)
+    connection = glacier_client.NewConnection()
     jobs = glacier_client._listJobs(connection)
 
     recent_pending_jobs = set()
