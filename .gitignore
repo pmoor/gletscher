@@ -2,3 +2,5 @@
 /.idea
 /gletscher.iml
 __pycache__
+/build
+/dist

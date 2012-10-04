@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
   name="Gletscher",
-  version="0.1",
+  version="0.1.0",
   packages=[
     "gletscher",
     "gletscher.test",
@@ -12,13 +12,14 @@ setup(
   scripts=[
     "bin/gletscher",
   ],
-  license="LICENSE.txt",
+  license="Apache License, Version 2.0",
   description="Fast Incremental Backups with Amazon's Glacier Service",
   long_description=open("README.txt").read(),
   author="Patrick Moor",
   author_email="patrick@moor.ws",
   url="http://code.google.com/p/gletscher/",
-  install_requires=[
-    "PyCrypto >= 2.6",
+  requires=[
+    "PyCrypto(>=2.6)",
   ],
+  classifiers=["Topic :: System :: Archiving :: Backup"]
 )
