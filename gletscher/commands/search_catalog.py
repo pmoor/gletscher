@@ -1,13 +1,12 @@
 import os
 import re
 import time
-from aws import GlacierClient
-import crypto
-import hex
-from catalog import Catalog
-from config import BackupConfiguration
-from index import Index
+from gletscher.aws import GlacierClient
+from gletscher.catalog import Catalog
+from gletscher.config import BackupConfiguration
+from gletscher.index import Index
 import logging
+from gletscher import hex, crypto
 
 logger = logging.getLogger(__name__)
 
@@ -87,8 +86,8 @@ def search_catalog_command(args):
 
         if not index_entry.file_id in files_needed:
           files_needed[index_entry.file_id] = set()
-        first_mb_block = round(index_entry.offset / 1024 / 1024)
-        last_mb_block = round((index_entry.offset + index_entry.persisted_length) / 1024 / 1024)
+        first_mb_block = index_entry.offset // (1024 * 1024)
+        last_mb_block = (index_entry.offset + index_entry.persisted_length) // (1024 * 1024)
         for i in range(first_mb_block, last_mb_block + 1):
           files_needed[index_entry.file_id].add(i)
 
@@ -105,22 +104,26 @@ def search_catalog_command(args):
 
   crypter = crypto.Crypter(config.secret_key())
   for full_path, entry in catalog.match(patterns):
-    output = open("/tmp/output.bin", "wb")
     if entry.is_regular_file():
-      for digest in entry.digests():
-        index_entry = index.find(digest)
-        tree_hash = index.GetTreeHash(index_entry.file_id)
-        path = os.path.join(
-          config.tmp_dir_location(), "%s.remote" % hex.b2h(tree_hash))
-        f = open(path, "rb")
-        f.seek(index_entry.offset)
-        iv = f.read(16)
-        ciphertext = f.read(index_entry.persisted_length - 16)
-        plaintext = crypter.decrypt(iv, ciphertext)
-        real_digest = crypter.hash(plaintext)
-        assert real_digest == digest
-        output.write(plaintext)
-    output.close()
+      path = os.path.join("/tmp/restore", full_path[1:])
+      dir = os.path.dirname(path)
+      if not os.path.isdir(dir):
+        os.makedirs(dir, mode=0o700)
+      logger.info("restoring %s to %s", full_path, path)
+      with open(path, "wb") as output:
+        for digest in entry.digests():
+          index_entry = index.find(digest)
+          tree_hash = index.GetTreeHash(index_entry.file_id)
+          path = os.path.join(
+            config.tmp_dir_location(), "%s.remote" % hex.b2h(tree_hash))
+          f = open(path, "rb")
+          f.seek(index_entry.offset)
+          iv = f.read(16)
+          ciphertext = f.read(index_entry.persisted_length - 16)
+          plaintext = crypter.decrypt(iv, ciphertext)
+          real_digest = crypter.hash(plaintext)
+          assert real_digest == digest
+          output.write(plaintext)
 
 
 #  connection = glacier_client.NewConnection()

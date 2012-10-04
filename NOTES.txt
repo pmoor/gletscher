@@ -1,7 +1,7 @@
 Traceback (most recent call last):
   File "gletscher.py", line 53, in <module>
     args.fn(args)
-  File "/home/pmoor/gletschter/commands/repair.py", line 81, in repair_command
+  File "/home/pmoor/gletschter/gletscher.commands/repair.py", line 81, in repair_command
     data_file, tree_hasher, pending_upload=pending_upload)
   File "/home/pmoor/gletschter/aws.py", line 244, in upload_file
     self._uploadPart(connection, pending_upload, data, tree_hash.encode("hex"), start)
@@ -26,7 +26,7 @@ socket.error: [Errno 110] Connection timed out
 Traceback (most recent call last):
   File "gletscher.py", line 53, in <module>
     args.fn(args)
-  File "/home/pmoor/gletschter/commands/repair.py", line 81, in repair_command
+  File "/home/pmoor/gletschter/gletscher.commands/repair.py", line 81, in repair_command
     data_file, tree_hasher, pending_upload=pending_upload)
   File "/home/pmoor/gletschter/aws.py", line 256, in upload_file
     self._uploadPart(connection, pending_upload, data, tree_hash.encode("hex"), start)

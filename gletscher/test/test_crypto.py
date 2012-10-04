@@ -4,7 +4,7 @@ import hex
 import crypto
 import hashlib
 
-class MyTestCase(unittest.TestCase):
+class TestTreeHasher(unittest.TestCase):
 
   def _testBlock(self, i, length=1024 * 1024):
     assert len(i) == 1

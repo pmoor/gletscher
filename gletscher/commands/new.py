@@ -1,7 +1,7 @@
 import os
 import sys
-from config import BackupConfiguration
-from index import Index
+from gletscher.config import BackupConfiguration
+from gletscher.index import Index
 import logging
 
 logger = logging.getLogger(__name__)

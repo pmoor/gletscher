@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 
 import argparse
-from commands.backup import backup_command
-from commands.experimental import experimental_command
-from commands.new import new_command
-from commands.repair import repair_command
-from commands.search_catalog import search_catalog_command
-from commands.upload_catalog import upload_catalog_command
+from gletscher.commands.backup import backup_command
+from gletscher.commands.experimental import experimental_command
+from gletscher.commands.new import new_command
+from gletscher.commands.repair import repair_command
+from gletscher.commands.search_catalog import search_catalog_command
+from gletscher.commands.upload_catalog import upload_catalog_command
 
 parser = argparse.ArgumentParser(description="Tool for backing up files to Amazon's Glacier Service.")
-subparsers = parser.add_subparsers(title="Supported commands", description="Offers a variety of commands", help="such as these")
+subparsers = parser.add_subparsers(title="Supported gletscher.commands", description="Offers a variety of gletscher.commands", help="such as these")
 
 backup_parser = subparsers.add_parser("backup", help="start backing-up some directories")
 backup_parser.add_argument(

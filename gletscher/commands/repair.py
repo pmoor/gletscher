@@ -1,10 +1,9 @@
 import os
-import hex
-from aws import GlacierClient
-from config import BackupConfiguration
-import crypto
-from index import Index
+from gletscher.aws import GlacierClient
+from gletscher.config import BackupConfiguration
+from gletscher.index import Index
 import logging
+from gletscher import hex, crypto
 
 logger = logging.getLogger(__name__)
 

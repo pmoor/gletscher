@@ -2,11 +2,11 @@ import bz2
 from datetime import datetime
 import os
 import struct
-from aws import GlacierClient
-from catalog import Catalog
-from config import BackupConfiguration
-from crypto import Crypter
-from index import Index
+from gletscher.aws import GlacierClient
+from gletscher.catalog import Catalog
+from gletscher.config import BackupConfiguration
+from gletscher.crypto import Crypter
+from gletscher.index import Index
 import logging
 
 logger = logging.getLogger(__name__)

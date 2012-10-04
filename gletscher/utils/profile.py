@@ -20,4 +20,4 @@ for path, _, files in os.walk("/"):
       pass
 
 for k in sorted(sizes.keys()):
-  print "%2d %d" % (k, sizes[k])
+  print("%2d %d" % (k, sizes[k]))

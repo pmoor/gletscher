@@ -6,11 +6,10 @@ import json
 import os
 import stat
 import time
-import hex
-import crypto
 import logging
 import uuid
 import re
+from gletscher import hex, crypto
 
 logger = logging.getLogger(__name__)
 

@@ -1,13 +1,13 @@
 import stat
-import hex
-from aws import GlacierClient
-from catalog import Catalog
-from chunker import FileChunker
-from config import BackupConfiguration
-from crypto import Crypter
-from data import DataFile
-from index import Index
-from scanner import FileScanner
+from gletscher.aws import GlacierClient
+from gletscher.catalog import Catalog
+from gletscher.chunker import FileChunker
+from gletscher.config import BackupConfiguration
+from gletscher.crypto import Crypter
+from gletscher.data import DataFile
+from gletscher.index import Index
+from gletscher.scanner import FileScanner
+from gletscher import hex
 import logging
 
 logger = logging.getLogger(__name__)

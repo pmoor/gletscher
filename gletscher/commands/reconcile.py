@@ -2,12 +2,12 @@ import http.client
 import json
 import datetime
 import uuid
-from aws import GlacierClient, GlacierJob
-from config import BackupConfiguration
+from gletscher.aws import GlacierClient, GlacierJob
+from gletscher.config import BackupConfiguration
 import logging
 import time
-from index import Index
-import hex
+from gletscher.index import Index
+from gletscher import hex
 
 logger = logging.getLogger(__name__)
 

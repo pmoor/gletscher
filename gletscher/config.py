@@ -3,8 +3,8 @@ import os
 from Crypto import Random
 import uuid
 import configparser
-import hex
-from crypto import Crypter
+from gletscher.crypto import Crypter
+from gletscher import hex
 
 class BackupConfiguration(object):
 
