@@ -1,5 +1,19 @@
 #!/usr/bin/env python3
 
+# Copyright 2012 Patrick Moor <patrick@moor.ws>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import argparse
 from gletscher.commands.backup import backup_command
 from gletscher.commands.experimental import experimental_command
@@ -8,47 +22,60 @@ from gletscher.commands.repair import repair_command
 from gletscher.commands.search_catalog import search_catalog_command
 from gletscher.commands.upload_catalog import upload_catalog_command
 
-parser = argparse.ArgumentParser(description="Tool for backing up files to Amazon's Glacier Service.")
-subparsers = parser.add_subparsers(title="Supported gletscher.commands", description="Offers a variety of gletscher.commands", help="such as these")
+parser = argparse.ArgumentParser(
+    description="Tool for backing up files to Amazon's Glacier Service.")
+subparsers = parser.add_subparsers(
+    title="Supported gletscher.commands",
+    description="Offers a variety of gletscher commands",
+    help="such as these")
 
-backup_parser = subparsers.add_parser("backup", help="start backing-up some directories")
+backup_parser = subparsers.add_parser(
+    "backup", help="start backing-up some directories")
 backup_parser.add_argument(
-  "-c", "--config", help="config file for backup set", required=True)
+    "-c", "--config", help="config file for backup set", required=True)
 backup_parser.add_argument(
-  "--catalog", help="catalog name to use", required=False, default="default")
+    "--catalog", help="catalog name to use", required=False, default="default")
 backup_parser.add_argument(
-  "files", metavar="file", nargs="+", help="a set of files and directories to be backed-up")
+    "files", metavar="file", nargs="+",
+    help="a set of files and directories to be backed-up")
 backup_parser.set_defaults(fn=backup_command)
 
-new_parser = subparsers.add_parser("new", help="creates a new back-up configuration")
+new_parser = subparsers.add_parser(
+    "new", help="creates a new back-up configuration")
 new_parser.add_argument(
-  "-c", "--config", help="name of the configuration file to be created", required=True)
+    "-c", "--config", help="name of the configuration file to be created",
+    required=True)
 new_parser.set_defaults(fn=new_command)
 
-repair_parser = subparsers.add_parser("repair", help="repairs a broken index")
+repair_parser = subparsers.add_parser(
+    "repair", help="repairs a broken index")
 repair_parser.add_argument(
-  "-c", "--config", help="name of the configuration file to be created", required=True)
+    "-c", "--config", help="name of the configuration file to be created",
+    required=True)
 repair_parser.set_defaults(fn=repair_command)
 
-upload_catalog_parser = subparsers.add_parser("upload_catalog", help="uploads a catalog/index")
+upload_catalog_parser = subparsers.add_parser(
+    "upload_catalog", help="uploads a catalog/index")
 upload_catalog_parser.add_argument(
-  "-c", "--config", help="configuration directory to use", required=True)
+    "-c", "--config", help="configuration directory to use", required=True)
 upload_catalog_parser.add_argument(
-  "--catalog", help="catalog to upload", required=True, default="default")
+    "--catalog", help="catalog to upload", required=True, default="default")
 upload_catalog_parser.set_defaults(fn=upload_catalog_command)
 
-search_catalog_parser = subparsers.add_parser("search_catalog", help="looks for files in a catalog")
+search_catalog_parser = subparsers.add_parser(
+    "search_catalog", help="looks for files in a catalog")
 search_catalog_parser.add_argument(
-  "-c", "--config", help="configuration directory to use", required=True)
+    "-c", "--config", help="configuration directory to use", required=True)
 search_catalog_parser.add_argument(
-  "--catalog", help="catalog to search", default="default")
+    "--catalog", help="catalog to search", default="default")
 search_catalog_parser.add_argument(
-  "reg_exps", help="regular expressions to match against", nargs="+")
+    "reg_exps", help="regular expressions to match against", nargs="+")
 search_catalog_parser.set_defaults(fn=search_catalog_command)
 
-experimental_parser = subparsers.add_parser("experimental", help="looks for files in a catalog")
+experimental_parser = subparsers.add_parser(
+    "experimental", help="looks for files in a catalog")
 experimental_parser.add_argument(
-  "-c", "--config", help="configuration directory to use", required=True)
+    "-c", "--config", help="configuration directory to use", required=True)
 experimental_parser.set_defaults(fn=experimental_command)
 
 args = parser.parse_args()
