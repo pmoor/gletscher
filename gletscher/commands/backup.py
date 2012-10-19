@@ -35,8 +35,8 @@ def backup_command(args):
 
     index = Index(config.index_dir_location())
     global_catalog = Catalog(config.catalog_dir_location(), "_global")
-    catalog = Catalog(config.catalog_dir_location(), args.catalog,
-                      truncate=True)
+    catalog = Catalog(
+        config.catalog_dir_location(), args.catalog, truncate=not args.add)
 
     data_file = data_file_slot = None
 
@@ -83,11 +83,10 @@ def backup_command(args):
                 digests.append(digest)
                 total_length += chunk_length
 
-            # adjust total file size to match chunk length
-            file_stat.st_size = total_length
-
-            catalog.add_file(full_path, file_stat, digests)
-            global_catalog.add_file(full_path, file_stat, digests)
+            catalog.add_file(
+                full_path, file_stat, digests, total_length)
+            global_catalog.add_file(
+                full_path, file_stat, digests, total_length)
         else:
             catalog.add(full_path, file_stat)
             global_catalog.add(full_path, file_stat)

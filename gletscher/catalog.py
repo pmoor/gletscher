@@ -60,6 +60,9 @@ class CatalogEntry(object):
     def is_link(self):
         return stat.S_ISLNK(self._mode)
 
+    def set_size(self, new_size):
+        self._size = int(new_size)
+
     @staticmethod
     def unserialize(entry):
         f = io.BytesIO(entry)
@@ -121,9 +124,12 @@ class Catalog(object):
             mode = "nf"
         self._db = dbm.gnu.open(full_path, mode)
 
-    def add_file(self, full_path, file_stat, digests):
-        self._db[str.encode(full_path)] = FileCatalogEntry(
-            full_path, file_stat, digests).serialize()
+    def add_file(self, full_path, file_stat, digests, total_length):
+        entry = FileCatalogEntry(full_path, file_stat, digests)
+        # adjust total file size to match chunk length
+        entry.set_size(total_length)
+
+        self._db[str.encode(full_path)] = entry.serialize()
 
     def add(self, full_path, file_stat):
         if stat.S_ISLNK(file_stat.st_mode):

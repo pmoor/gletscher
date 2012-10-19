@@ -184,7 +184,8 @@ class Index(object):
 
         logger.info("removing %d entries for file %d" % (len(remove), file_id))
         key_name = self._constructFileEntryKey(file_id)
-        del self._db[key_name]
+        if key_name in self._db:
+            del self._db[key_name]
         for key in remove:
             del self._db[key]
         self._db.sync()
