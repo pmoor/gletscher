@@ -19,11 +19,11 @@ import hmac
 import json
 import os
 import stat
-import time
 import logging
 import uuid
 import re
 from gletscher import hex, crypto
+from gletscher.progressbar import ProgressBar
 
 logger = logging.getLogger(__name__)
 
@@ -346,10 +346,14 @@ class GlacierClient(object):
                     ["%d-%d:%s" % (a, b, hex.b2h(c))
                      for a, b, c in available_parts]))
 
-            start_time = time.time()
             total_size = f_stat.st_size
             tree_hasher = crypto.TreeHasher()
+            progress_bar = ProgressBar("Transferring", total_size,
+                    lambda x: "%0.2f MB" % (x / 1024 / 1024))
             for start in range(0, total_size, chunk_size):
+                progress_bar.set_progress(start)
+                progress_bar.print()
+
                 end = min(start + chunk_size, total_size)
                 data = f.read(end - start)
                 tree_hasher.update(data)
@@ -363,7 +367,7 @@ class GlacierClient(object):
 
                 logger.debug(
                     "uploading %s [%d,%d)", hex.b2h(tree_hash), start, end)
-                if (start, end, tree_hash) in available_parts:
+                if (start, end - 1, tree_hash) in available_parts:
                     # TODO(patrick): this should be end-1, according to the amazon documentation
                     logger.debug(
                         "this part is already available - skipping upload")
@@ -371,10 +375,7 @@ class GlacierClient(object):
                 self._uploadPart(
                     connection, pending_upload, data, hex.b2h(tree_hash), start)
 
-                logger.debug("completed %0.2f MB out of %0.2f MB (%0.3f MB/s)",
-                    end / 1024 / 1024, total_size / 1024 / 1024,
-                    end / 1024 / 1024 / (time.time() - start_time))
-
+            progress_bar.complete()
             tree_hash = tree_hasher.get_tree_hash()
             archive_id = self._completeUpload(
                 connection, pending_upload, hex.b2h(tree_hash), total_size)
