@@ -201,7 +201,10 @@ class Index(object):
         self._db = None
 
     def raw_entries(self):
-        return self._db.items()
+        k = self._db.firstkey()
+        while k is not None:
+            yield k, self._db[k]
+            k = self._db.nextkey(k)
 
     def GetArchiveId(self, file_id):
         key_name = self._constructFileEntryKey(file_id)

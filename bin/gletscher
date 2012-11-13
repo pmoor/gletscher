@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import argparse
+import sys
 from gletscher.commands.backup import backup_command
 from gletscher.commands.experimental import experimental_command
 from gletscher.commands.new import new_command
@@ -27,7 +28,8 @@ parser = argparse.ArgumentParser(
 subparsers = parser.add_subparsers(
     title="Supported gletscher.commands",
     description="Offers a variety of gletscher commands",
-    help="such as these")
+    help="such as these",
+    dest="command")
 
 backup_parser = subparsers.add_parser(
     "backup", help="start backing-up some directories")
@@ -82,6 +84,9 @@ experimental_parser.add_argument(
 experimental_parser.set_defaults(fn=experimental_command)
 
 args = parser.parse_args()
+if not "command" in args:
+  parser.print_help()
+  sys.exit(1)
 args.fn(args)
 #import cProfile
 #cProfile.run('args.fn(args)', 'cprofile.out')
