@@ -12,16 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import bz2
 from datetime import datetime
 import os
-import struct
 from gletscher.aws import GlacierClient
 from gletscher.catalog import Catalog
 from gletscher.config import BackupConfiguration
 from gletscher.crypto import Crypter
 from gletscher.index import Index
 import logging
+from gletscher.kv_pack import kv_pack
 
 logger = logging.getLogger(__name__)
 
@@ -40,33 +39,8 @@ def upload_catalog_command(args):
         config.tmp_dir_location(),
         "%s-%s.ci" % (
         args.catalog, datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")))
-    with open(file_path, "wb") as f:
-        iv, cipher = crypter.new_cipher()
-        compressor = bz2.BZ2Compressor()
-        hmac = crypter.newHMAC()
 
-        f.write(iv)
-
-        count = 0
-        for k, v in catalog.raw_entries():
-            entry = struct.pack(">BLL", 1, len(k), len(v)) + k + v
-            f.write(cipher.encrypt(compressor.compress(entry)))
-            hmac.update(entry)
-            count += 1
-
-        logger.info("wrote %d catalog entries", count)
-
-        count = 0
-        for k, v in index.raw_entries():
-            entry = struct.pack(">BLL", 2, len(k), len(v)) + k + v
-            f.write(cipher.encrypt(compressor.compress(entry)))
-            hmac.update(entry)
-            count += 1
-
-        logger.info("wrote %d index entries", count)
-
-        f.write(cipher.encrypt(compressor.flush()))
-        f.write(hmac.digest())
+    kv_pack(file_path, {1: catalog.raw_entries(), 2: index.raw_entries()}, crypter)
 
     catalog.close()
     index.close()

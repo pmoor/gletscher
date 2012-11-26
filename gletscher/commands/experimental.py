@@ -74,6 +74,9 @@ def experimental_command(args):
                 tree_hash = hex.h2b(description["tree-hash"])
 
                 available_data.add((archive_id, tree_hash))
+            elif description["type"] == "catalog/index":
+                glacier_client._initiateArchiveRetrieval(connection, archive["ArchiveId"])
+                print(json.dumps(archive, indent=4))
 
     index = Index(config.index_dir_location())
     file_entries = index.FindAllFileEntries()

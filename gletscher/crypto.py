@@ -19,6 +19,8 @@ import hashlib
 import hmac
 
 class Crypter(object):
+    IV_SIZE = AES.block_size
+
     def __init__(self, secret_key):
         assert len(secret_key) == 32
         self._secret_key = secret_key

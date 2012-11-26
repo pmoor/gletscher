@@ -168,3 +168,10 @@ class Catalog(object):
             if matches:
                 yield full_path, CatalogEntry.unserialize(
                     self._db[full_path_raw])
+
+    def MergeWith(self, other_db):
+        k = other_db.firstkey()
+        while k is not None:
+            self._db[k] = other_db[k]
+            k = other_db.nextkey(k)
+        self._db.sync()
