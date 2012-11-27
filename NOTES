@@ -80,3 +80,28 @@ Traceback (most recent call last):==========================    ] 1920.00 MB / 2
   File "/usr/lib64/python3.2/ssl.py", line 338, in send
     v = self._sslobj.write(data)
 socket.error: [Errno 32] Broken pipe
+
+Traceback (most recent call last):
+  File "bin/gletscher", line 115, in <module>
+    args.fn(args)
+  File "/Users/pmoor/Repositories/Gletscher/gletscher/commands/repair.py", line 93, in repair_command
+    config.uuid(), expected_tree_hash)
+  File "/Users/pmoor/Repositories/Gletscher/gletscher/aws.py", line 404, in find_pending_upload
+    for pending_upload in self._listPendingUploads(connection):
+  File "/Users/pmoor/Repositories/Gletscher/gletscher/aws.py", line 236, in _listPendingUploads
+    connection.request("GET", path, headers=headers)
+  File "/sw/lib/python3.3/http/client.py", line 1049, in request
+    self._send_request(method, url, body, headers)
+  File "/sw/lib/python3.3/http/client.py", line 1087, in _send_request
+    self.endheaders(body)
+  File "/sw/lib/python3.3/http/client.py", line 1045, in endheaders
+    self._send_output(message_body)
+  File "/sw/lib/python3.3/http/client.py", line 890, in _send_output
+    self.send(msg)
+  File "/sw/lib/python3.3/http/client.py", line 828, in send
+    self.connect()
+  File "/sw/lib/python3.3/http/client.py", line 1182, in connect
+    self.timeout, self.source_address)
+  File "/sw/lib/python3.3/socket.py", line 406, in create_connection
+    for res in getaddrinfo(host, port, 0, SOCK_STREAM):
+socket.gaierror: [Errno 8] nodename nor servname provided, or not known

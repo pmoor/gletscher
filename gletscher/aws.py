@@ -22,6 +22,7 @@ import stat
 import logging
 import uuid
 import re
+import time
 from gletscher import hex, crypto
 from gletscher.progressbar import ProgressBar
 
@@ -172,7 +173,7 @@ class GlacierClient(object):
 
     def _uploadPart(self, connection, upload_id, payload, tree_hash, offset):
         path = "/%d/vaults/%s/multipart-uploads/%s" % (
-        self._aws_account_id, self._vault_name, upload_id)
+            self._aws_account_id, self._vault_name, upload_id)
         headers = {
             "x-amz-sha256-tree-hash": tree_hash,
             "x-amz-content-sha256": self._sha256(payload),
@@ -181,16 +182,31 @@ class GlacierClient(object):
             "Content-Length": "%d" % len(payload),
             "Content-Type": "application/octet-stream"
         }
-        headers = self._compute_all_headers("PUT", path, headers=headers,
-                                            payload=payload)
-        connection.request("PUT", path, body=payload, headers=headers)
-        response = connection.getresponse()
+        sleep = 1.0
+        max_sleep = 90.0
+        while True:
+            try:
+                headers = self._compute_all_headers(
+                    "PUT", path, headers=headers, payload=payload)
+                connection.request("PUT", path, body=payload, headers=headers)
 
-        body = response.read()
-        assert response.status == http.client.NO_CONTENT, "%d: %s" % (
-        response.status, body)
-        assert response.getheader("x-amz-sha256-tree-hash") == tree_hash, body
-        self._log_headers(response)
+                response = connection.getresponse()
+                self._log_headers(response)
+
+                response.read()
+                if (response.status == http.client.NO_CONTENT
+                    and response.getheader("x-amz-sha256-tree-hash") == tree_hash):
+                  return connection
+            except ConnectionError as e:
+                logger.warning("ConnectionError - will re-try: %s", e)
+                pass
+            except TimeoutError as e:
+                logger.warning("TimeoutError - will re-try: %s", e)
+                pass
+            time.sleep(sleep)
+            sleep *= 2.0
+            sleep = min(sleep, max_sleep)
+            connection = self.NewConnection()
 
     def _completeUpload(self, connection, upload_id, tree_hash, total_size):
         path = "/%d/vaults/%s/multipart-uploads/%s" % (
@@ -324,7 +340,7 @@ class GlacierClient(object):
         f_stat = os.stat(file)
         assert stat.S_ISREG(f_stat.st_mode), "must be a regular file: " + file
         with open(file, "rb") as f:
-            connection = http.client.HTTPSConnection(self._host)
+            connection = self.NewConnection()
             if description:
                 description = json.dumps(description)
                 assert len(description) < 1024
@@ -368,11 +384,10 @@ class GlacierClient(object):
                 logger.debug(
                     "uploading %s [%d,%d)", hex.b2h(tree_hash), start, end)
                 if (start, end - 1, tree_hash) in available_parts:
-                    # TODO(patrick): this should be end-1, according to the amazon documentation
                     logger.debug(
                         "this part is already available - skipping upload")
                     continue
-                self._uploadPart(
+                connection = self._uploadPart(
                     connection, pending_upload, data, hex.b2h(tree_hash), start)
 
             progress_bar.complete()

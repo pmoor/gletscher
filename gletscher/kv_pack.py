@@ -25,7 +25,7 @@ def kv_pack(file_path, kv_mapping, crypter):
 
         f.write(iv)
 
-        for index, kvs in kv_mapping:
+        for index, kvs in kv_mapping.items():
             for k, v in kvs:
                 entry = struct.pack(">BLL", index, len(k), len(v)) + k + v
                 f.write(cipher.encrypt(compressor.compress(entry)))
