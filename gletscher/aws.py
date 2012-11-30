@@ -18,6 +18,7 @@ import hashlib
 import hmac
 import json
 import os
+import socket
 import stat
 import logging
 import uuid
@@ -182,31 +183,38 @@ class GlacierClient(object):
             "Content-Length": "%d" % len(payload),
             "Content-Type": "application/octet-stream"
         }
-        sleep = 1.0
-        max_sleep = 90.0
+        sleep = 1
+        max_sleep = 120
         while True:
             try:
-                headers = self._compute_all_headers(
+                if not connection:
+                    connection = self.NewConnection()
+
+                new_headers = self._compute_all_headers(
                     "PUT", path, headers=headers, payload=payload)
-                connection.request("PUT", path, body=payload, headers=headers)
+                connection.request("PUT", path, body=payload, headers=new_headers)
 
                 response = connection.getresponse()
                 self._log_headers(response)
 
-                response.read()
+                body = response.read()
                 if (response.status == http.client.NO_CONTENT
                     and response.getheader("x-amz-sha256-tree-hash") == tree_hash):
                   return connection
+                else:
+                  logger.warning("unexpected response: %d / %s", response.status, body)
             except ConnectionError as e:
-                logger.warning("ConnectionError - will re-try: %s", e)
+                logger.warning("ConnectionError: %s", e)
                 pass
             except TimeoutError as e:
-                logger.warning("TimeoutError - will re-try: %s", e)
+                logger.warning("TimeoutError: %s", e)
                 pass
+            except socket.gaierror as e:
+                logger.warning("gaierror: %s", e)
+            logger.info("will re-try in %d seconds", sleep)
             time.sleep(sleep)
-            sleep *= 2.0
-            sleep = min(sleep, max_sleep)
-            connection = self.NewConnection()
+            sleep = min(sleep * 2, max_sleep)
+            connection = None
 
     def _completeUpload(self, connection, upload_id, tree_hash, total_size):
         path = "/%d/vaults/%s/multipart-uploads/%s" % (

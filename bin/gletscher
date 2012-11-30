@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import argparse
-import sys
 from gletscher.commands.backup import backup_command
 from gletscher.commands.download_catalog import download_catalog_command
 from gletscher.commands.experimental import experimental_command
@@ -110,8 +109,7 @@ experimental_parser.set_defaults(fn=experimental_command)
 
 args = parser.parse_args()
 if not "command" in args:
-  parser.print_help()
-  sys.exit(1)
+    parser.error("no command specified")
 args.fn(args)
 #import cProfile
 #cProfile.run('args.fn(args)', 'cprofile.out')
