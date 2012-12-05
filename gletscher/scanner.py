@@ -30,21 +30,47 @@ class FileScanner(object):
             file = os.path.abspath(file)
             file_stat = os.lstat(file)
             if stat.S_ISDIR(file_stat.st_mode):
-                for root, dirs, files in os.walk(file, topdown=False):
+                for root, dirs, files in os.walk(
+                        file, onerror=self._reportWalkError):
                     dir_stat = os.lstat(root)
-                    if not self._skip(dir_stat):
-                      yield root, dir_stat
+                    if self._skip(dir_stat):
+                        print("skipping directory: %s" % root)
+                        dirs.clear()
+                        files.clear()
+                        continue
 
+                    yield root, dir_stat
+                    files.sort()
+                    dirs.sort()
                     for path in files:
                         full_path = os.path.join(root, path)
                         file_stat = os.lstat(full_path)
-                        if not self._skip(file_stat):
-                          yield full_path, file_stat
-            elif not self._skip(file_stat):
+                        if stat.S_ISLNK(file_stat.st_mode):
+                            yield full_path, file_stat
+                        else:
+                          yield from self._skipOrYield(full_path, file_stat)
+            elif stat.S_ISLNK(file_stat.st_mode):
                 yield file, file_stat
+            else:
+                yield from self._skipOrYield(file, file_stat)
 
     def _skip(self, stat):
         for skip_stat in self._skip_files_stat:
             if os.path.samestat(skip_stat, stat):
                 return True
         return False
+
+    def _skipOrYield(self, file_path, file_stat):
+        if not self._skip(file_stat):
+            if os.access(file_path, os.R_OK):
+                yield file_path, file_stat
+            else:
+                print("skipping non-readable file: %s" % file_path)
+        else:
+            print("skipping file: %s" % file_path)
+
+    def _reportWalkError(self, os_error):
+        if type(os_error) is PermissionError:
+            print("skipping non-readable directory: %s" % os_error.filename)
+        else:
+            raise os_error
