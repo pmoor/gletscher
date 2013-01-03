@@ -121,6 +121,8 @@ def search_catalog_command(args):
         print("  %d (~%d MB)" % (i, len(files_needed[i])))
         archive_ids_needed[index.GetArchiveId(i)] = index.GetTreeHash(i)
 
+    raise Exception("ask before starting download")
+
     glacier_client = GlacierClient.FromConfig(config)
     DownloadArchives(
         glacier_client, config.tmp_dir_location(), config.uuid(),

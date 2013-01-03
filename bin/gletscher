@@ -17,7 +17,6 @@
 import argparse
 from gletscher.commands.backup import backup_command
 from gletscher.commands.download_catalog import download_catalog_command
-from gletscher.commands.experimental import experimental_command
 from gletscher.commands.new import new_command
 from gletscher.commands.repair import repair_command
 from gletscher.commands.search_catalog import search_catalog_command
@@ -33,6 +32,15 @@ subparsers = parser.add_subparsers(
     help="such as these",
     dest="command")
 
+# New Configuration
+new_parser = subparsers.add_parser(
+    "new", help="creates a new back-up configuration")
+new_parser.add_argument(
+    "-c", "--config", help="name of the configuration file to be created",
+    required=True)
+new_parser.set_defaults(fn=new_command)
+
+# Backup
 backup_parser = subparsers.add_parser(
     "backup", help="start backing-up some directories")
 backup_parser.add_argument(
@@ -47,13 +55,7 @@ backup_parser.add_argument(
     help="a set of files and directories to be backed-up")
 backup_parser.set_defaults(fn=backup_command)
 
-new_parser = subparsers.add_parser(
-    "new", help="creates a new back-up configuration")
-new_parser.add_argument(
-    "-c", "--config", help="name of the configuration file to be created",
-    required=True)
-new_parser.set_defaults(fn=new_command)
-
+# Repair
 repair_parser = subparsers.add_parser(
     "repair", help="repairs a broken index")
 repair_parser.add_argument(
@@ -61,6 +63,7 @@ repair_parser.add_argument(
     required=True)
 repair_parser.set_defaults(fn=repair_command)
 
+# Upload Catalog
 upload_catalog_parser = subparsers.add_parser(
     "upload_catalog", help="uploads a catalog/index")
 upload_catalog_parser.add_argument(
@@ -69,6 +72,7 @@ upload_catalog_parser.add_argument(
     "--catalog", help="catalog to upload", required=True, default="default")
 upload_catalog_parser.set_defaults(fn=upload_catalog_command)
 
+# Search Catalog
 search_catalog_parser = subparsers.add_parser(
     "search_catalog", help="looks for files in a catalog")
 search_catalog_parser.add_argument(
@@ -79,12 +83,21 @@ search_catalog_parser.add_argument(
     "reg_exps", help="regular expressions to match against", nargs="+")
 search_catalog_parser.set_defaults(fn=search_catalog_command)
 
+# Download Catalog
+download_catalog_parser = subparsers.add_parser(
+    "download_catalog", help="downloads and merges a catalog/index from Glacier")
+download_catalog_parser.add_argument(
+    "-c", "--config", help="configuration directory to use", required=True)
+download_catalog_parser.set_defaults(fn=download_catalog_command)
+
+# List Jobs
 glacier_list_jobs_parser = subparsers.add_parser(
     "glacier_list_jobs", help="listing of all glacier jobs")
 glacier_list_jobs_parser.add_argument(
     "-c", "--config", help="configuration directory to use", required=True)
 glacier_list_jobs_parser.set_defaults(fn=glacier_list_jobs_command)
 
+# Retrieve Job Output
 glacier_retrieve_job_output_parser = subparsers.add_parser(
     "glacier_retrieve_job_output", help="manually retrieves job output")
 glacier_retrieve_job_output_parser.add_argument(
@@ -95,20 +108,8 @@ glacier_retrieve_job_output_parser.add_argument(
     "-o", "--output", help="file to store output in", required=True)
 glacier_retrieve_job_output_parser.set_defaults(fn=glacier_retrieve_job_output_command)
 
-download_catalog_parser = subparsers.add_parser(
-    "download_catalog", help="downloads and merges a catalog/index from Glacier")
-download_catalog_parser.add_argument(
-    "-c", "--config", help="configuration directory to use", required=True)
-download_catalog_parser.set_defaults(fn=download_catalog_command)
-
-experimental_parser = subparsers.add_parser(
-    "experimental", help="looks for files in a catalog")
-experimental_parser.add_argument(
-    "-c", "--config", help="configuration directory to use", required=True)
-experimental_parser.set_defaults(fn=experimental_command)
-
 args = parser.parse_args()
-if not "command" in args:
+if not args.command:
     parser.error("no command specified")
 args.fn(args)
 #import cProfile
