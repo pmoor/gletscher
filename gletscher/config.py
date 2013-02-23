@@ -14,11 +14,14 @@
 
 import logging
 import os
-from Crypto import Random
 import uuid
 import configparser
+
+from Crypto import Random
+
 from gletscher.crypto import Crypter
 from gletscher import hex
+
 
 class BackupConfiguration(object):
     @staticmethod
@@ -126,9 +129,11 @@ class BackupConfiguration(object):
     def config_dir_location(self):
         return self._config_dir
 
-    def index_dir_location(self):
-        return os.path.join(
-            self._config_dir, self._config.get("dirs", "index"))
+    def index_file_location(self):
+        return os.path.join(self._config_dir, "index.gdbm")
+
+    def global_catalog_location(self):
+        return os.path.join(self._config_dir, "global.catalog")
 
     def tmp_dir_location(self):
         return os.path.join(

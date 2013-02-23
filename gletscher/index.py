@@ -12,272 +12,88 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import struct
 import logging
-import dbm.gnu
-import time
-import xdrlib
-from gletscher.hex import b2h
 
 logger = logging.getLogger(__name__)
 
+NULL_TREE_HASH = b"\0" * 32
+
 class IndexEntry(object):
-    def __init__(self, file_id, offset, persisted_length, original_length):
-        assert file_id >= 0
+    def __init__(self, file_tree_hash, offset, persisted_length, original_length):
+        assert len(file_tree_hash) == 32
         assert offset >= 0
         assert persisted_length >= 0
         assert original_length >= 0
-        self.file_id = file_id
+        self.file_tree_hash = file_tree_hash
         self.offset = offset
         self.persisted_length = persisted_length
         self.original_length = original_length
 
     def serialize(self):
-        return struct.pack(">4L", self.file_id, self.offset,
-                           self.persisted_length, self.original_length)
+        return struct.pack(">B32s3L", 1, self.file_tree_hash, self.offset, self.persisted_length, self.original_length)
 
     @staticmethod
     def unserialize(packed):
-        return IndexEntry(*struct.unpack(">4L", packed))
-
-
-class FileEntry(object):
-    def __init__(self, archive_id=None, tree_hash=None):
-        self.archive_id = archive_id
-        self.tree_hash = tree_hash
-
-    def serialize(self):
-        packer = xdrlib.Packer()
-        if self.archive_id:
-            packer.pack_bool(True)
-            packer.pack_string(str.encode(self.archive_id))
-        else:
-            packer.pack_bool(False)
-
-        if self.tree_hash:
-            packer.pack_bool(True)
-            packer.pack_bytes(self.tree_hash)
-        else:
-            packer.pack_bool(False)
-
-        return packer.get_buffer()
-
-    @staticmethod
-    def unserialize(packed):
-        unpacker = xdrlib.Unpacker(packed)
-        archive_id = None
-        if unpacker.unpack_bool():
-            archive_id = bytes.decode(unpacker.unpack_string())
-        tree_hash = None
-        if unpacker.unpack_bool():
-            tree_hash = unpacker.unpack_bytes()
-        return FileEntry(archive_id, tree_hash)
+        version, tree_hash, offset, persisted_length, original_length = struct.unpack(
+            ">B32s3L", packed)
+        assert version == 1
+        return IndexEntry(tree_hash, offset, persisted_length, original_length)
 
 
 class Index(object):
-    NEXT_FILE_ID_KEY = b"_next-file-id"
-    FILE_ENTRY_KEY_FORMAT = "_file-%d"
 
-    def __init__(self, index_dir, consistency_check=True):
-        self._index_dir = index_dir
-        self._main_index_file = os.path.join(index_dir, "index.gdbm")
-        self._db = dbm.gnu.open(self._main_index_file, "cf")
-        if consistency_check:
-            self._assert_consistent(self._db)
+    def __init__(self, db):
+        self._db = db
 
-    def _constructFileEntryKey(self, file_id):
-        key_name = Index.FILE_ENTRY_KEY_FORMAT % file_id
-        return str.encode(key_name)
-
-    def FindAllFileEntries(self):
-        return self._FindAllFileEntries(self._db)
-
-    def _FindAllFileEntries(self, db):
-        entries = {}
-        for key in db.keys():
-            if not key.startswith(b"_"):
-                entry = IndexEntry.unserialize(db[key])
-                if entry.file_id in entries:
-                    continue
-                else:
-                    key_name = self._constructFileEntryKey(entry.file_id)
-                    if not key_name in db:
-                        entries[entry.file_id] = None
-                    else:
-                        entries[entry.file_id] = FileEntry.unserialize(
-                            db[key_name])
-        return entries
-
-    def _assert_consistent(self, db):
-        logger.info("starting index consistency checks")
-        start_time = time.time()
-        valid_files = set()
-        invalid_files = set()
-
-        for key in db.keys():
-            if not key.startswith(b"_"):
-                entry = IndexEntry.unserialize(db[key])
-                if entry.file_id in valid_files:
-                    continue
-                else:
-                    key_name = self._constructFileEntryKey(entry.file_id)
-                    if not key_name in db:
-                        invalid_files.add(entry.file_id)
-                    else:
-                        existing_entry = FileEntry.unserialize(
-                            db[key_name])
-                        if existing_entry.tree_hash is None or \
-                                existing_entry.archive_id is None:
-                            invalid_files.add(entry.file_id)
-                        else:
-                            valid_files.add(entry.file_id)
-
-        if valid_files:
-            logger.info("valid file indices: %s", sorted(valid_files))
-        if invalid_files:
-            logger.warning("invalid file indices: %s", sorted(invalid_files))
-
-        logger.debug("analysis completed in %0.2fs", time.time() - start_time)
-
-        if invalid_files:
-            raise Exception(
-                "the index contains partial data file information, "
-                "cleanup first")
-
-    def reserve_file_slot(self):
-        if Index.NEXT_FILE_ID_KEY in self._db:
-            next_id = int(self._db[Index.NEXT_FILE_ID_KEY])
-        else:
-            next_id = 1
-        while self._constructFileEntryKey(next_id) in self._db:
-            next_id += 1
-        self._db[Index.NEXT_FILE_ID_KEY] = "%d" % (next_id + 1)
-        self._db.sync()
-        return next_id
-
-    def find(self, digest):
+    def get(self, digest):
         entry = self._db.get(digest)
         if entry:
             return IndexEntry.unserialize(entry)
 
-    def add(self, digest, chunk_length, file_slot, offset, persisted_length):
-        self._db[digest] = IndexEntry(
-            file_slot, offset, persisted_length, chunk_length).serialize()
+    def contains(self, digest):
+        if self._db.get(digest):
+            return True
 
-    def add_data_file_pre_upload(self, file_id, tree_hash):
-        key_name = self._constructFileEntryKey(file_id)
-        assert not key_name in self._db
-        self._db[key_name] = FileEntry(None, tree_hash).serialize()
-        self._db.sync()
+    def merge_temporary_index(self, tmp_index, file_tree_hash):
+        assert len(file_tree_hash) == 32
+        for digest, index_entry in tmp_index.tmp_entries():
+            index_entry.file_tree_hash = file_tree_hash
 
-    def finalize_data_file(self, file_id, tree_hash, archive_id):
-        key_name = self._constructFileEntryKey(file_id)
-        existing_entry = FileEntry.unserialize(self._db[key_name])
-        assert existing_entry.tree_hash == tree_hash
-        assert existing_entry.archive_id is None
-
-        existing_entry.archive_id = archive_id
-        self._db[key_name] = existing_entry.serialize()
-        self._db.sync()
-
-    def RemoveAllEntriesForFile(self, file_id):
-        remove = set()
-        for key in self._db.keys():
-            if not key.startswith(b"_"):
-                entry = IndexEntry.unserialize(self._db[key])
-                if entry.file_id == file_id:
-                    remove.add(key)
-
-        logger.info("removing %d entries for file %d" % (len(remove), file_id))
-        key_name = self._constructFileEntryKey(file_id)
-        if key_name in self._db:
-            del self._db[key_name]
-        for key in remove:
-            del self._db[key]
-        self._db.sync()
-
-    @staticmethod
-    def CreateEmpty(index_dir):
-        db = dbm.gnu.open(os.path.join(index_dir, "index.gdbm"), "n")
-        db[Index.NEXT_FILE_ID_KEY] = "1"
-        db.close()
+            our_entry = self.get(digest)
+            if our_entry:
+                if our_entry.original_length != index_entry.original_length:
+                    raise Exception()
+                # trust our current entry
+            else:
+                self._db[digest] = index_entry.serialize()
 
     def close(self):
         self._db.close()
-        self._db = None
 
-    def raw_entries(self):
+
+class TemporaryIndex(object):
+
+    def __init__(self, db):
+        self._db = db
+
+    def contains(self, digest):
+        if self._db.get(digest):
+            return True
+
+    def add(self, digest, offset, persisted_length, original_length):
+        self._db[digest] = IndexEntry(
+            NULL_TREE_HASH, offset, persisted_length, original_length).serialize()
+
+    def close(self):
+        self._db.close()
+
+    def tmp_entries(self):
         k = self._db.firstkey()
         while k is not None:
-            yield k, self._db[k]
+            entry = IndexEntry.unserialize(self._db[k])
+            assert len(k) == 32
+            assert entry.file_tree_hash == NULL_TREE_HASH
+
+            yield k, entry
             k = self._db.nextkey(k)
-
-    def GetArchiveId(self, file_id):
-        key_name = self._constructFileEntryKey(file_id)
-        existing_entry = FileEntry.unserialize(self._db[key_name])
-        assert existing_entry.archive_id is not None
-        return existing_entry.archive_id
-
-    def GetTreeHash(self, file_id):
-        key_name = self._constructFileEntryKey(file_id)
-        existing_entry = FileEntry.unserialize(self._db[key_name])
-        assert existing_entry.tree_hash is not None
-        return existing_entry.tree_hash
-
-    def MergeWith(self, other_db):
-        self._assert_consistent(self._db)
-        self._assert_consistent(other_db)
-
-        our_files_by_hash = {}
-        our_files_by_id = {}
-        for id, entry in self._FindAllFileEntries(self._db).items():
-            our_files_by_hash[entry.tree_hash] = id, entry
-            our_files_by_id[id] = entry
-
-        their_files_by_id = {}
-        for id, entry in self._FindAllFileEntries(other_db).items():
-            their_files_by_id[id] = entry
-
-            if entry.tree_hash in our_files_by_hash:
-                # make sure they reference the same archive
-                if entry.archive_id != our_files_by_hash[entry.tree_hash][1].archive_id:
-                    raise Exception("two different archives for same hash: %s" % b2h(entry.tree_hash))
-
-        key = other_db.firstkey()
-        while key is not None:
-            if not key.startswith(b"_"):
-                index_entry = IndexEntry.unserialize(other_db[key])
-                file_entry = their_files_by_id[index_entry.file_id]
-
-                if key in self._db:
-                    our_index_entry = IndexEntry.unserialize(self._db[key])
-                    our_file_entry = our_files_by_id[our_index_entry.file_id]
-                    if (file_entry.tree_hash != our_file_entry.tree_hash
-                        or index_entry.offset != our_index_entry.offset
-                        or index_entry.original_length != our_index_entry.original_length
-                        or index_entry.persisted_length != our_index_entry.persisted_length):
-                        # both indices contain a mapping for this digest, but they point
-                        # to different archive files. Fail for now...
-                        raise Exception("conflicting entries for %s" % b2h(key))
-
-                if not file_entry.tree_hash in our_files_by_hash:
-                    # the file referenced by the other index is not known to us.
-                    new_slot = self.reserve_file_slot()
-                    self.add_data_file_pre_upload(
-                        new_slot, file_entry.tree_hash)
-                    self.finalize_data_file(
-                        new_slot, file_entry.tree_hash, file_entry.archive_id)
-
-                    key_name = self._constructFileEntryKey(new_slot)
-                    new_entry = FileEntry.unserialize(self._db[key_name])
-                    our_files_by_hash[file_entry.tree_hash] = (new_slot, new_entry)
-                    our_files_by_id[new_slot] = new_entry
-
-                index_entry.file_id = our_files_by_hash[file_entry.tree_hash][0]
-                self._db[key] = index_entry.serialize()
-
-            key = other_db.nextkey(key)
-
-        self._assert_consistent(self._db)
-        self._db.sync()

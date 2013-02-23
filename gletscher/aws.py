@@ -354,7 +354,7 @@ class GlacierClient(object):
                 assert len(description) < 1024
 
                 pending_upload = self._initiateMultipartUpload(
-                    connection, self ._upload_chunk_size, description)
+                    connection, self._upload_chunk_size, description)
                 available_parts = set()
                 chunk_size = self._upload_chunk_size
             else:

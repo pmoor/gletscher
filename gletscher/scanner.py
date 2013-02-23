@@ -18,7 +18,10 @@ import stat
 class FileScanner(object):
     """Recursively scans a set of directories and files."""
     def __init__(self, files, skip_files=None):
-        self._files = set(files)
+        self._files = set()
+        for file in files:
+            assert type(file) == str
+            self._files.add(file.encode("utf-8"))
         self._skip_files_stat = set()
         if skip_files:
             for skip_file in skip_files:
@@ -26,7 +29,7 @@ class FileScanner(object):
 
     def __iter__(self):
         for file in self._files:
-            assert type(file) == str
+            assert type(file) == bytes
             file = os.path.abspath(file)
             file_stat = os.lstat(file)
             if stat.S_ISDIR(file_stat.st_mode):

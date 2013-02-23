@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import io
-import dbm.gnu
 import os
 import stat
 import struct
@@ -29,6 +28,7 @@ class _FakeStat(object):
 
 class CatalogEntry(object):
     def __init__(self, full_path, file_stat):
+        assert type(full_path) == bytes
         self._full_path = full_path
         self._mode = int(file_stat.st_mode)
         self._size = int(file_stat.st_size)
@@ -44,9 +44,8 @@ class CatalogEntry(object):
                 or int(file_stat.st_gid) != self._gid)
 
     def serialize(self):
-        encoded = str.encode(self._full_path)
-        data = struct.pack(">L", len(encoded))
-        data += encoded
+        data = struct.pack(">L", len(self._full_path))
+        data += self._full_path
         data += struct.pack(">LQQLL", self._mode, self._size, self._mtime,
                             self._uid, self._gid)
         return data
@@ -67,12 +66,12 @@ class CatalogEntry(object):
     def unserialize(entry):
         f = io.BytesIO(entry)
         path_length, = struct.unpack(">L", f.read(4))
-        full_path = bytes.decode(f.read(path_length))
+        full_path = f.read(path_length)
         file_stat = _FakeStat(*struct.unpack(">LQQLL", f.read(28)))
 
         if stat.S_ISLNK(file_stat.st_mode):
             target_length, = struct.unpack(">L", f.read(4))
-            target = bytes.decode(f.read(target_length))
+            target = f.read(target_length)
             return LinkCatalogEntry(full_path, file_stat, target)
         elif stat.S_ISREG(file_stat.st_mode):
             digest_count, = struct.unpack(">L", f.read(4))
@@ -103,13 +102,13 @@ class FileCatalogEntry(CatalogEntry):
 class LinkCatalogEntry(CatalogEntry):
     def __init__(self, full_path, file_stat, target):
         super(LinkCatalogEntry, self).__init__(full_path, file_stat)
+        assert type(target) == bytes
         self._target = target
 
     def serialize(self):
         data = super(LinkCatalogEntry, self).serialize()
-        encoded = str.encode(self._target)
-        data += struct.pack(">L", len(encoded))
-        data += encoded
+        data += struct.pack(">L", len(self._target))
+        data += self._target
         return data
 
     def target(self):
@@ -117,39 +116,34 @@ class LinkCatalogEntry(CatalogEntry):
 
 
 class Catalog(object):
-    def __init__(self, dir, catalog_name, truncate=False):
-        full_path = os.path.join(dir, "%s.catalog" % catalog_name)
-        mode = "cf"
-        if truncate:
-            mode = "nf"
-        self._db = dbm.gnu.open(full_path, mode)
+    def __init__(self, db):
+        self._db = db
 
     def add_file(self, full_path, file_stat, digests, total_length):
         entry = FileCatalogEntry(full_path, file_stat, digests)
         # adjust total file size to match chunk length
         entry.set_size(total_length)
 
-        self._db[str.encode(full_path)] = entry.serialize()
+        self._db[full_path] = entry.serialize()
 
     def add(self, full_path, file_stat):
         if stat.S_ISLNK(file_stat.st_mode):
-            self._db[str.encode(full_path)] = LinkCatalogEntry(
+            self._db[full_path] = LinkCatalogEntry(
                 full_path, file_stat, os.readlink(full_path)).serialize()
         else:
-            self._db[str.encode(full_path)] = CatalogEntry(
+            self._db[full_path] = CatalogEntry(
                 full_path, file_stat).serialize()
 
     def find(self, full_path):
-        entry = self._db.get(str.encode(full_path))
+        entry = self._db.get(full_path)
         if entry:
             return CatalogEntry.unserialize(entry)
 
     def close(self):
         self._db.close()
-        self._db = None
 
     def transfer(self, full_path, entry):
-        self._db[str.encode(full_path)] = entry.serialize()
+        self._db[full_path] = entry.serialize()
 
     def raw_entries(self):
         k = self._db.firstkey()
@@ -158,16 +152,14 @@ class Catalog(object):
             k = self._db.nextkey(k)
 
     def match(self, or_patterns):
-        for full_path_raw in self._db.keys():
-            full_path = bytes.decode(full_path_raw)
+        for full_path in self._db.keys():
             matches = False
             for pattern in or_patterns:
                 if pattern.search(full_path):
                     matches = True
                     break
             if matches:
-                yield full_path, CatalogEntry.unserialize(
-                    self._db[full_path_raw])
+                yield full_path, CatalogEntry.unserialize(self._db[full_path])
 
     def MergeWith(self, other_db):
         k = other_db.firstkey()

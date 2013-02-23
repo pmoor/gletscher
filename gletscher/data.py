@@ -12,11 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import struct
 from Crypto.Cipher import AES
-import tempfile
-from gletscher import hex, crypto
+from gletscher import crypto
 
 IV_LENGTH = AES.block_size
 VERSION_STRING = b"gletscher-data-v000"
@@ -42,61 +40,49 @@ class ReadOnlyDataFile(object):
     def close(self):
         self._file.close()
 
+class DataFileWriter(object):
+    """
+    The file starts with the string "gletscher-data-v000" and then
+    contains a collection of records:
 
-class DataFile(object):
-    def __init__(self, dir, max_size, crypter):
-        self._dir = dir
-        self._max_size = int(max_size)
+      [4 byte big endian length][16 byte AES IV][ciphertext]
+
+    The length is the byte length of the IV and the ciphertext combined.
+    """
+    def __init__(self, file, crypter):
+        self._file = file
         self._crypter = crypter
 
         self._tree_hasher = crypto.TreeHasher()
-
-        fd, self._file_name = tempfile.mkstemp(dir=dir)
-        self._file = os.fdopen(fd, "wb")
         self._offset = 0
         self._write(VERSION_STRING)
+        self._chunks_written = 0
 
     def _write(self, *parts):
+        written = 0
         for part in parts:
             self._file.write(part)
             self._tree_hasher.update(part)
             self._offset += len(part)
+            written += len(part)
+        return written
 
-    def add(self, chunk):
-        assert self.fits(chunk), "chunk does not fit anymore"
+    def append_chunk(self, chunk):
         iv, ciphertext = self._crypter.encrypt(chunk)
+        assert len(iv) == IV_LENGTH
 
         record_length = struct.pack(">L", len(iv) + len(ciphertext))
         start_offset = self._offset
-        self._write(record_length, iv, ciphertext)
+        length = self._write(record_length, iv, ciphertext)
+        self._chunks_written += 1
+        return start_offset, length
 
-        return start_offset, (self._offset - start_offset)
-
-    def fits(self, chunk):
-        # approximate (ignoring compression/encryption)
-        return self._offset + max(40, 1.05 * len(
-            chunk)) + IV_LENGTH + 4 < self._max_size
-
-    def finalize(self):
+    def close(self):
         self._file.close()
-        self._file = None
-        tree_hash = self.tree_hash()
-        new_file_name = os.path.join(self._dir, "%s.data" % hex.b2h(tree_hash))
-        os.rename(self._file_name, new_file_name)
-        self._file_name = new_file_name
-        return tree_hash
-
-    def delete(self):
-        os.unlink(self._file_name)
-
-    def tree_hasher(self):
         return self._tree_hasher
 
-    def tree_hash(self):
-        return self._tree_hasher.get_tree_hash()
+    def bytes_written(self):
+        return self._offset
 
-    def file_name(self):
-        return self._file_name
-
-
-
+    def chunks_written(self):
+        return self._chunks_written
