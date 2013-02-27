@@ -86,7 +86,6 @@ class BackupConfiguration(object):
                 "Glacier Vault Name", verifier=lambda x: len(x) > 0),
             "",
             "[dirs]",
-            "index = index",
             "catalogs = catalogs",
             "tmp = tmp",
             "",
@@ -97,7 +96,7 @@ class BackupConfiguration(object):
             "",
             ])
 
-        for dir in ("index", "catalogs", "tmp"):
+        for dir in ("catalogs", "tmp"):
             os.mkdir(os.path.join(config_dir, dir))
 
         with open(os.path.join(config_dir, "backup.config"), "w") as f:

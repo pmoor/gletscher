@@ -15,7 +15,7 @@
 import tempfile
 import unittest
 from gletscher.crypto import Crypter, TreeHasher
-from gletscher.data import DataFile, ReadOnlyDataFile
+from gletscher.data import DataFileWriter, ReadOnlyDataFile
 from gletscher.hex import h2b
 
 SMALLEST_CHUNK_OF_DATA = b"!"
@@ -24,21 +24,26 @@ SMALL_CHUNK_OF_DATA = b"a small chunk of data!"
 class TestDataFile(unittest.TestCase):
     def test_write_and_read(self):
         crypter = Crypter(b"0" * 32)
-        with tempfile.TemporaryDirectory() as dir:
-            f = DataFile(dir, 200, crypter)
-            self.assertTrue(f.fits(SMALL_CHUNK_OF_DATA))
-            self.assertEqual((19, 77), f.add(SMALL_CHUNK_OF_DATA))
-            self.assertTrue(f.fits(SMALLEST_CHUNK_OF_DATA))
-            self.assertEqual((96, 57), f.add(SMALLEST_CHUNK_OF_DATA))
-            self.assertFalse(f.fits(SMALL_CHUNK_OF_DATA))
-            tree_hash = f.finalize()
+        with tempfile.NamedTemporaryFile(delete=False) as file:
+            f = DataFileWriter(file, crypter)
+            self.assertEqual(0, f.chunks_written())
+            self.assertEqual(19, f.bytes_written())
 
-            with open(f.file_name(), "rb") as r:
+            self.assertEqual((19, 77), f.append_chunk(SMALL_CHUNK_OF_DATA))
+            self.assertEqual(1, f.chunks_written())
+            self.assertEqual(96, f.bytes_written())
+
+            self.assertEqual((96, 57), f.append_chunk(SMALLEST_CHUNK_OF_DATA))
+            self.assertEqual(2, f.chunks_written())
+            self.assertEqual(153, f.bytes_written())
+
+            tree_hash = f.close()
+            with open(file.name, "rb") as r:
                 hasher = TreeHasher()
                 hasher.consume(r)
-                self.assertEqual(hasher.get_tree_hash(), tree_hash)
+                self.assertEqual(hasher.get_tree_hash(), tree_hash.get_tree_hash())
 
-            ro = ReadOnlyDataFile(f.file_name(), crypter)
+            ro = ReadOnlyDataFile(file.name, crypter)
             self.assertEqual(SMALL_CHUNK_OF_DATA,
                 ro.read(19, 77, h2b("11e54425cefb5ba8f55b9c3de9c246da"
                                     "5e99672c60984d792cda8c57c4718ea9")))
@@ -46,7 +51,6 @@ class TestDataFile(unittest.TestCase):
                 ro.read(96, 57, h2b("619e9f1f44ea07ab76980b54c31296ee"
                                     "1d390a94da8240f142931d202c18b159")))
             ro.close()
-            f.delete()
 
 
 if __name__ == '__main__':

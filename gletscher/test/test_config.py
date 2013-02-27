@@ -26,7 +26,6 @@ class TestConfig(unittest.TestCase):
             self.assertEqual(42, config.aws_account_id())
             self.assertEqual("42", config.aws_region())
             self.assertEqual("42", config.aws_secret_access_key())
-            self.assertTrue(os.path.isdir(config.index_dir_location()))
             self.assertTrue(os.path.isdir(config.catalog_dir_location()))
             self.assertTrue(os.path.isdir(config.tmp_dir_location()))
 
