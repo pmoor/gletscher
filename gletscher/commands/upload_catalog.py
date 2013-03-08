@@ -16,31 +16,44 @@ from datetime import datetime
 import os
 from gletscher.aws import GlacierClient
 from gletscher.catalog import Catalog
+from gletscher.checker import CatalogIndexConsistencyChecker
 from gletscher.config import BackupConfiguration
 from gletscher.crypto import Crypter
 from gletscher.index import Index
 import logging
 from gletscher.kv_pack import kv_pack
+import dbm.gnu
 
 logger = logging.getLogger(__name__)
 
-def upload_catalog_command(args):
-    assert not args.catalog.startswith("_")
+def register(subparsers):
+    upload_catalog_parser = subparsers.add_parser(
+        "upload_catalog", help="uploads a catalog/index")
+    upload_catalog_parser.add_argument(
+        "--catalog", help="catalog to upload", required=True, default="default")
+    upload_catalog_parser.set_defaults(fn=command)
+
+def command(args):
     config = BackupConfiguration.LoadFromFile(args.config)
 
     crypter = Crypter(config.secret_key())
     glacier_client = GlacierClient.FromConfig(config)
 
-    index = Index(config.index_dir_location())
-    catalog = Catalog(
-        config.catalog_dir_location(), args.catalog, truncate=False)
+    index_db = dbm.gnu.open(config.index_file_location(), "r")
+    index = Index(index_db)
+
+    catalog_db = dbm.gnu.open(config.catalog_location(catalog), "r")
+    catalog = Catalog(catalog_db)
+
+    checker = CatalogIndexConsistencyChecker(catalog, index)
+    checker.assert_all_digests_present()
 
     file_path = os.path.join(
         config.tmp_dir_location(),
         "%s-%s.ci" % (
         args.catalog, datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")))
 
-    kv_pack(file_path, {1: catalog.raw_entries(), 2: index.raw_entries()}, crypter)
+    kv_pack(file_path, {1: catalog_db, 2: index_db}, crypter)
 
     catalog.close()
     index.close()

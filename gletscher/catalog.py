@@ -145,10 +145,10 @@ class Catalog(object):
     def transfer(self, full_path, entry):
         self._db[full_path] = entry.serialize()
 
-    def raw_entries(self):
+    def entries(self):
         k = self._db.firstkey()
         while k is not None:
-            yield k, self._db[k]
+            yield k, CatalogEntry.unserialize(self._db[k])
             k = self._db.nextkey(k)
 
     def match(self, or_patterns):

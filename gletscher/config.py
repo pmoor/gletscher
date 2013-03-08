@@ -89,11 +89,6 @@ class BackupConfiguration(object):
             "catalogs = catalogs",
             "tmp = tmp",
             "",
-            "[scanning]",
-            "max_chunk_size = %d" % (32 * 1024 * 1024),
-            "max_data_file_size = %d" % (2 * 1024 * 1024 * 1024),
-            "upload_chunk_size = %d" % (8 * 1024 * 1024),
-            "",
             ])
 
         for dir in ("catalogs", "tmp"):
@@ -116,15 +111,6 @@ class BackupConfiguration(object):
         assert len(key) == 32
         return key
 
-    def max_chunk_size(self):
-        return self._config.getint("scanning", "max_chunk_size")
-
-    def max_data_file_size(self):
-        return self._config.getint("scanning", "max_data_file_size")
-
-    def upload_chunk_size(self):
-        return self._config.getint("scanning", "upload_chunk_size")
-
     def config_dir_location(self):
         return self._config_dir
 
@@ -141,6 +127,9 @@ class BackupConfiguration(object):
     def catalog_dir_location(self):
         return os.path.join(
             self._config_dir, self._config.get("dirs", "catalogs"))
+
+    def catalog_location(self, catalog):
+        return os.path.join(self.catalog_dir_location(), "%s.catalog" % catalog)
 
     def uuid(self):
         return uuid.UUID(self._config.get("id", "uuid"))

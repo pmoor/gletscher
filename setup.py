@@ -30,7 +30,7 @@ setup(
     long_description=open("README").read(),
     author="Patrick Moor",
     author_email="patrick@moor.ws",
-    url="http://code.google.com/p/gletscher/",
+    url="https://github.com/pmoor/gletscher",
     requires=[
       "PyCrypto(>=2.6)",
     ],

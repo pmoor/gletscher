@@ -38,7 +38,7 @@ def download_catalog_command(args):
     index.MergeWith(tmp_index)
     index.close()
 
-    catalog = Catalog(config.catalog_dir_location(), "imported", truncate=True)
+    catalog = Catalog(config.catalog_location("imported"), truncate=True)
     catalog.MergeWith(tmp_catalog)
     catalog.close()
 

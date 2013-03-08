@@ -31,22 +31,32 @@ from gletscher import hex
 
 logger = logging.getLogger(__name__)
 
-def backup_command(args):
+def register(subparsers):
+    backup_parser = subparsers.add_parser(
+        "backup", help="start backing-up some directories")
+    backup_parser.add_argument(
+        "--catalog", help="catalog name to use", required=False, default="default")
+    backup_parser.add_argument(
+        "files", metavar="file", nargs="+",
+        help="a set of files and directories to be backed-up")
+    backup_parser.set_defaults(fn=command)
+
+def command(args):
     config = BackupConfiguration.LoadFromFile(args.config)
 
     crypter = Crypter(config.secret_key())
-    chunker = FileChunker(config.max_chunk_size())
+    chunker = FileChunker(32 * 1024 * 1024)
 
     main_index = Index(dbm.gnu.open(config.index_file_location(), "cf", 0o600))
     global_catalog = Catalog(dbm.gnu.open(config.global_catalog_location(), "cf", 0o600))
 
-    tmp_catalog_name = tempfile.mktemp(prefix='glacier-tmp', dir=config.tmp_dir_location())
+    tmp_catalog_name = tempfile.mktemp(prefix='gletscher-tmp', dir=config.tmp_dir_location())
     tmp_catalog = Catalog(dbm.gnu.open(tmp_catalog_name, "nf", 0o600))
 
-    tmp_index_name = tempfile.mktemp(prefix='glacier-tmp', dir=config.tmp_dir_location())
+    tmp_index_name = tempfile.mktemp(prefix='gletscher-tmp', dir=config.tmp_dir_location())
     tmp_index = TemporaryIndex(dbm.gnu.open(tmp_index_name, "nf", 0o600))
 
-    tmp_data_name = tempfile.mktemp(prefix='glacier-tmp', dir=config.tmp_dir_location())
+    tmp_data_name = tempfile.mktemp(prefix='gletscher-tmp', dir=config.tmp_dir_location())
     tmp_data = DataFileWriter(open(tmp_data_name, "wb"), crypter)
 
     scanner = FileScanner(args.files, skip_files=[config.config_dir_location()])
@@ -77,17 +87,17 @@ def backup_command(args):
                 if not main_index.contains(digest) and not tmp_index.contains(digest):
                     logger.debug("new chunk: %s", hex.b2h(digest))
 
-                    if tmp_data.bytes_written() + chunk_length > config.max_data_file_size():
+                    if tmp_data.bytes_written() + chunk_length > 2 * 1024 * 1024 * 1024:
                         # data file would grow too big, finish the current file
                         tree_hasher = tmp_data.close()
                         tmp_index.close()
 
                         _upload_file_and_merge_index(tree_hasher, tmp_data_name, tmp_index_name, main_index, config)
 
-                        tmp_index_name = tempfile.mktemp(prefix='glacier-tmp', dir=config.tmp_dir_location())
+                        tmp_index_name = tempfile.mktemp(prefix='gletscher-tmp', dir=config.tmp_dir_location())
                         tmp_index = TemporaryIndex(dbm.gnu.open(tmp_index_name, "nf", 0o600))
 
-                        tmp_data_name = tempfile.mktemp(prefix='glacier-tmp', dir=config.tmp_dir_location())
+                        tmp_data_name = tempfile.mktemp(prefix='gletscher-tmp', dir=config.tmp_dir_location())
                         tmp_data = DataFileWriter(open(tmp_data_name, "wb"), crypter)
 
                     offset, length = tmp_data.append_chunk(chunk)
@@ -118,9 +128,7 @@ def backup_command(args):
 
     tmp_catalog.close()
 
-    os.rename(
-        tmp_catalog_name,
-        os.path.join(config.catalog_dir_location(), "%s.catalog" % args.catalog))
+    os.rename(tmp_catalog_name, config.catalog_location(args.catalog))
 
 
 def _upload_file_and_merge_index(tree_hasher, tmp_data_name, tmp_index_name, main_index, config):

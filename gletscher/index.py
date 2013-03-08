@@ -55,6 +55,12 @@ class Index(object):
         if self._db.get(digest):
             return True
 
+    def entries(self):
+        k = self._db.firstkey()
+        while k is not None:
+            yield k, IndexEntry.unserialize(self._db[k])
+            k = self._db.nextkey(k)
+
     def merge_temporary_index(self, tmp_index, file_tree_hash):
         assert len(file_tree_hash) == 32
         for digest, index_entry in tmp_index.tmp_entries():

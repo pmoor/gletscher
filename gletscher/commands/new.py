@@ -20,7 +20,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def new_command(args):
+def register(subparsers):
+    new_parser = subparsers.add_parser(
+        "new", help="creates a new back-up configuration")
+    new_parser.set_defaults(fn=command)
+
+def command(args):
     if os.path.isdir(args.config):
         print("the configuration directory must not exist yet")
         sys.exit(1)

@@ -25,8 +25,8 @@ def kv_pack(file_path, kv_mapping, crypter):
 
         f.write(iv)
 
-        for index, kvs in kv_mapping.items():
-            for k, v in kvs:
+        for index, db in kv_mapping.items():
+            for k, v in generate_kv_pairs(db):
                 entry = struct.pack(">BLL", index, len(k), len(v)) + k + v
                 f.write(cipher.encrypt(compressor.compress(entry)))
                 hmac.update(entry)
@@ -65,3 +65,9 @@ def kv_unpack(file_path, dbm_mapping, crypter):
         signature = f.read(32)
         if expected_signature != signature:
             raise Exception("signatures do not match")
+
+def generate_kv_pairs(db):
+    k = db.firstkey()
+    while k is not None:
+        yield k, db[k]
+        k = db.nextkey(k)

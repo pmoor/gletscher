@@ -50,7 +50,8 @@ class GlacierJob(object):
         return self._js["Completed"] and self._js["StatusCode"] == "Succeeded"
 
     def CompletionDate(self):
-        assert self.CompletedSuccessfully()
+        if not self.CompletedSuccessfully():
+            raise Exception("job did not complete successfully")
         return datetime.strptime(
             self._js["CompletionDate"], "%Y-%m-%dT%H:%M:%S.%fZ")
 
@@ -64,12 +65,49 @@ class GlacierJob(object):
         return not self._js["Completed"]
 
     def GetArchiveId(self):
-        assert self.IsArchiveRetrieval()
+        if not self.IsArchiveRetrieval():
+            raise Exception("job is not an archive retrieval")
         return self._js["ArchiveId"]
 
     def GetTreeHash(self):
-        assert self.IsArchiveRetrieval()
+        if not self.IsArchiveRetrieval():
+            raise Exception("job is not an archive retrieval")
         return hex.h2b(self._js["SHA256TreeHash"])
+
+    def __str__(self):
+        return json.dumps(self._js, indent=2, sort_keys=True)
+
+    def __repr__(self):
+        return self.__str__()
+
+
+class GlacierArchive(object):
+    def __init__(self, js):
+        self._js = js
+
+    def GetBackupId(self):
+        description = self.GetDescriptionAsJSON()
+        return uuid.UUID(description["backup"])
+
+    def GetTreeHash(self):
+        return hex.h2b(self._js["SHA256TreeHash"])
+
+    def GetSize(self):
+        return int(self._js["Size"])
+
+    def GetCreationDate(self):
+        return datetime.strptime(
+            self._js["CreationDate"], "%Y-%m-%dT%H:%M:%S.%fZ")
+
+    def IsDataArchive(self):
+        description = self.GetDescriptionAsJSON()
+        return description["type"] == "data"
+
+    def GetId(self):
+        return self._js["ArchiveId"]
+
+    def GetDescriptionAsJSON(self):
+        return json.loads(self._js["ArchiveDescription"])
 
     def __str__(self):
         return json.dumps(self._js, indent=2, sort_keys=True)
@@ -86,17 +124,16 @@ class GlacierClient(object):
             config.aws_account_id(),
             config.vault_name(),
             config.aws_access_key(),
-            config.aws_secret_access_key(),
-            config.upload_chunk_size())
+            config.aws_secret_access_key())
 
     def __init__(self, aws_region, aws_account_id, vault_name, aws_access_key,
-                 aws_secret_access_key, upload_chunk_size):
+                 aws_secret_access_key):
         self._aws_region = aws_region
         self._aws_account_id = aws_account_id
         self._vault_name = vault_name
         self._aws_access_key = aws_access_key
         self._aws_secret_access_key = aws_secret_access_key
-        self._upload_chunk_size = upload_chunk_size
+        self._upload_chunk_size = 8 * 1024 * 1024
         self._host = "glacier.%s.amazonaws.com" % self._aws_region
 
     def NewConnection(self):
@@ -329,6 +366,10 @@ class GlacierClient(object):
         response = connection.getresponse()
         self._log_headers(response)
         return response.read()
+
+    def _getInventory(self, connection, inventory_retrieval_job_id):
+        data = json.loads(bytes.decode(self._getJobOutput(connection, inventory_retrieval_job_id)))
+        return [GlacierArchive(js) for js in data["ArchiveList"]]
 
     def _deleteArchive(self, connection, archive_id):
         path = "/%d/vaults/%s/archives/%s" % (
