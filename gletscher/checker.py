@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from collections import defaultdict
 
 import datetime
 import json
@@ -53,6 +54,10 @@ class IndexArchiveConsistencyChecker(object):
         self._index = index
         self._glacier_client = glacier_client
 
+        self._data_archives = set()
+        self._catalog_archives = set()
+        self._foreign_archives = set()
+
     def reconcile(self):
         most_recent_job = self._find_recent_completed_archive_retrieval_job(
             datetime.timedelta(seconds=30 * 3600))
@@ -60,14 +65,31 @@ class IndexArchiveConsistencyChecker(object):
         connection = self._glacier_client.NewConnection()
         inventory = self._glacier_client._getInventory(connection, most_recent_job.Id())
 
-        available_data = set()
         for archive in inventory:
-            if archive.GetBackupId() == self._backup_id and archive.IsDataArchive():
-                available_data.add(archive.GetTreeHash())
+            if archive.GetBackupId() == self._backup_id:
+                if archive.IsDataArchive():
+                    self._data_archives.add(archive)
+                else:
+                    self._catalog_archives.add(archive)
+            else:
+                self._foreign_archives.add(archive)
 
+
+        available_tree_hashes = set(a.GetTreeHash() for a in self._data_archives)
+        digests = 0
+        tree_hash_stats = defaultdict(lambda: [0, 0, 0, 0])
         for digest, entry in self._index.entries():
-            if not entry.file_tree_hash in available_data:
+            if not entry.file_tree_hash in available_tree_hashes:
                 raise Exception("missing tree hash: %s" % entry.file_tree_hash)
+
+            digests += 1
+            tree_hash_stats[entry.file_tree_hash][0] += 1
+            tree_hash_stats[entry.file_tree_hash][1] += entry.original_length / 1024 / 1024
+            tree_hash_stats[entry.file_tree_hash][2] += entry.persisted_length / 1024 / 1024
+
+        print("%d digests verified" % digests)
+        for k in sorted(tree_hash_stats.keys(), key=lambda d: -tree_hash_stats[d][2]):
+            print(" %s: %s" % (k, tree_hash_stats[k]))
 
 
     def _find_recent_completed_archive_retrieval_job(self, max_result_age):

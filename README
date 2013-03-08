@@ -1,9 +1,3 @@
 Gletscher
 
-Build RPM with:
-
-  $ python3 setup.py bdist_rpm \
-      --packager="Patrick Moor <patrick@moor.ws>" \
-      --group="Applications/Archiving" \
-      --requires="python3-crypto"
-
+$ python setup.py sdist
