@@ -24,7 +24,8 @@ from gletscher.chunker import FileChunker
 from gletscher.config import BackupConfiguration
 from gletscher.crypto import Crypter
 from gletscher.data import DataFileWriter
-from gletscher.index import Index, TemporaryIndex
+from gletscher.data_streamer import DataStreamer
+from gletscher.index import Index
 from gletscher.scanner import FileScanner
 from gletscher import hex
 
@@ -45,7 +46,7 @@ def command(args):
     config = BackupConfiguration.LoadFromFile(args.config)
 
     crypter = Crypter(config.secret_key())
-    chunker = FileChunker(32 * 1024 * 1024)
+    chunker = FileChunker(64 * 1024 * 1024)
 
     main_index = Index(dbm.gnu.open(config.index_file_location(), "cf", 0o600))
     global_catalog = Catalog(dbm.gnu.open(config.global_catalog_location(), "cf", 0o600))
@@ -53,11 +54,7 @@ def command(args):
     tmp_catalog_name = tempfile.mktemp(prefix='gletscher-tmp', dir=config.tmp_dir_location())
     tmp_catalog = Catalog(dbm.gnu.open(tmp_catalog_name, "nf", 0o600))
 
-    tmp_index_name = tempfile.mktemp(prefix='gletscher-tmp', dir=config.tmp_dir_location())
-    tmp_index = TemporaryIndex(dbm.gnu.open(tmp_index_name, "nf", 0o600))
-
-    tmp_data_name = tempfile.mktemp(prefix='gletscher-tmp', dir=config.tmp_dir_location())
-    tmp_data = DataFileWriter(open(tmp_data_name, "wb"), crypter)
+    data_streamer = DataStreamer(main_index, GlacierClient.FromConfig(config), crypter, config.uuid())
 
     scanner = FileScanner(args.files, skip_files=[config.config_dir_location()])
     for full_path, file_stat in scanner:
@@ -67,7 +64,7 @@ def command(args):
                 # make sure we still have all the pieces in the index
                 all_digests_in_index = True
                 for digest in base_entry.digests():
-                    if not main_index.contains(digest) and not tmp_index.contains(digest):
+                    if not main_index.contains(digest):
                         all_digests_in_index = False
                         break
 
@@ -80,31 +77,13 @@ def command(args):
 
             digests = []
             total_length = 0
-            for chunk in chunker.chunk(
-                    full_path, file_stat.st_size, base_entry):
-                chunk_length = len(chunk)
+            for chunk in chunker.chunk(full_path, file_stat.st_size, base_entry):
                 digest = crypter.hash(chunk)
-                if not main_index.contains(digest) and not tmp_index.contains(digest):
-                    logger.debug("new chunk: %s", hex.b2h(digest))
-
-                    if tmp_data.bytes_written() + chunk_length > 2 * 1024 * 1024 * 1024:
-                        # data file would grow too big, finish the current file
-                        tree_hasher = tmp_data.close()
-                        tmp_index.close()
-
-                        _upload_file_and_merge_index(tree_hasher, tmp_data_name, tmp_index_name, main_index, config)
-
-                        tmp_index_name = tempfile.mktemp(prefix='gletscher-tmp', dir=config.tmp_dir_location())
-                        tmp_index = TemporaryIndex(dbm.gnu.open(tmp_index_name, "nf", 0o600))
-
-                        tmp_data_name = tempfile.mktemp(prefix='gletscher-tmp', dir=config.tmp_dir_location())
-                        tmp_data = DataFileWriter(open(tmp_data_name, "wb"), crypter)
-
-                    offset, length = tmp_data.append_chunk(chunk)
-                    tmp_index.add(digest, offset, length, chunk_length)
+                if not main_index.contains(digest):
+                    data_streamer.upload(digest, chunk)
 
                 digests.append(digest)
-                total_length += chunk_length
+                total_length += len(chunk)
 
             tmp_catalog.add_file(
                 full_path, file_stat, digests, total_length)
@@ -114,39 +93,10 @@ def command(args):
             tmp_catalog.add(full_path, file_stat)
             global_catalog.add(full_path, file_stat)
 
-    tree_hasher = tmp_data.close()
-    tmp_index.close()
-
-    if tmp_data.chunks_written():
-        _upload_file_and_merge_index(tree_hasher, tmp_data_name, tmp_index_name, main_index, config)
-    else:
-        os.unlink(tmp_data_name)
-        os.unlink(tmp_index_name)
+    data_streamer.finish()
 
     main_index.close()
     global_catalog.close()
 
     tmp_catalog.close()
-
     os.rename(tmp_catalog_name, config.catalog_location(args.catalog))
-
-
-def _upload_file_and_merge_index(tree_hasher, tmp_data_name, tmp_index_name, main_index, config):
-    tree_hash = tree_hasher.get_tree_hash()
-
-    glacier_client = GlacierClient.FromConfig(config)
-    glacier_client.upload_file(
-        tmp_data_name,
-        tree_hasher,
-        description={
-            "backup": str(config.uuid()),
-            "type": "data",
-            "tree-hash": hex.b2h(tree_hash),
-        })
-
-    tmp_index = TemporaryIndex(dbm.gnu.open(tmp_index_name, "r"))
-    main_index.merge_temporary_index(tmp_index, tree_hash)
-    tmp_index.close()
-
-    os.unlink(tmp_data_name)
-    os.unlink(tmp_index_name)

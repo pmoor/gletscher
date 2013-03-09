@@ -77,7 +77,7 @@ class IndexArchiveConsistencyChecker(object):
 
         available_tree_hashes = set(a.GetTreeHash() for a in self._data_archives)
         digests = 0
-        tree_hash_stats = defaultdict(lambda: [0, 0, 0, 0])
+        tree_hash_stats = defaultdict(lambda: [0, 0, 0])
         for digest, entry in self._index.entries():
             if not entry.file_tree_hash in available_tree_hashes:
                 raise Exception("missing tree hash: %s" % entry.file_tree_hash)
@@ -89,7 +89,7 @@ class IndexArchiveConsistencyChecker(object):
 
         print("%d digests verified" % digests)
         for k in sorted(tree_hash_stats.keys(), key=lambda d: -tree_hash_stats[d][2]):
-            print(" %s: %s" % (k, tree_hash_stats[k]))
+            print(" %s: %6d %8.3f %8.3f" % tuple([hex.b2h(k)] + tree_hash_stats[k]))
 
 
     def _find_recent_completed_archive_retrieval_job(self, max_result_age):
