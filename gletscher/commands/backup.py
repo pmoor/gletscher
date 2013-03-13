@@ -18,17 +18,15 @@ import stat
 import tempfile
 import logging
 
-from gletscher.aws import GlacierClient
+from gletscher.aws.client import GlacierClient
+from gletscher.aws.streaming import StreamingUploader
 from gletscher.catalog import Catalog
 from gletscher.chunker import FileChunker
 from gletscher.config import BackupConfiguration
 from gletscher.crypto import Crypter
-from gletscher.data import DataFileWriter
 from gletscher.data_streamer import DataStreamer
 from gletscher.index import Index
 from gletscher.scanner import FileScanner
-from gletscher import hex
-
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +52,9 @@ def command(args):
     tmp_catalog_name = tempfile.mktemp(prefix='gletscher-tmp', dir=config.tmp_dir_location())
     tmp_catalog = Catalog(dbm.gnu.open(tmp_catalog_name, "nf", 0o600))
 
-    data_streamer = DataStreamer(main_index, GlacierClient.FromConfig(config), crypter, config.uuid())
+    glacier_client = GlacierClient.FromConfig(config)
+    streaming_uploader = StreamingUploader(glacier_client)
+    data_streamer = DataStreamer(main_index, streaming_uploader, crypter, config.uuid())
 
     scanner = FileScanner(args.files, skip_files=[config.config_dir_location()])
     for full_path, file_stat in scanner:
@@ -94,6 +94,7 @@ def command(args):
             global_catalog.add(full_path, file_stat)
 
     data_streamer.finish()
+    streaming_uploader.finish()
 
     main_index.close()
     global_catalog.close()

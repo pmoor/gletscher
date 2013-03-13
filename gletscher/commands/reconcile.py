@@ -14,9 +14,8 @@
 
 import logging
 import dbm
-import os
 
-from gletscher.aws import GlacierClient
+from gletscher.aws.client import GlacierClient
 from gletscher.catalog import Catalog
 from gletscher.checker import IndexArchiveConsistencyChecker, CatalogIndexConsistencyChecker
 from gletscher.config import BackupConfiguration

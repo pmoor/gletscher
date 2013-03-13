@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from gletscher.aws import GlacierClient
+from gletscher.aws.client import GlacierClient
 from gletscher.config import BackupConfiguration
 
 def glacier_list_jobs_command(args):

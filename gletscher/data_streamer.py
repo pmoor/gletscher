@@ -13,10 +13,9 @@
 # limitations under the License.
 
 import json
-
 import logging
 import struct
-from gletscher import hex, crypto
+from gletscher import hex
 
 logger = logging.getLogger(__name__)
 
@@ -32,23 +31,17 @@ class DataStreamer(object):
 
     The length is the byte length of the IV and the ciphertext combined.
     """
-    def __init__(self, index, glacier_client, crypter, backup_id):
+    def __init__(self, index, streaming_uploader, crypter, backup_id):
         self._index = index
-        self._glacier_client = glacier_client
+        self._streaming_uploader = streaming_uploader
         self._crypter = crypter
         self._backup_id = backup_id
 
-        self._upload_chunk_size = 2 * 1024 * 1024
-        self._max_file_size = 8 * 1024 * 1024
+        self._max_file_size = 2 * 1024 * 1024 * 1024
         self._max_pending_digests = 256 * 1024
 
-        self._connection = None
         self._pending_upload = None
-        self._pending_data = None
         self._pending_digests = None
-        self._pending_tree_hasher = None
-        self._pending_data_offset = None
-
 
     def upload(self, digest, chunk):
         if not self._pending_upload:
@@ -60,74 +53,37 @@ class DataStreamer(object):
         logger.debug("new chunk: %s", hex.b2h(digest))
 
         iv, ciphertext = self._crypter.encrypt(chunk)
-        record_length = struct.pack(">L", len(iv) + len(ciphertext))
-        start_offset = self._pending_data_offset + len(self._pending_data)
-        length = self._write_to_pending_data(record_length, iv, ciphertext)
-        self._pending_digests[digest] = (start_offset, length, len(chunk))
 
-        self._flush_pending_data()
-        if (self._pending_data_offset > self._max_file_size
-                or len(self._pending_digests) > self._max_pending_digests):
-            self._finish_pending_upload()
+        start_offset = self._pending_upload.bytes_written()
+
+        length_prefix = struct.pack(">L", len(iv) + len(ciphertext))
+        total_length = len(length_prefix) + len(iv) + len(ciphertext)
+
+        if (start_offset + total_length > self._max_file_size
+                or len(self._pending_digests) >= self._max_pending_digests):
+            self._finish_upload()
+            self._start_new_upload()
+
+        self._pending_upload.write(length_prefix)
+        self._pending_upload.write(iv)
+        self._pending_upload.write(ciphertext)
+        self._pending_digests[digest] = (start_offset, total_length, len(chunk))
 
     def finish(self):
         if self._pending_upload:
-            self._flush_pending_data()
-            self._finish_pending_upload()
-
-    def _write_to_pending_data(self, *data):
-        for d in data:
-          self._pending_data += d
-          self._pending_tree_hasher.update(d)
-        return sum(len(d) for d in data)
+            self._finish_upload()
 
     def _start_new_upload(self):
-        self._connection = self._glacier_client.NewConnection()
-
+        logger.info("starting a new upload")
         description = json.dumps({"backup": str(self._backup_id), "type": "data"})
-
-        self._pending_upload = self._glacier_client._initiateMultipartUpload(
-            self._connection, self._upload_chunk_size, description)
-        self._pending_data = b""
+        self._pending_upload = self._streaming_uploader.new_upload(description)
+        self._pending_upload.write(VERSION_STRING)
         self._pending_digests = {}
-        self._pending_tree_hasher = crypto.TreeHasher()
-        self._pending_data_offset = 0
 
-        self._write_to_pending_data(VERSION_STRING)
-
-    def _flush_pending_data(self):
-        while len(self._pending_data) >= self._upload_chunk_size:
-            data = self._pending_data[0:self._upload_chunk_size]
-            tree_hash = self._pending_tree_hasher.get_tree_hash(
-                self._pending_data_offset, self._pending_data_offset + self._upload_chunk_size)
-
-            print("uploading a chunk")
-            self._connection = self._glacier_client._uploadPart(
-                self._connection, self._pending_upload, data, hex.b2h(tree_hash), self._pending_data_offset)
-
-            self._pending_data_offset += self._upload_chunk_size
-            self._pending_data = self._pending_data[self._upload_chunk_size:]
-
-    def _finish_pending_upload(self):
-        if len(self._pending_data) > 0:
-            tree_hash = self._pending_tree_hasher.get_tree_hash(
-                self._pending_data_offset, self._pending_data_offset + len(self._pending_data))
-
-            self._connection = self._glacier_client._uploadPart(
-                self._connection, self._pending_upload, self._pending_data, hex.b2h(tree_hash), self._pending_data_offset)
-
-            self._pending_data_offset += len(self._pending_data)
-            self._pending_data = b""
-
-        tree_hash = self._pending_tree_hasher.get_tree_hash()
-        self._glacier_client._completeUpload(
-            self._connection, self._pending_upload, hex.b2h(tree_hash), self._pending_data_offset)
-
+    def _finish_upload(self):
+        logger.info("finishing current upload")
+        archive_id, tree_hash = self._pending_upload.finish()
         for digest, entry in self._pending_digests.items():
             self._index.add(digest, tree_hash, *entry)
-
         self._pending_upload = None
-        self._pending_data = None
-        self._pending_digests = {}
-        self._pending_tree_hasher = None
-        self._pending_data_offset = None
+        self._pending_digests = None

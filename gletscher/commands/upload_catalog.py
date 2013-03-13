@@ -14,15 +14,17 @@
 
 from datetime import datetime
 import os
-from gletscher.aws import GlacierClient
+import logging
+import dbm.gnu
+
+from gletscher.aws.client import GlacierClient
 from gletscher.catalog import Catalog
 from gletscher.checker import CatalogIndexConsistencyChecker
 from gletscher.config import BackupConfiguration
 from gletscher.crypto import Crypter
 from gletscher.index import Index
-import logging
 from gletscher.kv_pack import kv_pack
-import dbm.gnu
+
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +44,7 @@ def command(args):
     index_db = dbm.gnu.open(config.index_file_location(), "r")
     index = Index(index_db)
 
-    catalog_db = dbm.gnu.open(config.catalog_location(catalog), "r")
+    catalog_db = dbm.gnu.open(config.catalog_location(args.catalog), "r")
     catalog = Catalog(catalog_db)
 
     checker = CatalogIndexConsistencyChecker(catalog, index)

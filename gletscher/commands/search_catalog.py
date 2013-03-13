@@ -15,12 +15,14 @@
 import os
 import re
 import time
-from gletscher.aws import GlacierClient
+import logging
+
+from gletscher.aws.client import GlacierClient
 from gletscher.catalog import Catalog
 from gletscher.config import BackupConfiguration
 from gletscher.index import Index
-import logging
 from gletscher import hex, crypto
+
 
 logger = logging.getLogger(__name__)
 
