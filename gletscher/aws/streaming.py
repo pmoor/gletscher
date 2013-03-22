@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import threading
-import queue
+from concurrent import futures
 import logging
 from gletscher import hex, crypto
 
@@ -21,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_THREAD_COUNT = 2
 DEFAULT_BLOCK_SIZE = 8 * 1024 * 1024
+MAX_PENDING_FUTURES = 4
 
 class PendingUpload(object):
 
@@ -31,7 +31,7 @@ class PendingUpload(object):
         self._tree_hasher = crypto.TreeHasher()
         self._pending_data = b""
         self._pending_data_offset = 0
-        self._queue = queue.Queue(maxsize=self._streaming_uploader._thread_count)
+        self._futures = set()
 
     def write(self, data):
         if not self._upload_id:
@@ -53,7 +53,8 @@ class PendingUpload(object):
         while len(self._pending_data) > 0:
             self._flush_pending_data()
 
-        self._queue.join()
+        futures.wait(self._futures)
+
         connection = self._streaming_uploader._glacier_client.NewConnection()
         tree_hash = self._tree_hasher.get_tree_hash()
         archive_id = self._streaming_uploader._glacier_client._completeUpload(
@@ -69,10 +70,12 @@ class PendingUpload(object):
         tree_hash = self._tree_hasher.get_tree_hash(
             self._pending_data_offset, self._pending_data_offset + length)
 
+        if len(self._futures) >= MAX_PENDING_FUTURES:
+            futures.wait(self._futures, return_when=futures.FIRST_COMPLETED)
+
         print("submitting work")
-        self._queue.put(
-            (self._upload_id, data, hex.b2h(tree_hash), self._pending_data_offset))
-        self._streaming_uploader._queue.put(self._queue)
+        self._futures.add(self._streaming_uploader._upload(
+            self._upload_id, data, hex.b2h(tree_hash), self._pending_data_offset))
 
         self._pending_data_offset += length
         self._pending_data = self._pending_data[length:]
@@ -82,18 +85,10 @@ class StreamingUploader(object):
 
     def __init__(self,
                  glacier_client,
-                 thread_count=DEFAULT_THREAD_COUNT,
                  block_size=DEFAULT_BLOCK_SIZE):
         self._glacier_client = glacier_client
-        self._thread_count = thread_count
         self._block_size = block_size
-        self._queue = queue.Queue(maxsize=thread_count)
-
-        self._threads = [
-            threading.Thread(target=self._thread_main, name="uploader-%d" % i, daemon=True)
-            for i in range(thread_count)]
-        for t in self._threads:
-            t.start()
+        self._executor = futures.ThreadPoolExecutor(DEFAULT_THREAD_COUNT)
 
     def new_upload(self, description):
         upload_id = self._glacier_client._initiateMultipartUpload(
@@ -101,22 +96,11 @@ class StreamingUploader(object):
         return PendingUpload(self, upload_id)
 
     def finish(self):
-        for t in self._threads:
-            self._queue.put(None)
-        for t in self._threads:
-            t.join()
+        self._executor.shutdown()
 
-    def _thread_main(self):
-        connection = self._glacier_client.NewConnection()
-        while True:
-            work_queue = self._queue.get()
-            if not work_queue:
-                print("worker thread %s exiting" % threading.current_thread().name)
-                break
+    def _upload(self, upload_id, data, tree_hash, offset):
+        return self._executor.submit(self._inner_upload, upload_id, data, tree_hash, offset)
 
-            print("worker thread %s uploading a part" % threading.current_thread().name)
-            work = work_queue.get()
-            self._glacier_client._uploadPart(connection, *work)
-
-            work_queue.task_done()
-            self._queue.task_done()
+    def _inner_upload(self, upload_id, data, tree_hash, offset):
+        self._glacier_client._uploadPart(
+            self._glacier_client.NewConnection(), upload_id, data, tree_hash, offset)
