@@ -48,10 +48,11 @@ class CatalogIndexConsistencyChecker(object):
 
 class IndexArchiveConsistencyChecker(object):
 
-    def __init__(self, backup_id, index, glacier_client):
+    def __init__(self, backup_id, index, glacier_client, poll_interval):
         self._backup_id = backup_id
         self._index = index
         self._glacier_client = glacier_client
+        self._poll_interval = poll_interval
 
         self._data_archives = set()
         self._catalog_archives = set()
@@ -111,10 +112,10 @@ class IndexArchiveConsistencyChecker(object):
                 logger.info(
                     "no recent job available or pending - starting a new one")
                 self._glacier_client._initiateInventoryRetrieval(connection)
-                time.sleep(300)
+                time.sleep(self._poll_interval)
             elif not recent_available_jobs:
                 logger.info(
                     "no recent job available - waiting for pending to complete")
-                time.sleep(300)
+                time.sleep(self._poll_interval)
         most_recent_job = min(recent_available_jobs, key=GlacierJob.ResultAge)
         return most_recent_job

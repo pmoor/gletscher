@@ -14,6 +14,8 @@
 
 import logging
 import dbm
+import os
+import re
 
 from gletscher.aws.client import GlacierClient
 from gletscher.catalog import Catalog
@@ -21,16 +23,16 @@ from gletscher.checker import IndexArchiveConsistencyChecker, CatalogIndexConsis
 from gletscher.config import BackupConfiguration
 from gletscher.index import Index
 
+CATALOG_NAME_RE = re.compile(r"(.+)\.catalog")
 
 logger = logging.getLogger(__name__)
 
 def register(subparsers):
-    reconile_parser = subparsers.add_parser(
+    reconcile_parser = subparsers.add_parser(
         "reconcile", help="reconciles the index")
-    reconile_parser.add_argument(
-        "catalogs", metavar="catalog", nargs="+",
-        help="catalogs to check against index")
-    reconile_parser.set_defaults(fn=command)
+    reconcile_parser.add_argument(
+        "--poll_interval", type=float, default=900.0)
+    reconcile_parser.set_defaults(fn=command)
 
 def command(args):
     config = BackupConfiguration.LoadFromFile(args.config)
@@ -40,9 +42,9 @@ def command(args):
     index_db = dbm.gnu.open(config.index_file_location(), "r")
     index = Index(index_db)
 
-    for name in args.catalogs:
-        print("reconciling catalog \"%s\" against index..." % name)
-        catalog_db = dbm.gnu.open(config.catalog_location(name), "r")
+    for catalog_name in _find_all_catalogs(config):
+        print("reconciling catalog \"%s\" against index..." % catalog_name)
+        catalog_db = dbm.gnu.open(config.catalog_location(catalog_name), "r")
         catalog = Catalog(catalog_db)
 
         checker = CatalogIndexConsistencyChecker(catalog, index)
@@ -51,6 +53,10 @@ def command(args):
         print("OK.")
 
     print("reconciling index against AWS Glacier archive...")
-    checker = IndexArchiveConsistencyChecker(config.uuid(), index, glacier_client)
+    checker = IndexArchiveConsistencyChecker(config.uuid(), index, glacier_client, args.poll_interval)
     checker.reconcile()
     print("OK.")
+
+def _find_all_catalogs(config):
+    files = [f for f in os.listdir(config.catalog_dir_location())]
+    return sorted([CATALOG_NAME_RE.match(c).group(1) for c in files if CATALOG_NAME_RE.match(c)])
