@@ -124,20 +124,25 @@ class GlacierClient(object):
             config.aws_account_id(),
             config.vault_name(),
             config.aws_access_key(),
-            config.aws_secret_access_key())
+            config.aws_secret_access_key(),
+            config.aws_url())
 
     def __init__(self, aws_region, aws_account_id, vault_name, aws_access_key,
-                 aws_secret_access_key):
+                 aws_secret_access_key, aws_url):
         self._aws_region = aws_region
         self._aws_account_id = aws_account_id
         self._vault_name = vault_name
         self._aws_access_key = aws_access_key
         self._aws_secret_access_key = aws_secret_access_key
         self._upload_chunk_size = 8 * 1024 * 1024
-        self._host = "glacier.%s.amazonaws.com" % self._aws_region
+        self._host = aws_url.netloc
+        self._scheme = aws_url.scheme
 
     def NewConnection(self):
-        return http.client.HTTPSConnection(self._host)
+        if self._scheme == "https":
+            return http.client.HTTPSConnection(self._host)
+        else:
+            return http.client.HTTPConnection(self._host)
 
     def _log_headers(self, response):
         logger.debug("response: %d %s\n%s" % (
@@ -194,7 +199,7 @@ class GlacierClient(object):
 
     def _initiateMultipartUpload(self, connection, part_size, description):
         path = "/%d/vaults/%s/multipart-uploads" % (
-        self._aws_account_id, self._vault_name)
+            self._aws_account_id, self._vault_name)
         headers = {
             "x-amz-part-size": "%d" % part_size,
             "x-amz-archive-description": description,
@@ -447,7 +452,7 @@ class GlacierClient(object):
         return archive_id, tree_hash
 
     def find_pending_upload(self, backup_uuid, tree_hash):
-        connection = http.client.HTTPSConnection(self._host)
+        connection = self.NewConnection()
         for pending_upload in self._listPendingUploads(connection):
             description = json.loads(pending_upload["ArchiveDescription"])
             their_uuid = uuid.UUID(description["backup"])

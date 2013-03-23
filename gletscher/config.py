@@ -1,4 +1,4 @@
-# Copyright 2012 Patrick Moor <patrick@moor.ws>
+# Copyright 2013 Patrick Moor <patrick@moor.ws>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 
 import logging
 import os
+from urllib.parse import urlparse
 import uuid
 import configparser
 
@@ -49,7 +50,7 @@ class BackupConfiguration(object):
             level=logging.DEBUG,
             filename=backup_config.log_file_location(),
             datefmt="%Y-%m-%d %H:%M:%S",
-            format="%(asctime)s %(levelname)s "
+            format="%(asctime)s %(levelname)s [%(threadName)s] "
                    "%(name)s#%(funcName)s: %(message)s")
         return backup_config
 
@@ -63,6 +64,8 @@ class BackupConfiguration(object):
         crypter = Crypter(secret_key)
         signature = crypter.hash(id.bytes)
 
+        aws_region = prompt_command("AWS Region", verifier=lambda x: len(x) > 0)
+
         min_config = "\n".join([
             "# gletscher configuration",
             "",
@@ -72,14 +75,14 @@ class BackupConfiguration(object):
             "signature = %s" % hex.b2h(signature),
             "",
             "[aws]",
-            "region = %s" % prompt_command(
-                "AWS Region", verifier=lambda x: len(x) > 0),
+            "region = %s" % aws_region,
             "account_id = %d" % int(prompt_command(
                 "AWS Account ID", verifier=lambda x: int(x) > 0)),
             "access_key = %s" % prompt_command(
                 "AWS Access Key", verifier=lambda x: len(x) > 0),
             "secret_access_key = %s" % prompt_command(
                 "AWS Secret Access Key", verifier=lambda x: len(x) > 0),
+            "# url = https://glacier.%s.amazonaws.com" % aws_region,
             "",
             "[glacier]",
             "vault_name = %s" % prompt_command(
@@ -148,6 +151,12 @@ class BackupConfiguration(object):
 
     def aws_secret_access_key(self):
         return self._config.get("aws", "secret_access_key")
+
+    def aws_url(self):
+        if self._config.has_option("aws", "url"):
+            return urlparse(self._config.get("aws", "url"))
+        else:
+            return urlparse("https://glacier.%s.amazonaws.com" % self.aws_region())
 
     def log_file_location(self):
         return os.path.join(self._config_dir, "log.txt")
