@@ -13,61 +13,94 @@
 # limitations under the License.
 
 import bz2
-import os
 import struct
 from gletscher.crypto import Crypter
 
-def kv_pack(file_path, kv_mapping, crypter):
-    with open(file_path, "wb") as f:
-        iv, cipher = crypter.new_cipher()
-        compressor = bz2.BZ2Compressor()
+VERSION_STRING = b"gletscher-kv-pack-v000"
+ENTRY_TYPE_NEW_FILE = 1
+ENTRY_TYPE_KV_PAIR = 2
+ENTRY_TYPE_SIGNATURE = 3
+
+def kv_pack(writer, kv_mapping, crypter):
+    iv, cipher = crypter.new_cipher()
+    compressor = bz2.BZ2Compressor()
+
+    writer.write(VERSION_STRING + iv)
+
+    for name, gen in kv_mapping.items():
         hmac = crypter.newHMAC()
 
-        f.write(iv)
+        bname = str.encode(name)
+        entry = struct.pack(">LBH", 7 + len(bname), ENTRY_TYPE_NEW_FILE, len(bname)) + bname
+        writer.write(cipher.encrypt(compressor.compress(entry)))
+        hmac.update(entry)
 
-        for index, db in kv_mapping.items():
-            for k, v in generate_kv_pairs(db):
-                entry = struct.pack(">BLL", index, len(k), len(v)) + k + v
-                f.write(cipher.encrypt(compressor.compress(entry)))
-                hmac.update(entry)
+        for k, v in gen():
+            entry = struct.pack(">LBLL", 13 + len(k) + len(v), ENTRY_TYPE_KV_PAIR, len(k), len(v)) + k + v
+            writer.write(cipher.encrypt(compressor.compress(entry)))
+            hmac.update(entry)
 
-        f.write(cipher.encrypt(compressor.flush()))
-        f.write(hmac.digest())
+        entry = struct.pack(">LB", 37, ENTRY_TYPE_SIGNATURE) + hmac.digest()
+        writer.write(cipher.encrypt(compressor.compress(entry)))
 
-def kv_unpack(file_path, dbm_mapping, crypter):
-    total_size = os.stat(file_path).st_size
-    with open(file_path, "rb") as f:
-        iv, cipher = crypter.new_cipher(f.read(Crypter.IV_SIZE))
-        decompressor = bz2.BZ2Decompressor()
-        hmac = crypter.newHMAC()
+    writer.write(cipher.encrypt(compressor.flush()))
 
-        buffer = b""
-        while f.tell() < total_size - 32:
-          raw = f.read(min(128 * 1024, total_size - 32 - f.tell()))
-          buffer += decompressor.decompress(cipher.decrypt(raw))
-          while len(buffer) >= 9:
-            index, key_len, val_len = struct.unpack(">BLL", buffer[:9])
-            if len(buffer) >= 9 + key_len + val_len:
-                entry = buffer[:9 + key_len + val_len]
-                hmac.update(entry)
-                buffer = buffer[9:]
-                key = buffer[:key_len]
-                buffer = buffer[key_len:]
-                value = buffer[:val_len]
-                buffer = buffer[val_len:]
+def kv_unpack(reader, crypter, file_start, file_done):
+    if reader.read(len(VERSION_STRING)) != VERSION_STRING:
+        raise Exception()
 
-                # write the mapping
-                dbm_mapping[index][key] = value
-            else:
+    iv, cipher = crypter.new_cipher(reader.read(Crypter.IV_SIZE))
+    decompressor = bz2.BZ2Decompressor()
+
+    current_file = None
+    current_hmac = None
+
+    buffer = bytearray()
+    offset = 0
+    while True:
+        raw = reader.read(32 * 1024)
+        if len(raw) > 0:
+            buffer.extend(decompressor.decompress(cipher.decrypt(raw)))
+        else:
+            break
+
+        while len(buffer) >= offset + 4:
+            record_length, = struct.unpack(">L", buffer[offset:offset + 4])
+            if len(buffer) < record_length + offset:
+                del buffer[:offset]
+                offset = 0
                 break
 
-        expected_signature = hmac.digest()
-        signature = f.read(32)
-        if expected_signature != signature:
-            raise Exception("signatures do not match")
+            next_offset = offset + record_length
+            current_record = bytes(buffer[offset:offset + record_length])
+            if current_record[4] == ENTRY_TYPE_NEW_FILE:
+              if current_file is not None:
+                  raise Exception()
+              _, _, file_name_length = struct.unpack(">LBH", current_record[:7])
+              current_hmac = crypter.newHMAC()
+              current_hmac.update(current_record)
 
-def generate_kv_pairs(db):
-    k = db.firstkey()
-    while k is not None:
-        yield k, db[k]
-        k = db.nextkey(k)
+              current_file = file_start(bytes.decode(current_record[7:7 + file_name_length]))
+            elif current_record[4] == ENTRY_TYPE_KV_PAIR:
+              if current_file is None:
+                  raise Exception()
+              _, _, key_length, value_length = struct.unpack(">LBLL", current_record[:13])
+              current_hmac.update(current_record)
+
+              key = current_record[13:13 + key_length]
+              value = current_record[13 + key_length:13 + key_length + value_length]
+              current_file[key] = value
+            elif current_record[4] == ENTRY_TYPE_SIGNATURE:
+              if current_file is None:
+                  raise Exception()
+              expected_hmac = current_record[5:]
+              if expected_hmac != current_hmac.digest():
+                  raise Exception()
+
+              file_done(current_file)
+              current_hmac = None
+              current_file = None
+            else:
+              raise Exception()
+
+            offset = next_offset
