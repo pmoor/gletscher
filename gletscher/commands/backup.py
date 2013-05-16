@@ -11,8 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from datetime import datetime
 
 import dbm.gnu
+import json
 import os
 import stat
 import tempfile
@@ -24,8 +26,9 @@ from gletscher.catalog import Catalog
 from gletscher.chunker import FileChunker
 from gletscher.config import BackupConfiguration
 from gletscher.crypto import Crypter
-from gletscher.data_streamer import DataStreamer
+from gletscher.chunk_streamer import ChunkStreamer
 from gletscher.index import Index
+from gletscher.kv_pack import kv_pack
 from gletscher.scanner import FileScanner
 
 logger = logging.getLogger(__name__)
@@ -36,15 +39,18 @@ def register(subparsers):
     backup_parser.add_argument(
         "--catalog", help="catalog name to use", required=False, default="default")
     backup_parser.add_argument(
+        "--exclude", help="files or directories to exclude", action="append")
+    backup_parser.add_argument(
         "files", metavar="file", nargs="+",
         help="a set of files and directories to be backed-up")
     backup_parser.set_defaults(fn=command)
+
 
 def command(args):
     config = BackupConfiguration.LoadFromFile(args.config)
 
     crypter = Crypter(config.secret_key())
-    chunker = FileChunker(64 * 1024 * 1024)
+    chunker = FileChunker(32 * 1024 * 1024)
 
     main_index = Index(dbm.gnu.open(config.index_file_location(), "cf", 0o600))
     global_catalog = Catalog(dbm.gnu.open(config.global_catalog_location(), "cf", 0o600))
@@ -54,9 +60,10 @@ def command(args):
 
     glacier_client = GlacierClient.FromConfig(config)
     streaming_uploader = StreamingUploader(glacier_client)
-    data_streamer = DataStreamer(main_index, streaming_uploader, crypter, config.uuid())
+    data_streamer = ChunkStreamer(main_index, streaming_uploader, crypter, config.uuid())
 
-    scanner = FileScanner(args.files, skip_files=[config.config_dir_location()])
+    scanner = FileScanner(
+        args.files, skip_files=args.exclude + [config.config_dir_location()])
     for full_path, file_stat in scanner:
         if stat.S_ISREG(file_stat.st_mode):
             base_entry = global_catalog.find(full_path)
@@ -94,10 +101,33 @@ def command(args):
             global_catalog.add(full_path, file_stat)
 
     data_streamer.finish()
+    global_catalog.close()
+
+    # upload the catalog
+    pending_upload = streaming_uploader.new_upload(
+        json.dumps({
+            "backup": str(config.uuid()),
+            "type": "catalog",
+            "name": args.catalog}))
+    files = {
+        "index": _kv_generator(main_index._db),
+        "catalog": _kv_generator(tmp_catalog._db),
+    }
+    kv_pack(pending_upload, files, crypter)
+    pending_upload.finish()
     streaming_uploader.finish()
 
     main_index.close()
-    global_catalog.close()
-
     tmp_catalog.close()
-    os.rename(tmp_catalog_name, config.catalog_location(args.catalog))
+
+    full_catalog_name = "%s-%s" % (args.catalog, datetime.utcnow().strftime("%Y%m%dT%H%M%S"))
+    os.rename(tmp_catalog_name, config.catalog_location(full_catalog_name))
+
+
+def _kv_generator(db):
+    def gen():
+        k = db.firstkey()
+        while k is not None:
+            yield k, db[k]
+            k = db.nextkey(k)
+    return gen

@@ -20,3 +20,7 @@ def h2b(hexstr):
 
 def b2h(bytestr):
     return bytes.decode(binascii.hexlify(bytestr))
+
+def b2ah(bytestr):
+    h = b2h(bytestr)
+    return h[:8] + "..." + h[-8:]

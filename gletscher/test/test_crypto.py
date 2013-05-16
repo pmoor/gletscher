@@ -13,9 +13,41 @@
 # limitations under the License.
 
 import unittest
-from gletscher.hex import b2h
-from gletscher.crypto import TreeHasher
 import hashlib
+
+from gletscher.crypto import TreeHasher, Crypter
+from gletscher import hex
+
+class TestCrypter(unittest.TestCase):
+
+    def test_basic_encryption_decryption(self):
+        crypter = Crypter(b"\x00" * 32)
+        iv, encrypted = crypter.encrypt(b"hello world!", b"\x00" * 16)
+        self.assertEqual(b"\x00" * 16, iv)
+        self.assertEqual(b"\xb4v\x9cm+\x15z\xd2E\xa6 \x9b", encrypted)
+
+        decrypted = crypter.decrypt(iv, encrypted)
+        self.assertEqual(b"hello world!", decrypted)
+
+    def test_standard_test_vector(self):
+        """From: NIST 800-38A - F.3.11 CFB8-AES256.Encrypt"""
+        crypter = Crypter(hex.h2b("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"))
+        iv, encrypted = crypter.encrypt(
+            hex.h2b("6bc1bee22e409f96e93d7e117393172aae2d"), hex.h2b("000102030405060708090a0b0c0d0e0f"))
+        self.assertEqual(
+            "dc1f1a8520a64db55fcc8ac554844e889700", hex.b2h(encrypted))
+
+        decrypted = crypter.decrypt(iv, encrypted)
+        self.assertEqual(
+            "6bc1bee22e409f96e93d7e117393172aae2d", hex.b2h(decrypted))
+
+    def test_hmac(self):
+        """From: rfc4231 / 4.4"""
+        crypter = Crypter(b"\xaa" * 20)
+        self.assertEqual(
+            "773ea91e36800e46854db8ebd09181a72959098b3ef8c122d9635514ced565fe",
+            hex.b2h(crypter.hash(b"\xdd" * 50)))
+
 
 class TestTreeHasher(unittest.TestCase):
     def _testBlock(self, i, length=1024 * 1024):
@@ -39,26 +71,26 @@ class TestTreeHasher(unittest.TestCase):
 
         self.assertEqual(
             "bf79be0c21a100565100d16b31deee78ce5391f66c0774405d484ce38b6076e0",
-            b2h(h.get_tree_hash(0, 1024 * 1024)))
+            hex.b2h(h.get_tree_hash(0, 1024 * 1024)))
 
     def test_empty_data(self):
         h = TreeHasher()
 
         self.assertEqual(
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            b2h(h.get_tree_hash(0, 0)))
+            hex.b2h(h.get_tree_hash(0, 0)))
 
     def test_empty_data_later_update(self):
         h = TreeHasher()
 
         self.assertEqual(
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            b2h(h.get_tree_hash(0, 0)))
+            hex.b2h(h.get_tree_hash(0, 0)))
 
         h.update(self._testBlock("0"))
         self.assertEqual(
             "bf79be0c21a100565100d16b31deee78ce5391f66c0774405d484ce38b6076e0",
-            b2h(h.get_tree_hash(0, 1024 * 1024)))
+            hex.b2h(h.get_tree_hash(0, 1024 * 1024)))
 
     def test_two_full_blocks(self):
         h = TreeHasher()
@@ -74,7 +106,7 @@ class TestTreeHasher(unittest.TestCase):
             h.get_tree_hash(0, 2 * 1024 * 1024))
         self.assertEqual(
             "d93d23bf20decc64e3a6a1f004df228b0603fda5ea3db86903f47da493e98c85",
-            b2h(h.get_tree_hash(0, 2 * 1024 * 1024)))
+            hex.b2h(h.get_tree_hash(0, 2 * 1024 * 1024)))
 
     def test_three_full_blocks(self):
         h = TreeHasher()
@@ -98,7 +130,7 @@ class TestTreeHasher(unittest.TestCase):
             , h.get_tree_hash(0, 3 * 1024 * 1024))
         self.assertEqual(
             "be55fa01ae74848aeb58cf4213cb8d6d31596dd511a4a82854f7fb3938b5d6be",
-            b2h(h.get_tree_hash(0, 3 * 1024 * 1024)))
+            hex.b2h(h.get_tree_hash(0, 3 * 1024 * 1024)))
 
     def test_three_plus_partial(self):
         h = TreeHasher()
@@ -126,7 +158,7 @@ class TestTreeHasher(unittest.TestCase):
             , h.get_tree_hash(0, 3 * 1024 * 1024 + 1))
         self.assertEqual(
             "10d1c8c304aab5431c6c9ebdfb6b10acbd957959504e379f8b433bf80fbe8cc9",
-            b2h(h.get_tree_hash(0, 3 * 1024 * 1024 + 1)))
+            hex.b2h(h.get_tree_hash(0, 3 * 1024 * 1024 + 1)))
 
     def test_many_plus_partial(self):
         h = TreeHasher()

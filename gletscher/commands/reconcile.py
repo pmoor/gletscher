@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-import dbm
+import dbm.gnu
 import os
 import re
 
@@ -42,20 +42,26 @@ def command(args):
     index_db = dbm.gnu.open(config.index_file_location(), "r")
     index = Index(index_db)
 
+    print("reconciling index against AWS Glacier archive...")
+    checker = IndexArchiveConsistencyChecker(
+        config.uuid(), index, glacier_client, args.poll_interval)
+    missing_archives = checker.reconcile()
+    has_missing_paths = False
+
     for catalog_name in _find_all_catalogs(config):
         print("reconciling catalog \"%s\" against index..." % catalog_name)
         catalog_db = dbm.gnu.open(config.catalog_location(catalog_name), "r")
         catalog = Catalog(catalog_db)
 
-        checker = CatalogIndexConsistencyChecker(catalog, index)
-        checker.assert_all_digests_present()
+        checker = CatalogIndexConsistencyChecker(catalog, index, missing_archives)
+        if checker.find_missing_digests():
+            has_missing_paths = True
         catalog.close()
-        print("OK.")
 
-    print("reconciling index against AWS Glacier archive...")
-    checker = IndexArchiveConsistencyChecker(config.uuid(), index, glacier_client, args.poll_interval)
-    checker.reconcile()
-    print("OK.")
+    if has_missing_paths or missing_archives:
+        print("FAILURE: data is missing")
+    else:
+        print("OK")
 
 def _find_all_catalogs(config):
     files = [f for f in os.listdir(config.catalog_dir_location())]

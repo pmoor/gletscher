@@ -12,32 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from Crypto import Random
-from Crypto.Cipher import AES
 import bz2
 import hashlib
 import hmac
 
+from Crypto import Random
+from Crypto.Cipher import AES
+from Crypto.Cipher.XOR import XORCipher
+
+
 class Crypter(object):
     IV_SIZE = AES.block_size
 
+    CURRENT_SERIALIZATION_VERSION = 2
+    NO_COMPRESSION_PREFIX = b"\x00"
+    BZIP2_COMPRESSION_PREFIX = b"\x01"
+
     def __init__(self, secret_key):
-        assert len(secret_key) == 32
         self._secret_key = secret_key
 
     def new_cipher(self, iv=None):
         if not iv:
             iv = Random.new().read(AES.block_size)
         assert len(iv) == AES.block_size
-        return iv, AES.new(self._secret_key, AES.MODE_CFB, iv)
+        return iv, AES.new(self._secret_key, AES.MODE_CFB, iv, segment_size=8)
 
     def encrypt(self, chunk, iv=None):
         iv, cipher = self.new_cipher(iv)
-        return (iv, cipher.encrypt(bz2.compress(chunk)))
+        return iv, cipher.encrypt(chunk)
 
     def decrypt(self, iv, ciphertext):
         _, cipher = self.new_cipher(iv)
-        plaintext = bz2.decompress(cipher.decrypt(ciphertext))
+        plaintext = cipher.decrypt(ciphertext)
         return plaintext
 
     def newHMAC(self):
@@ -47,6 +53,54 @@ class Crypter(object):
         hmac = self.newHMAC()
         hmac.update(value)
         return hmac.digest()
+
+    def EncryptChunk(self, digest, chunk):
+        key = XORCipher(digest).encrypt(self._secret_key)
+        iv = Random.new().read(AES.block_size)
+        cipher = AES.new(key, AES.MODE_CFB, iv, segment_size=8)
+
+        compressed_chunk = self._compressOrLeaveAlone(chunk)
+        return iv + cipher.encrypt(compressed_chunk)
+
+    def DecryptChunk(self, storage_version, digest, data):
+        if storage_version == 1:
+            iv = data[4:20]
+            cipher = AES.new(self._secret_key, AES.MODE_CFB, iv, segment_size=8)
+            return bz2.decompress(cipher.decrypt(data[20:]))
+        elif storage_version == 2:
+            key = XORCipher(digest).encrypt(self._secret_key)
+            iv = data[:AES.block_size]
+            cipher = AES.new(key, AES.MODE_CFB, iv, segment_size=8)
+
+            compressed_chunk = cipher.decrypt(data[AES.block_size:])
+            return self._decompressOrLeaveAlone(compressed_chunk)
+        else:
+            raise Exception("unknown storage version: %d" % storage_version)
+
+    def _decompressOrLeaveAlone(self, compressed_chunk):
+        if compressed_chunk[0] == 0:
+            return compressed_chunk[1:]
+        else:
+            return bz2.decompress(compressed_chunk[1:])
+
+    def _compressOrLeaveAlone(self, chunk):
+        if len(chunk) < 128 * 1024:
+            # chunk is small enough - simply compress the whole thing
+            compressed = bz2.compress(chunk)
+            if len(compressed) < len(chunk):
+                # any saving is fine - we've already paid the cost of compression
+                return Crypter.BZIP2_COMPRESSION_PREFIX + compressed
+            else:
+                return Crypter.NO_COMPRESSION_PREFIX + chunk
+        else:
+            # chunk is large - compress 64KB from the middle
+            middle = len(chunk) // 2
+            test_data = chunk[middle - 32 * 1024:middle + 32 * 1024]
+            compressed = bz2.compress(test_data)
+            if len(compressed) < 0.90 * len(test_data):
+                return Crypter.BZIP2_COMPRESSION_PREFIX + bz2.compress(chunk)
+            else:
+                return Crypter.NO_COMPRESSION_PREFIX + chunk
 
 
 class TreeHasher(object):

@@ -17,6 +17,8 @@ import os
 import stat
 import struct
 
+CURRENT_CATALOG_VERSION = 1
+
 class _FakeStat(object):
     def __init__(self, mode, size, mtime, uid, gid):
         self.st_mode = mode
@@ -27,9 +29,7 @@ class _FakeStat(object):
 
 
 class CatalogEntry(object):
-    def __init__(self, full_path, file_stat):
-        assert type(full_path) == bytes
-        self._full_path = full_path
+    def __init__(self, file_stat):
         self._mode = int(file_stat.st_mode)
         self._size = int(file_stat.st_size)
         self._mtime = int(file_stat.st_mtime)
@@ -44,10 +44,10 @@ class CatalogEntry(object):
                 or int(file_stat.st_gid) != self._gid)
 
     def serialize(self):
-        data = struct.pack(">L", len(self._full_path))
-        data += self._full_path
-        data += struct.pack(">LQQLL", self._mode, self._size, self._mtime,
-                            self._uid, self._gid)
+        data = struct.pack(
+            ">BLQQLL",
+            CURRENT_CATALOG_VERSION,
+            self._mode, self._size, self._mtime, self._uid, self._gid)
         return data
 
     def is_regular_file(self):
@@ -65,27 +65,25 @@ class CatalogEntry(object):
     @staticmethod
     def unserialize(entry):
         f = io.BytesIO(entry)
-        path_length, = struct.unpack(">L", f.read(4))
-        full_path = f.read(path_length)
-        file_stat = _FakeStat(*struct.unpack(">LQQLL", f.read(28)))
-
+        version, *stat_values = struct.unpack(">BLQQLL", f.read(29))
+        file_stat = _FakeStat(*stat_values)
         if stat.S_ISLNK(file_stat.st_mode):
             target_length, = struct.unpack(">L", f.read(4))
             target = f.read(target_length)
-            return LinkCatalogEntry(full_path, file_stat, target)
+            return LinkCatalogEntry(file_stat, target)
         elif stat.S_ISREG(file_stat.st_mode):
             digest_count, = struct.unpack(">L", f.read(4))
             digests = []
             for i in range(digest_count):
                 digests.append(f.read(32))
-            return FileCatalogEntry(full_path, file_stat, digests)
+            return FileCatalogEntry(file_stat, digests)
         else:
-            return CatalogEntry(full_path, file_stat)
+            return CatalogEntry(file_stat)
 
 
 class FileCatalogEntry(CatalogEntry):
-    def __init__(self, full_path, file_stat, digests):
-        super(FileCatalogEntry, self).__init__(full_path, file_stat)
+    def __init__(self, file_stat, digests):
+        super(FileCatalogEntry, self).__init__(file_stat)
         self._digests = tuple(digests)
 
     def serialize(self):
@@ -100,8 +98,8 @@ class FileCatalogEntry(CatalogEntry):
 
 
 class LinkCatalogEntry(CatalogEntry):
-    def __init__(self, full_path, file_stat, target):
-        super(LinkCatalogEntry, self).__init__(full_path, file_stat)
+    def __init__(self, file_stat, target):
+        super(LinkCatalogEntry, self).__init__(file_stat)
         assert type(target) == bytes
         self._target = target
 
@@ -120,7 +118,7 @@ class Catalog(object):
         self._db = db
 
     def add_file(self, full_path, file_stat, digests, total_length):
-        entry = FileCatalogEntry(full_path, file_stat, digests)
+        entry = FileCatalogEntry(file_stat, digests)
         # adjust total file size to match chunk length
         entry.set_size(total_length)
 
@@ -129,10 +127,9 @@ class Catalog(object):
     def add(self, full_path, file_stat):
         if stat.S_ISLNK(file_stat.st_mode):
             self._db[full_path] = LinkCatalogEntry(
-                full_path, file_stat, os.readlink(full_path)).serialize()
+                file_stat, os.readlink(full_path)).serialize()
         else:
-            self._db[full_path] = CatalogEntry(
-                full_path, file_stat).serialize()
+            self._db[full_path] = CatalogEntry(file_stat).serialize()
 
     def find(self, full_path):
         entry = self._db.get(full_path)
@@ -160,10 +157,3 @@ class Catalog(object):
                     break
             if matches:
                 yield full_path, CatalogEntry.unserialize(self._db[full_path])
-
-    def MergeWith(self, other_db):
-        k = other_db.firstkey()
-        while k is not None:
-            self._db[k] = other_db[k]
-            k = other_db.nextkey(k)
-        self._db.sync()

@@ -19,8 +19,7 @@ import gletscher.commands.backup
 from gletscher.commands.download_catalog import download_catalog_command
 import gletscher.commands.new
 import gletscher.commands.reconcile
-from gletscher.commands.search_catalog import search_catalog_command
-import gletscher.commands.upload_catalog
+import gletscher.commands.restore
 from gletscher.commands.glacier_list_jobs import glacier_list_jobs_command
 from gletscher.commands.glacier_retrieve_job_output import glacier_retrieve_job_output_command
 
@@ -38,16 +37,7 @@ subparsers = parser.add_subparsers(
 gletscher.commands.new.register(subparsers)
 gletscher.commands.backup.register(subparsers)
 gletscher.commands.reconcile.register(subparsers)
-gletscher.commands.upload_catalog.register(subparsers)
-
-# Search Catalog
-search_catalog_parser = subparsers.add_parser(
-    "search_catalog", help="looks for files in a catalog")
-search_catalog_parser.add_argument(
-    "--catalog", help="catalog to search", default="default")
-search_catalog_parser.add_argument(
-    "reg_exps", help="regular expressions to match against", nargs="+")
-search_catalog_parser.set_defaults(fn=search_catalog_command)
+gletscher.commands.restore.register(subparsers)
 
 # Download Catalog
 download_catalog_parser = subparsers.add_parser(

@@ -1,4 +1,4 @@
-# Copyright 2012 Patrick Moor <patrick@moor.ws>
+# Copyright 2013 Patrick Moor <patrick@moor.ws>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,30 +14,31 @@
 
 import json
 import logging
-import struct
+from Crypto import Random
+from Crypto.Random import random
 from gletscher import hex
 
 logger = logging.getLogger(__name__)
 
-VERSION_STRING = b"gletscher-data-v000"
+# storage version 1: [4 byte big endian length prefix][16 byte AES IV][ciphertext]
+#                    length is length of IV and ciphertext combined
+#                    stored in index: offset, overall length (4 + 16 + len(ciphertext))
+#                    ciphertext is aes256(bz2.compress(chunk))
+#
+# storage version 2: [(16 byte AES IV) ^ (first 16 bytes of digest)][ciphertext]
+#                    ciphertext is aes256(compression indicator byte | (compressed) plaintext)
+#                    compression indicator: 0 - no compression
+#                                           1 - bz2.compress
 
+class ChunkStreamer(object):
 
-class DataStreamer(object):
-    """
-    The file starts with the string "gletscher-data-v000" and then
-    contains a collection of records:
-
-      [4 byte big endian length][16 byte AES IV][ciphertext]
-
-    The length is the byte length of the IV and the ciphertext combined.
-    """
     def __init__(self, index, streaming_uploader, crypter, backup_id):
         self._index = index
         self._streaming_uploader = streaming_uploader
         self._crypter = crypter
         self._backup_id = backup_id
 
-        self._max_file_size = 2 * 1024 * 1024 * 1024
+        self._max_file_size = 4 * 1024 * 1024 * 1024
         self._max_pending_digests = 256 * 1024
 
         self._pending_upload = None
@@ -52,22 +53,18 @@ class DataStreamer(object):
 
         logger.debug("new chunk: %s", hex.b2h(digest))
 
-        iv, ciphertext = self._crypter.encrypt(chunk)
-
+        encrypted = self._crypter.EncryptChunk(digest, chunk)
         start_offset = self._pending_upload.bytes_written()
 
-        length_prefix = struct.pack(">L", len(iv) + len(ciphertext))
-        total_length = len(length_prefix) + len(iv) + len(ciphertext)
-
-        if (start_offset + total_length > self._max_file_size
+        if (start_offset + len(encrypted) > self._max_file_size
                 or len(self._pending_digests) >= self._max_pending_digests):
             self._finish_upload()
             self._start_new_upload()
 
-        self._pending_upload.write(length_prefix)
-        self._pending_upload.write(iv)
-        self._pending_upload.write(ciphertext)
-        self._pending_digests[digest] = (start_offset, total_length, len(chunk))
+        self._pending_upload.write(encrypted)
+        self._pending_digests[digest] = (
+            self._crypter.CURRENT_SERIALIZATION_VERSION,
+            start_offset, len(encrypted), len(chunk))
 
     def finish(self):
         if self._pending_upload:
@@ -75,10 +72,14 @@ class DataStreamer(object):
 
     def _start_new_upload(self):
         logger.info("starting a new upload")
-        description = json.dumps({"backup": str(self._backup_id), "type": "data"})
+        description = json.dumps(
+            {"backup": str(self._backup_id), "type": "data"},
+            sort_keys=True)
         self._pending_upload = self._streaming_uploader.new_upload(description)
-        self._pending_upload.write(VERSION_STRING)
         self._pending_digests = {}
+        # add a random amount of data at the beginning of the file
+        random_data = Random.new().read(random.randint(0, 127))
+        self._pending_upload.write(random_data)
 
     def _finish_upload(self):
         logger.info("finishing current upload")
