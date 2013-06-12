@@ -39,7 +39,7 @@ def register(subparsers):
     backup_parser.add_argument(
         "--catalog", help="catalog name to use", required=False, default="default")
     backup_parser.add_argument(
-        "--exclude", help="files or directories to exclude", action="append")
+        "--exclude", help="files or directories to exclude", action="append", default=[])
     backup_parser.add_argument(
         "files", metavar="file", nargs="+",
         help="a set of files and directories to be backed-up")
