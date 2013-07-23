@@ -17,14 +17,15 @@
 import argparse
 import gletscher.commands.backup
 from gletscher.commands.download_catalog import download_catalog_command
-import gletscher.commands.new
+import gletscher.commands.initialize
 import gletscher.commands.reconcile
 import gletscher.commands.restore
 from gletscher.commands.glacier_list_jobs import glacier_list_jobs_command
 from gletscher.commands.glacier_retrieve_job_output import glacier_retrieve_job_output_command
 
 parser = argparse.ArgumentParser(
-    description="Tool for backing up files to Amazon's Glacier Service.")
+    description="Tool for backing up files to Amazon's Glacier Service.",
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument(
     "-c", "--config", help="the configuration directory to use", required=True)
 
@@ -34,7 +35,7 @@ subparsers = parser.add_subparsers(
     help="such as these",
     dest="command")
 
-gletscher.commands.new.register(subparsers)
+gletscher.commands.initialize.register(subparsers)
 gletscher.commands.backup.register(subparsers)
 gletscher.commands.reconcile.register(subparsers)
 gletscher.commands.restore.register(subparsers)

@@ -22,12 +22,12 @@ logger = logging.getLogger(__name__)
 
 def register(subparsers):
     new_parser = subparsers.add_parser(
-        "new", help="creates a new back-up configuration")
+        "initialize", help="initializes a new back-up configuration")
     new_parser.set_defaults(fn=command)
 
 def command(args):
     if os.path.isdir(args.config):
-        print("the configuration directory must not exist yet")
+        print("the configuration directory already exists at %s" % args.config, file=sys.stderr)
         sys.exit(1)
     os.mkdir(args.config)
     assert os.path.isdir(args.config)
