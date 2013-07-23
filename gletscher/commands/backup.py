@@ -69,13 +69,7 @@ def command(args):
             base_entry = global_catalog.find(full_path)
             if base_entry and not base_entry.has_changed(file_stat):
                 # make sure we still have all the pieces in the index
-                all_digests_in_index = True
-                for digest in base_entry.digests():
-                    if not main_index.contains(digest):
-                        all_digests_in_index = False
-                        break
-
-                if all_digests_in_index:
+                if all(main_index.contains(digest) for digest in base_entry.digests()):
                     # we've got this file covered
                     tmp_catalog.transfer(full_path, base_entry)
                     continue
