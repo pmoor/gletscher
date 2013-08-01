@@ -1,4 +1,4 @@
-*.pyc
+*.py[cod]
 /.idea
 /gletscher.iml
 __pycache__

@@ -27,7 +27,7 @@ setup(
     ],
     license="Apache License, Version 2.0",
     description="Fast Incremental Backups with Amazon's Glacier Service",
-    long_description=open("README").read(),
+    long_description=open("README.md.md").read(),
     author="Patrick Moor",
     author_email="patrick@moor.ws",
     url="https://github.com/pmoor/gletscher",
