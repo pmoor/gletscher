@@ -31,11 +31,19 @@ class FileScanner(object):
         for file in self._files:
             assert type(file) == bytes
             file = os.path.abspath(file)
-            file_stat = os.lstat(file)
+            try:
+                file_stat = os.lstat(file)
+            except FileNotFoundError:
+                print("file disappeared: %s" % file)
+                continue
             if stat.S_ISDIR(file_stat.st_mode):
                 for root, dirs, files in os.walk(
                         file, onerror=self._reportWalkError):
-                    dir_stat = os.lstat(root)
+                    try:
+                        dir_stat = os.lstat(root)
+                    except FileNotFoundError:
+                        print("file disappeared: %s" % root)
+                        continue
                     if self._skip(dir_stat):
                         print("skipping directory: %s" % root)
                         dirs.clear()
@@ -47,11 +55,15 @@ class FileScanner(object):
                     dirs.sort()
                     for path in files:
                         full_path = os.path.join(root, path)
-                        file_stat = os.lstat(full_path)
+                        try:
+                            file_stat = os.lstat(full_path)
+                        except FileNotFoundError:
+                            print("file disappeared: %s" % full_path)
+                            continue
                         if stat.S_ISLNK(file_stat.st_mode):
                             yield full_path, file_stat
                         else:
-                          yield from self._skipOrYield(full_path, file_stat)
+                            yield from self._skipOrYield(full_path, file_stat)
             elif stat.S_ISLNK(file_stat.st_mode):
                 yield file, file_stat
             else:
