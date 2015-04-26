@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import dbm
 import os
 import sys
 from gletscher.config import BackupConfiguration
@@ -33,4 +34,5 @@ def command(args):
     assert os.path.isdir(args.config)
 
     config = BackupConfiguration.NewEmptyConfiguration(args.config)
-    Index.CreateEmpty(config.index_dir_location())
+    dbm.gnu.open(config.index_file_location(), "nf", 0o600)
+    dbm.gnu.open(config.global_catalog_location(), "nf", 0o600)
