@@ -24,6 +24,32 @@
     <artifactId>gletscher</artifactId>
     <version>0.1-SNAPSHOT</version>
 
+    <name>Gletscher</name>
+    <description>Google Cloud Storage Backup Tool.</description>
+    <url>https://github.com/pmoor/gletscher</url>
+
+    <licenses>
+        <license>
+            <name>The Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>pmoor</id>
+            <name>Patrick Moor</name>
+            <email>patrick@moor.ws</email>
+            <url>https://github.com/pmoor</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git://github.com/pmoor/gletscher.git</connection>
+        <developerConnection>scm:git:git://github.com/pmoor/gletscher.git</developerConnection>
+        <url>https://github.com/pmoor/gletscher</url>
+    </scm>
+
     <build>
         <plugins>
             <plugin>
