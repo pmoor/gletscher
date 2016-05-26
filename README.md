@@ -1,4 +1,4 @@
 Gletscher
 =========
 
-AWS Glacier Backup Tool
+Google Cloud Storage Backup Tool
