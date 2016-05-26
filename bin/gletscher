@@ -22,12 +22,16 @@ import gletscher.commands.reconcile
 import gletscher.commands.restore
 from gletscher.commands.glacier_list_jobs import glacier_list_jobs_command
 from gletscher.commands.glacier_retrieve_job_output import glacier_retrieve_job_output_command
+import gletscher.config
 
 parser = argparse.ArgumentParser(
     description="Tool for backing up files to Amazon's Glacier Service.",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument(
-    "-c", "--config", help="the configuration directory to use", required=True)
+    "-c", "--config",
+    type=str,
+    default=gletscher.config.GetDefaultConfigLocation(),
+    help="the configuration directory to use")
 
 subparsers = parser.add_subparsers(
     title="Supported gletscher.commands",

@@ -23,6 +23,26 @@ from Crypto import Random
 from gletscher.crypto import Crypter
 from gletscher import hex
 
+def GetDefaultConfigLocation(env=os.environ):
+    if "XDG_CONFIG_HOME" in env:
+        return os.path.join(env["XDG_CONFIG_HOME"], "gletscher")
+    elif "HOME" in env:
+        return os.path.join(env["HOME"], ".config", "gletscher")
+
+
+def GetDefaultDataLocation(env=os.environ):
+    if "XDG_DATA_HOME" in env:
+        return os.path.join(env["XDG_DATA_HOME"], "gletscher")
+    elif "HOME" in env:
+        return os.path.join(env["HOME"], ".local", "share", "gletscher")
+
+
+def GetDefaultCacheLocation(env=os.environ):
+    if "XDG_CACHE_HOME" in env:
+        return os.path.join(env["XDG_CACHE_HOME"], "gletscher")
+    elif "HOME" in env:
+        return os.path.join(env["HOME"], ".cache", "gletscher")
+
 
 class BackupConfiguration(object):
     @staticmethod
