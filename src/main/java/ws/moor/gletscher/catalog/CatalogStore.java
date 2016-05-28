@@ -17,7 +17,7 @@
 package ws.moor.gletscher.catalog;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Futures;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -28,6 +28,8 @@ import ws.moor.gletscher.proto.Gletscher;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public class CatalogStore {
@@ -59,15 +61,17 @@ public class CatalogStore {
     return String.format("backups/%s", dateTimeFormatter.format(now));
   }
 
-  public Gletscher.BackupRecord findLatestBackup() {
-    CloudFileStorage.FileHeader last = Iterators.getLast(storage.listFiles("backups/"), null);
-    if (last == null) {
-      return null;
+  public List<Gletscher.BackupRecord> findLastBackups(int count) {
+    List<Gletscher.BackupRecord> records = new ArrayList<>(count);
+
+    List<CloudFileStorage.FileHeader> files = Lists.newArrayList(storage.listFiles("backups/"));
+    for (int i = files.size() - 1; i >= 0 && i >= files.size() - count; i--) {
+      try {
+        records.add(Gletscher.BackupRecord.parseFrom(Futures.getUnchecked(storage.get(files.get(i).name))));
+      } catch (InvalidProtocolBufferException e) {
+        // ignore
+      }
     }
-    try {
-      return Gletscher.BackupRecord.parseFrom(Futures.getUnchecked(storage.get(last.name)));
-    } catch (InvalidProtocolBufferException e) {
-      return null;
-    }
+    return records;
   }
 }

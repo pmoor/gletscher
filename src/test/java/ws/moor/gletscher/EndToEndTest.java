@@ -17,33 +17,17 @@
 package ws.moor.gletscher;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.jimfs.Jimfs;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import ws.moor.gletscher.blocks.BlockStore;
-import ws.moor.gletscher.blocks.PersistedBlock;
-import ws.moor.gletscher.blocks.Signature;
-import ws.moor.gletscher.catalog.CatalogReader;
-import ws.moor.gletscher.catalog.CatalogStore;
-import ws.moor.gletscher.cloud.*;
-import ws.moor.gletscher.files.FileSystemReader;
-import ws.moor.gletscher.proto.Gletscher;
-import ws.moor.gletscher.util.Compressor;
-import ws.moor.gletscher.util.Cryptor;
-import ws.moor.gletscher.util.Signer;
-import ws.moor.gletscher.util.StreamSplitter;
+import ws.moor.gletscher.cloud.CloudFileStorage;
+import ws.moor.gletscher.cloud.InMemoryCloudFileStorage;
 
-import java.io.BufferedOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
-import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -55,57 +39,26 @@ import static com.google.common.truth.Truth.assertThat;
 public class EndToEndTest {
 
   @Test
-  public void testSomething() throws IOException {
+  public void testSomething() throws Exception {
     FileSystem fs = Jimfs.newFileSystem();
+    CloudFileStorage inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
+    GletscherMain gletscherMain = new GletscherMain(fs, System.in, System.out, System.err);
+    gletscherMain.setCloudFileStorageForTesting(inMemoryStorage);
 
     Files.write(fs.getPath("/config.properties"),
         ("cache_dir /tmp/cache\n" +
             "secret_key 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\n").getBytes(StandardCharsets.UTF_8));
+    Files.createDirectories(fs.getPath("/tmp/cache"));
+
     createRandomFileTree(fs.getPath("/home/pmoor"), 4);
-
-    Configuration config = new Configuration(fs.getPath("/config.properties"));
-    Files.createDirectories(config.getLocalCacheDir());
-
-    ListeningExecutorService executor = MoreExecutors.newDirectExecutorService();
-    InMemoryCloudFileStorage bottomStorage = new InMemoryCloudFileStorage(executor);
-    CountingCloudFileStorage countingStorage = new CountingCloudFileStorage(bottomStorage);
-    CloudFileStorage cloudFileStorage = new CachingCloudFileStorage(countingStorage, config.getLocalCacheDir(), executor);
-    cloudFileStorage = new SigningCloudFileStorage(cloudFileStorage, new Signer(config.getSigningKey()));
-    cloudFileStorage = new EncryptingCloudFileStorage(cloudFileStorage, new Cryptor(config.getEncryptionKey()));
-    cloudFileStorage = new CompressingCloudFileStorage(cloudFileStorage, new Compressor());
-
-    BlockStore blockStore = new BlockStore(cloudFileStorage, new Signer(config.getSigningKey()));
-    StreamSplitter splitter = config.getStreamSplitter();
-    CatalogStore catalogStore = new CatalogStore(cloudFileStorage, Clock.systemUTC());
-    Gletscher.BackupRecord lastBackup = catalogStore.findLatestBackup();
-    assertThat(lastBackup).isNull();
-    // TODO(pmoor): implement null catalog reader
-    PersistedBlock lastBackupRoot = new PersistedBlock(Signature.randomForTest(), 10);
-    CatalogReader catalogReader = new CatalogReader(blockStore, lastBackupRoot);
-    FileSystemReader<PersistedBlock> fileSystemReader = new FileSystemReader<>(
-        ImmutableSet.of(fs.getPath("/home/pmoor")), config.getSkippedPaths());
-
-    BackUpper backUpper = new BackUpper(catalogReader, splitter, blockStore);
-    PersistedBlock newRoot = fileSystemReader.start(backUpper);
-    System.out.println("new root: " + newRoot);
-    System.out.println(countingStorage);
-    catalogStore.store(newRoot);
+    assertThat(gletscherMain.run("-c", "/config.properties", "backup", "/home/pmoor")).isEqualTo(0);
 
     // second run
     createRandomFileTree(fs.getPath("/", "home", "pmoor", "new child"), 2);
     createRandomFileTree(fs.getPath("/", "home", "cmoor"), 3);
-    lastBackup = catalogStore.findLatestBackup();
-    lastBackupRoot = PersistedBlock.fromProto(lastBackup.getRootDirectory());
-    catalogReader = new CatalogReader(blockStore, lastBackupRoot);
-    fileSystemReader = new FileSystemReader<>(
-        ImmutableSet.of(fs.getPath("/home/pmoor"), fs.getPath("/home/cmoor")), config.getSkippedPaths());
-    backUpper = new BackUpper(catalogReader, splitter, blockStore);
-    PersistedBlock newNewRoot = fileSystemReader.start(backUpper);
-    System.out.println("new new root: " + newNewRoot);
-    System.out.println(countingStorage);
+    assertThat(gletscherMain.run("-c", "/config.properties", "backup", "/home/pmoor", "/home/cmoor")).isEqualTo(0);
 
-
-    restore(blockStore, newNewRoot, fs.getPath("/", "tmp", "restore"));
+    assertThat(gletscherMain.run("-c", "/config.properties", "restore", "/tmp/restore")).isEqualTo(0);
 
     compare(fs.getPath("/", "home", "pmoor"), fs.getPath("/", "tmp", "restore", "home", "pmoor"));
     compare(fs.getPath("/", "home", "cmoor"), fs.getPath("/", "tmp", "restore", "home", "cmoor"));
@@ -160,43 +113,6 @@ public class EndToEndTest {
     } else {
       System.out.println("unsupported type: " + path1);
     }
-  }
-
-  private void restore(BlockStore blockStore, PersistedBlock root, Path restoreRoot) throws IOException {
-    Preconditions.checkState(!Files.exists(restoreRoot, LinkOption.NOFOLLOW_LINKS));
-    Files.createDirectories(restoreRoot);
-
-    Gletscher.Directory rootDir = Gletscher.Directory.parseFrom(Futures.getUnchecked(blockStore.retrieve(root)));
-    restoreInner(blockStore, rootDir, restoreRoot);
-  }
-
-  private void restoreInner(BlockStore blockStore, Gletscher.Directory dir, Path path) throws IOException {
-    for (Gletscher.DirectoryEntry entry : dir.getEntryList()) {
-      switch (entry.getTypeCase()) {
-        case FILE:
-          OutputStream fos = new BufferedOutputStream(Files.newOutputStream(path.resolve(entry.getFile().getName()), StandardOpenOption.CREATE_NEW));
-          for (Gletscher.PersistedBlock block : entry.getFile().getBlockList()) {
-            byte[] data = Futures.getUnchecked(blockStore.retrieve(PersistedBlock.fromProto(block)));
-            fos.write(data);
-          }
-          fos.close();
-          break;
-        case DIRECTORY:
-          Path childPath = path.resolve(entry.getDirectory().getName());
-          Gletscher.Directory childDir = Gletscher.Directory.parseFrom(
-              Futures.getUnchecked(blockStore.retrieve(PersistedBlock.fromProto(entry.getDirectory().getBlock()))));
-          Files.createDirectory(childPath);
-          restoreInner(blockStore, childDir, childPath);
-          break;
-        case SYMLINK:
-          Files.createSymbolicLink(path.resolve(entry.getSymlink().getName()),
-              path.getFileSystem().getPath(entry.getSymlink().getTarget()));
-          break;
-        default:
-          throw new IllegalArgumentException(entry.toString());
-      }
-    }
-
   }
 
   private void createRandomFileTree(Path root, int maxLevels) throws IOException {

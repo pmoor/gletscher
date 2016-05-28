@@ -18,7 +18,6 @@ package ws.moor.gletscher.cloud;
 
 import com.google.common.base.Function;
 import com.google.common.hash.HashCode;
-import com.google.common.util.concurrent.AtomicLongMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -42,7 +41,6 @@ public class CountingCloudFileStorage implements CloudFileStorage {
 
   @Override
   public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata) {
-    System.out.println("store: " + name);
     storeCount.incrementAndGet();
     storeSize.getAndAdd(data.length);
     return delegate.store(name, data, md5, metadata);
@@ -55,14 +53,12 @@ public class CountingCloudFileStorage implements CloudFileStorage {
 
   @Override
   public ListenableFuture<Boolean> exists(String name) {
-    System.out.println("exists: " + name);
     existsCount.incrementAndGet();
     return delegate.exists(name);
   }
 
   @Override
   public ListenableFuture<byte[]> get(String name) {
-    System.out.println("getting: " + name);
     ListenableFuture<byte[]> future = delegate.get(name);
     return Futures.transform(future, (Function<byte[], byte[]>) input -> {
       getCount.incrementAndGet();

@@ -16,23 +16,25 @@
 
 package ws.moor.gletscher.catalog;
 
-import ws.moor.gletscher.blocks.PersistedBlock;
-
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.List;
 
-public interface CatalogReader {
-  FileInformation findFile(Path path);
+public class CompositeCatalogReader implements CatalogReader {
 
-  final class FileInformation {
+  private final List<CatalogReader> readers;
 
-    public final Instant lastModifiedTime;
-    public final List<PersistedBlock> blockList;
+  public CompositeCatalogReader(List<CatalogReader> readers) {
+    this.readers = readers;
+  }
 
-    FileInformation(Instant lastModifiedTime, List<PersistedBlock> blockList) {
-      this.lastModifiedTime = lastModifiedTime;
-      this.blockList = blockList;
+  @Override
+  public FileInformation findFile(Path path) {
+    for (CatalogReader reader : readers) {
+      FileInformation file = reader.findFile(path);
+      if (file != null) {
+        return file;
+      }
     }
+    return null;
   }
 }

@@ -21,11 +21,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.catalog.CatalogReader;
+import ws.moor.gletscher.catalog.RootCatalogReader;
 import ws.moor.gletscher.files.FileSystemReader;
 import ws.moor.gletscher.proto.Gletscher;
 import ws.moor.gletscher.util.StreamSplitter;
 
 import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -37,11 +39,15 @@ public class BackUpper implements FileSystemReader.Visitor<PersistedBlock> {
   private final CatalogReader catalogReader;
   private final StreamSplitter splitter;
   private final BlockStore blockStore;
+  private final PrintStream stdout;
+  private final PrintStream stderr;
 
-  public BackUpper(CatalogReader catalogReader, StreamSplitter splitter, BlockStore blockStore) {
+  public BackUpper(CatalogReader catalogReader, StreamSplitter splitter, BlockStore blockStore, PrintStream stdout, PrintStream stderr) {
     this.catalogReader = catalogReader;
     this.splitter = splitter;
     this.blockStore = blockStore;
+    this.stdout = stdout;
+    this.stderr = stderr;
   }
 
   @Override
@@ -52,12 +58,12 @@ public class BackUpper implements FileSystemReader.Visitor<PersistedBlock> {
       if (entry.isRegularFile()) {
         Instant currentLastModifiedTime = entry.attributes.lastModifiedTime().toInstant();
 
-        CatalogReader.FileInformation existingFile = catalogReader.findFile(entry.path);
+        RootCatalogReader.FileInformation existingFile = catalogReader.findFile(entry.path);
         if (existingFile == null || !existingFile.lastModifiedTime.equals(currentLastModifiedTime)) {
           if (existingFile == null) {
-            System.out.println("new file: " + entry.path);
+            stdout.println("new file: " + entry.path);
           } else {
-            System.out.println("changed file: " + entry.path);
+            stdout.println("changed file: " + entry.path);
           }
 
           Gletscher.FileEntry.Builder fileBuilder = Gletscher.FileEntry.newBuilder()
@@ -72,7 +78,7 @@ public class BackUpper implements FileSystemReader.Visitor<PersistedBlock> {
             }
             dirProtoBuilder.addEntryBuilder().setFile(fileBuilder);
           } catch (IOException e) {
-            System.out.println("failed to read file: " + entry.path);
+            stderr.println("failed to read file: " + entry.path);
           }
         } else {
           // matching
@@ -91,7 +97,7 @@ public class BackUpper implements FileSystemReader.Visitor<PersistedBlock> {
               .setTarget(Files.readSymbolicLink(entry.path).toString());
           dirProtoBuilder.addEntryBuilder().setSymlink(symlinkBuilder);
         } catch (IOException e) {
-          System.out.println("couldn't resolve symlink: " + entry.path);
+          stderr.println("couldn't resolve symlink: " + entry.path);
         }
       } else if (entry.isDirectory()) {
         Gletscher.ChildDirectoryEntry.Builder childDirBuilder = Gletscher.ChildDirectoryEntry.newBuilder()
@@ -99,7 +105,7 @@ public class BackUpper implements FileSystemReader.Visitor<PersistedBlock> {
             .setBlock(recursor.recurse(entry.path).toProto());
         dirProtoBuilder.addEntryBuilder().setDirectory(childDirBuilder);
       } else {
-        System.out.printf("skipping unknown file type: %s\n", entry.path);
+        stderr.printf("skipping unknown file type: %s\n", entry.path);
       }
     }
 

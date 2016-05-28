@@ -139,7 +139,7 @@ public class RollingHashTest {
       sum += runLength;
     }
 
-    System.err.printf("avg: %d\n", sum / runs.size());
+    System.out.printf("avg: %d\n", sum / runs.size());
   }
 
   @Test
@@ -165,10 +165,10 @@ public class RollingHashTest {
         a.reset();
       }
     }
-    System.err.println(runs);
-    System.err.println(greater16);
-    System.err.println(min);
-    System.err.println(max);
-    System.err.println((4L << 30) / runs);
+    System.out.println(runs);
+    System.out.println(greater16);
+    System.out.println(min);
+    System.out.println(max);
+    System.out.println((4L << 30) / runs);
   }
 }

@@ -17,9 +17,12 @@
 package ws.moor.gletscher.files;
 
 import com.google.api.client.repackaged.com.google.common.base.Preconditions;
-import com.google.common.collect.*;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.TreeMultimap;
 
 import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -39,13 +42,15 @@ public class FileSystemReader<T> {
 
   private final Set<Path> roots;
   private final Set<Path> skippedPaths;
+  private final PrintStream stderr;
 
-  public FileSystemReader(Set<Path> paths, Set<Path> skippedPaths) throws IOException {
+  public FileSystemReader(Set<Path> paths, Set<Path> skippedPaths, PrintStream stderr) throws IOException {
     roots = new TreeSet<>();
     for (Path path : paths) {
       roots.add(path.toRealPath());
     }
     this.skippedPaths = ImmutableSet.copyOf(skippedPaths);
+    this.stderr = stderr;
   }
 
   public T start(Visitor<T> visitor) {
@@ -93,11 +98,11 @@ public class FileSystemReader<T> {
                 });
               }
             } else {
-              System.out.println("unreadable: " + directory);
+              stderr.println("unreadable: " + directory);
             }
           }
         } catch (IOException | RuntimeException e) {
-          System.out.println("error while reading: " + directory);
+          stderr.println("error while reading: " + directory);
         }
         Collections.sort(entries);
         return visitor.visit(directory, entries, this);
