@@ -19,12 +19,14 @@ package ws.moor.gletscher.cloud;
 import com.google.api.client.repackaged.com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
 import com.google.common.hash.HashCode;
+import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
 import javax.annotation.Nullable;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -99,20 +101,39 @@ public class CachingCloudFileStorage implements CloudFileStorage {
 
   @Override
   public ListenableFuture<byte[]> get(String name) {
-    return executor.submit(() -> {
-      Path localPath = localCacheDir.resolve(name);
+    Path localPath = localCacheDir.resolve(name);
+    ListenableFuture<byte[]> data = executor.submit(() -> {
       if (Files.isRegularFile(localPath, LinkOption.NOFOLLOW_LINKS)) {
         existingFiles.add(name);
         return Files.readAllBytes(localPath);
       } else {
-        byte[] data = Futures.getUnchecked(delegate.get(name));
-        if (data != null) {
-          existingFiles.add(name);
-          Files.createDirectories(localPath.getParent());
-          Files.write(localPath, data, StandardOpenOption.CREATE_NEW);
-        }
-        return data;
+        return null;
       }
     });
+    data = Futures.transformAsync(data, new AsyncFunction<byte[], byte[]>() {
+      @Override public ListenableFuture<byte[]> apply(@Nullable byte[] bytes) throws Exception {
+        if (bytes == null) {
+          return delegate.get(name);
+        } else {
+          return Futures.immediateFuture(bytes);
+        }
+      }
+    });
+    Futures.addCallback(data, new FutureCallback<byte[]>() {
+      @Override public void onSuccess(@Nullable byte[] data) {
+        if (data != null) {
+          existingFiles.add(name);
+          try {
+            Files.createDirectories(localPath.getParent());
+            Files.write(localPath, data, StandardOpenOption.CREATE_NEW);
+          } catch (IOException e) {
+            // ignore
+          }
+        }
+      }
+
+      @Override public void onFailure(Throwable t) { }
+    }, executor);
+    return data;
   }
 }
