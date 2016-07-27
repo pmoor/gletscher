@@ -16,59 +16,71 @@
 
 package ws.moor.gletscher;
 
+import com.google.api.client.repackaged.com.google.common.base.Preconditions;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.BaseEncoding;
-import ws.moor.gletscher.blocks.PersistedBlock;
-import ws.moor.gletscher.blocks.Signature;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
 import ws.moor.gletscher.util.Cryptor;
 import ws.moor.gletscher.util.Signer;
 import ws.moor.gletscher.util.StreamSplitter;
 
 import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
-import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Properties;
+import java.util.Map;
 import java.util.Set;
 
 class Configuration {
 
   private final FileSystem fs;
-  private final Properties properties;
+  private final Map<String, Object> yaml;
 
-  public Configuration(Path propertiesPath) throws IOException {
-    this.fs = propertiesPath.getFileSystem();
+  static Configuration fromLines(FileSystem fs, String... lines) {
+    Yaml yaml = new Yaml(new SafeConstructor());
+    Map<String, Object> result = (Map<String, Object>) yaml.load(Joiner.on('\n').join(lines));
+    return new Configuration(fs, result);
+  }
 
-    properties = new Properties();
-    try (Reader reader = Files.newBufferedReader(propertiesPath)){
-      properties.load(reader);
-    }
+  static Configuration fromFile(Path configFile) throws IOException {
+    Yaml yaml = new Yaml(new SafeConstructor());
+    Map<String, Object> result =
+        (Map<String, Object>) yaml.load(Files.newBufferedReader(configFile, StandardCharsets.UTF_8));
+    return new Configuration(configFile.getFileSystem(), result);
+  }
+
+  private Configuration(FileSystem fs, Map<String, Object> yaml) {
+    Preconditions.checkArgument((int) yaml.get("version") == 1);
+
+    this.fs = fs;
+    this.yaml = yaml;
   }
 
   public SecretKeySpec getSigningKey() {
-    return new SecretKeySpec(BaseEncoding.base16().lowerCase().decode(properties.getProperty("secret_key")), Signer.MAC_ALGO);
+    return new SecretKeySpec((byte[]) yaml.get("secret_key"), Signer.MAC_ALGO);
   }
 
   public SecretKeySpec getEncryptionKey() {
-    return new SecretKeySpec(BaseEncoding.base16().lowerCase().decode(properties.getProperty("secret_key")), Cryptor.KEY_ALGO);
+    return new SecretKeySpec((byte[]) yaml.get("secret_key"), Cryptor.KEY_ALGO);
   }
 
   public String getBucketName() {
-    return properties.getProperty("gcs_bucket_name");
+    return (String) findGcsNode().get("bucket_name");
   }
 
   public Path getCredentialFilePath() {
-    return fs.getPath(properties.getProperty("gcs_credentials"));
+    return fs.getPath((String) findGcsNode().get("credentials"));
   }
 
   public String getFilePrefix() {
-    return properties.getProperty("gcs_object_prefix", "");
+    return (String) findGcsNode().get("object_prefix");
   }
 
   public Path getLocalCacheDir() {
-    return fs.getPath(properties.getProperty("cache_dir"));
+    return fs.getPath((String) yaml.get("cache_dir"));
   }
 
   public Set<Path> getSkippedPaths() {
@@ -76,11 +88,11 @@ class Configuration {
   }
 
   private int getMaxSplitSize() {
-    return Integer.parseInt(properties.getProperty("max_split_size", String.valueOf(32 << 20)));
+    return (int) yaml.get("max_split_size");
   }
 
   public StreamSplitter getStreamSplitter() {
-    switch (properties.getProperty("split_algorithm", "rolling")) {
+    switch ((String) yaml.get("split_algorithm")) {
       case "rolling":
         return StreamSplitter.rollingHashSplitter(getMaxSplitSize());
       case "fixed":
@@ -88,5 +100,13 @@ class Configuration {
       default:
         throw new IllegalArgumentException("unknown splitter type");
     }
+  }
+
+  public boolean disableCache() {
+    return (boolean) yaml.get("disable_cache");
+  }
+
+  private Map<String, Object> findGcsNode() {
+    return (Map<String, Object>) yaml.get("gcs");
   }
 }

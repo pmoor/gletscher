@@ -4,5 +4,5 @@
 /.idea
 /cache
 /protoc-bin
-/config.properties
+/config.yaml
 /backup.sh

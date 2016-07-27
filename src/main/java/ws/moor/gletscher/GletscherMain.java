@@ -83,7 +83,7 @@ class GletscherMain {
       return -1;
     }
 
-    Configuration config = new Configuration(fileSystem.getPath(commandLine.getOptionValue("config")));
+    Configuration config = Configuration.fromFile(fileSystem.getPath(commandLine.getOptionValue("config")));
     ThreadFactory threadFactory = new ThreadFactoryBuilder()
         .setNameFormat("gletscher-pool-%d")
         .setUncaughtExceptionHandler(UncaughtExceptionHandlers.systemExit())
@@ -96,7 +96,10 @@ class GletscherMain {
       cloudFileStorage = new GoogleCloudFileStorage(storage, config.getBucketName(), config.getFilePrefix(), executor);
     }
     CountingCloudFileStorage counting = new CountingCloudFileStorage(cloudFileStorage);
-    cloudFileStorage = new CachingCloudFileStorage(counting, config.getLocalCacheDir(), executor);
+    cloudFileStorage = counting;
+    if (!config.disableCache()) {
+      cloudFileStorage = new CachingCloudFileStorage(counting, config.getLocalCacheDir(), executor);
+    }
     cloudFileStorage = new SigningCloudFileStorage(cloudFileStorage, new Signer(config.getSigningKey()));
     cloudFileStorage = new EncryptingCloudFileStorage(cloudFileStorage, new Cryptor(config.getEncryptionKey()));
     cloudFileStorage = new CompressingCloudFileStorage(cloudFileStorage, new Compressor());

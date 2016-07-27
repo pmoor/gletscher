@@ -28,6 +28,7 @@ import ws.moor.gletscher.cloud.InMemoryCloudFileStorage;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -46,8 +47,12 @@ public class EndToEndTest {
     gletscherMain.setCloudFileStorageForTesting(inMemoryStorage);
 
     Files.write(fs.getPath("/config.properties"),
-        ("cache_dir /tmp/cache\n" +
-            "secret_key 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\n").getBytes(StandardCharsets.UTF_8));
+        ("version: 1\n" +
+            "cache_dir: /tmp/cache\n" +
+            "max_split_size: 65536\n" +
+            "disable_cache: true\n" +
+            "split_algorithm: rolling\n" +
+            "secret_key: !!binary AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n").getBytes(StandardCharsets.UTF_8));
     Files.createDirectories(fs.getPath("/tmp/cache"));
 
     createRandomFileTree(fs.getPath("/home/pmoor"), 4);
@@ -110,6 +115,12 @@ public class EndToEndTest {
         return;
       }
 
+      FileTime lastModifiedTime1 = Files.getLastModifiedTime(path1);
+      FileTime lastModifiedTime2 = Files.getLastModifiedTime(path2);
+      if (!lastModifiedTime1.equals(lastModifiedTime2)) {
+        System.out.printf("last modified times do not match for %s (%s): %d vs. %d\n", path1, path2, lastModifiedTime1, lastModifiedTime2);
+        return;
+      }
     } else {
       System.out.println("unsupported type: " + path1);
     }
@@ -122,12 +133,12 @@ public class EndToEndTest {
     List<String> names = new ArrayList<>();
 
     Random rnd = new Random();
-    int numFiles = 1 + rnd.nextInt(10 - maxLevels);
+    int numFiles = 1 + rnd.nextInt(Math.max(2, 10 - maxLevels));
     for (int i = 0; i < numFiles; i++) {
       String name = createRandomFileName(rnd);
       names.add(name);
       Path path = root.resolve(name);
-      int size = rnd.nextInt(8 << 20);
+      int size = rnd.nextInt(256 << 10);
       byte[] data = new byte[size];
       rnd.nextBytes(data);
 

@@ -27,8 +27,6 @@ import java.util.Iterator;
 
 public abstract class StreamSplitter {
 
-  public abstract Iterator<byte[]> split(InputStream is);
-
   public static StreamSplitter rollingHashSplitter(int maxBlockSize) {
     return new RollingHashStreamSplitter(maxBlockSize);
   }
@@ -37,12 +35,22 @@ public abstract class StreamSplitter {
     return new FixedSizeStreamSplitter(maxBlockSize);
   }
 
+  protected final int maxBlockSize;
+
+  private StreamSplitter(int maxBlockSize) {
+    this.maxBlockSize = maxBlockSize;
+  }
+
+  public abstract Iterator<byte[]> split(InputStream is);
+
+  public int getMaxBlockSize() {
+    return maxBlockSize;
+  }
+
   private static final class RollingHashStreamSplitter extends StreamSplitter {
 
-    private final int maxBlockSize;
-
     RollingHashStreamSplitter(int maxBlockSize) {
-      this.maxBlockSize = maxBlockSize;
+      super(maxBlockSize);
     }
 
     @Override public Iterator<byte[]> split(InputStream is) {
@@ -89,10 +97,8 @@ public abstract class StreamSplitter {
 
   private static class FixedSizeStreamSplitter extends StreamSplitter {
 
-    private final int maxBlockSize;
-
     FixedSizeStreamSplitter(int maxBlockSize) {
-      this.maxBlockSize = maxBlockSize;
+      super(maxBlockSize);
     }
 
     @Override public Iterator<byte[]> split(InputStream is) {
