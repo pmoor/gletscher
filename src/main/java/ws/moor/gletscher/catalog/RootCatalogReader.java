@@ -16,19 +16,25 @@
 
 package ws.moor.gletscher.catalog;
 
+import com.google.common.base.Function;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.cache.Weigher;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.InvalidProtocolBufferException;
 import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.proto.Gletscher;
 
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class RootCatalogReader implements CatalogReader {
 
@@ -57,15 +63,88 @@ public class RootCatalogReader implements CatalogReader {
       if (entry.getTypeCase() == Gletscher.DirectoryEntry.TypeCase.FILE) {
         Gletscher.FileEntry fileProto = entry.getFile();
         if (fileProto.getName().equals(path.getFileName().toString())) {
-          ImmutableList.Builder<PersistedBlock> builder = ImmutableList.builder();
-          for (Gletscher.PersistedBlock persistedBlock : fileProto.getBlockList()) {
-            builder.add(PersistedBlock.fromProto(persistedBlock));
-          }
-          return new FileInformation(Instant.ofEpochMilli(fileProto.getLastModifiedMillis()), builder.build());
+          return toFileInfo(path, fileProto);
         }
       }
     }
     return null;
+  }
+
+  private FileInformation toFileInfo(Path name, Gletscher.FileEntry fileProto) {
+    ImmutableList.Builder<PersistedBlock> builder = ImmutableList.builder();
+    for (Gletscher.PersistedBlock persistedBlock : fileProto.getBlockList()) {
+      builder.add(PersistedBlock.fromProto(persistedBlock));
+    }
+    return new FileInformation(name, Instant.ofEpochMilli(fileProto.getLastModifiedMillis()), builder.build());
+  }
+
+  public Iterator<FileInformation> walk() {
+    final Deque<PathAndBlock> stack = new ArrayDeque<>();
+    stack.add(new PathAndBlock(Paths.get("/"), root));
+    return new AbstractIterator<FileInformation>() {
+
+      private Path currentPath;
+      private Iterator<Gletscher.DirectoryEntry> currentDir;
+
+      @Override
+      protected FileInformation computeNext() {
+        while (currentDir != null && currentDir.hasNext()) {
+          Gletscher.DirectoryEntry next = currentDir.next();
+          switch (next.getTypeCase()) {
+            case FILE:
+              return toFileInfo(currentPath.resolve(next.getFile().getName()), next.getFile());
+            case DIRECTORY:
+              stack.push(new PathAndBlock(
+                  currentPath.resolve(next.getDirectory().getName()),
+                  PersistedBlock.fromProto(next.getDirectory().getBlock())));
+              break;
+            case SYMLINK:
+              break;
+            default:
+              // ignore
+          }
+        }
+
+        if (stack.isEmpty()) {
+          return endOfData();
+        }
+
+        PathAndBlock nextPair = stack.pop();
+        Gletscher.Directory nextDir = fetchDir(nextPair.block);
+        currentPath = nextPair.path;
+        currentDir = nextDir.getEntryList().iterator();
+        return computeNext();
+      }
+    };
+  }
+
+  public void prefetch() {
+    System.out.printf("total size: %d\n", Futures.getUnchecked(retrieveRecursive(root)));
+  }
+
+  private ListenableFuture<Long> retrieveRecursive(PersistedBlock directory) {
+    return Futures.transformAsync(blockStore.retrieve(directory), bytes -> {
+      List<ListenableFuture<Long>> children = new ArrayList<>();
+      Gletscher.Directory directory1 = parseDirectory(bytes);
+      for (Gletscher.DirectoryEntry entry : directory1.getEntryList()) {
+        if (entry.getTypeCase() == Gletscher.DirectoryEntry.TypeCase.DIRECTORY) {
+          PersistedBlock child = PersistedBlock.fromProto(entry.getDirectory().getBlock());
+          children.add(retrieveRecursive(child));
+        }
+      }
+      return Futures.transform(Futures.allAsList(children),
+              (Function<List<Long>, Long>) objects -> objects.stream().collect(Collectors.summingLong(Long::longValue)));
+    });
+  }
+
+  private static class PathAndBlock {
+    final Path path;
+    final PersistedBlock block;
+
+    private PathAndBlock(Path path, PersistedBlock block) {
+      this.path = path;
+      this.block = block;
+    }
   }
 
   private Gletscher.Directory findDirectory(Path dir) {
@@ -86,11 +165,15 @@ public class RootCatalogReader implements CatalogReader {
   }
 
   private Gletscher.Directory fetchDir(PersistedBlock block){
+    byte[] data = Futures.getUnchecked(blockStore.retrieve(block));
+    if (data == null) {
+      return NULL_DIR;
+    }
+    return parseDirectory(data);
+  }
+
+  private Gletscher.Directory parseDirectory(byte[] data) {
     try {
-      byte[] data = Futures.getUnchecked(blockStore.retrieve(block));
-      if (data == null) {
-        return NULL_DIR;
-      }
       return Gletscher.Directory.parseFrom(data);
     } catch (InvalidProtocolBufferException e) {
       throw new IllegalStateException(e);

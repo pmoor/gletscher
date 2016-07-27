@@ -21,18 +21,25 @@ import ws.moor.gletscher.blocks.PersistedBlock;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public interface CatalogReader {
   FileInformation findFile(Path path);
 
   final class FileInformation {
 
+    public final Path path;
     public final Instant lastModifiedTime;
     public final List<PersistedBlock> blockList;
 
-    FileInformation(Instant lastModifiedTime, List<PersistedBlock> blockList) {
+    FileInformation(Path path, Instant lastModifiedTime, List<PersistedBlock> blockList) {
+      this.path = path;
       this.lastModifiedTime = lastModifiedTime;
       this.blockList = blockList;
+    }
+
+    public long getOriginalSize() {
+      return blockList.stream().collect(Collectors.summingLong(PersistedBlock::getOriginalLength));
     }
   }
 }
