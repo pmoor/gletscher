@@ -43,10 +43,12 @@ public class CatalogAnalyzer {
     int symlinks = 0;
     int totalBlocks = 0;
     long totalBlockSize = 0;
+    long metaSize = 0;
     Set<PersistedBlock> uniqueBlocks = new HashSet<>();
     while (!stack.isEmpty()) {
       directories++;
       Gletscher.Directory dir = stack.pop();
+      metaSize += dir.getSerializedSize();
       for (Gletscher.DirectoryEntry entry : dir.getEntryList()) {
         switch (entry.getTypeCase()) {
           case FILE:
@@ -75,6 +77,7 @@ public class CatalogAnalyzer {
     System.out.println("total blocks: " + totalBlocks);
     System.out.println("total block size: " + totalBlockSize);
     System.out.println("unique blocks: " + uniqueBlocks.size());
+    System.out.println("meta size: " + metaSize);
     long uniqueSize = 0;
     for (PersistedBlock block : uniqueBlocks) {
       uniqueSize += block.getOriginalLength();
