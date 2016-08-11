@@ -34,7 +34,7 @@ class InvalidUsageException extends Exception {
   }
 
   void emit(CommandContext context) {
-    context.getStdErr().printf("Invalid Usage: " + format + "\n", args);
+    context.getStdErr().printf("Invalid Usage: " + format + "\n\n", args);
     if (command != null) {
       command.printUsage(context.getStdErr());
     } else {

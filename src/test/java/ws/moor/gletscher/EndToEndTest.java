@@ -49,7 +49,33 @@ import static com.google.common.truth.Truth.assertThat;
 public class EndToEndTest {
 
   @Test
-  public void testSomething() throws Exception {
+  public void testHelpScreen() throws Exception {
+    FileSystem fs = Jimfs.newFileSystem();
+    CloudFileStorage inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
+
+    TestCommandContext context = new TestCommandContext(fs, inMemoryStorage);
+    GletscherMain gletscherMain = new GletscherMain(context);
+    gletscherMain.run();
+    assertThat(context.status).isEqualTo(-1);
+
+    context = new TestCommandContext(fs, inMemoryStorage);
+    gletscherMain = new GletscherMain(context);
+    gletscherMain.run("help");
+    assertThat(context.status).isEqualTo(0);
+
+    context = new TestCommandContext(fs, inMemoryStorage);
+    gletscherMain = new GletscherMain(context);
+    gletscherMain.run("help", "invalid_command");
+    assertThat(context.status).isEqualTo(-1);
+
+    context = new TestCommandContext(fs, inMemoryStorage);
+    gletscherMain = new GletscherMain(context);
+    gletscherMain.run("help", "backup");
+    assertThat(context.status).isEqualTo(0);
+  }
+
+  @Test
+  public void testBackupAndRestore() throws Exception {
     FileSystem fs = Jimfs.newFileSystem();
     CloudFileStorage inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
 

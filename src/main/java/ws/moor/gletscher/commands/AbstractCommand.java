@@ -86,7 +86,8 @@ abstract class AbstractCommand {
 
   void printUsage(PrintStream out) {
     // TODO(pmoor): customize further
-    out.println("Usage: gletscher " + getCommandName());
+    out.println("Usage:");
+    out.println("  gletscher " + getCommandName());
     out.println();
     out.println(getCommandDescription());
   }
