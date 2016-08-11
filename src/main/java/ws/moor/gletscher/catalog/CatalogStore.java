@@ -42,7 +42,7 @@ public class CatalogStore {
     this.storage = storage;
     this.clock = clock;
     dateTimeFormatter = DateTimeFormatter
-        .ofPattern("yyyy/MM/dd/HH:mm:ss", Locale.US)
+        .ofPattern("yyyy/MM/dd/HH:mm:ss-N", Locale.US)
         .withZone(clock.getZone());
   }
 
