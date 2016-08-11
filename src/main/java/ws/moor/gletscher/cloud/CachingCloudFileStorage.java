@@ -19,7 +19,6 @@ package ws.moor.gletscher.cloud;
 import com.google.api.client.repackaged.com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
 import com.google.common.hash.HashCode;
-import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -110,13 +109,11 @@ public class CachingCloudFileStorage implements CloudFileStorage {
         return null;
       }
     });
-    data = Futures.transformAsync(data, new AsyncFunction<byte[], byte[]>() {
-      @Override public ListenableFuture<byte[]> apply(@Nullable byte[] bytes) throws Exception {
-        if (bytes == null) {
-          return delegate.get(name);
-        } else {
-          return Futures.immediateFuture(bytes);
-        }
+    data = Futures.transformAsync(data, bytes -> {
+      if (bytes == null) {
+        return delegate.get(name);
+      } else {
+        return Futures.immediateFuture(bytes);
       }
     });
     Futures.addCallback(data, new FutureCallback<byte[]>() {

@@ -40,9 +40,9 @@ import java.util.List;
 
 abstract class AbstractCommand {
 
-  protected final CommandContext context;
+  final CommandContext context;
 
-  protected AbstractCommand(CommandContext context) {
+  AbstractCommand(CommandContext context) {
     this.context = context;
   }
 
@@ -51,7 +51,7 @@ abstract class AbstractCommand {
     addCommandLineOptions(options);
 
     CommandLineParser parser = new DefaultParser();
-    CommandLine commandLine = null;
+    CommandLine commandLine;
     try {
       commandLine = parser.parse(options, args);
     } catch (ParseException e) {
@@ -62,15 +62,15 @@ abstract class AbstractCommand {
     return runInternal(commandLine, argList);
   }
 
-  protected void addCommandLineOptions(Options options) {}
+  void addCommandLineOptions(Options options) {}
 
   protected abstract int runInternal(CommandLine commandLine, List<String> args) throws Exception;
 
-  protected final void addConfigFileOption(Options options) {
+  final void addConfigFileOption(Options options) {
     options.addOption(Option.builder("c").longOpt("config").required().hasArg().argName("FILE").build());
   }
 
-  protected CloudFileStorage buildCloudFileStorage(Configuration config) {
+  CloudFileStorage buildCloudFileStorage(Configuration config) {
     CloudFileStorage cloudFileStorage = context.connectToCloud(config);
 
     CountingCloudFileStorage counting = new CountingCloudFileStorage(cloudFileStorage);
@@ -91,16 +91,16 @@ abstract class AbstractCommand {
     out.println(getCommandDescription());
   }
 
-  protected Configuration loadConfig(CommandLine commandLine) throws IOException {
+  Configuration loadConfig(CommandLine commandLine) throws IOException {
     return Configuration.fromFile(context.getFileSystem().getPath(commandLine.getOptionValue("config")));
   }
 
-  String getCommandName() {
+  private String getCommandName() {
     Command annotation = this.getClass().getAnnotation(Command.class);
     return annotation.name();
   }
 
-  String getCommandDescription() {
+  private String getCommandDescription() {
     Command annotation = this.getClass().getAnnotation(Command.class);
     return annotation.description();
   }

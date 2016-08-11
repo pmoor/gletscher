@@ -16,24 +16,24 @@
 
 package ws.moor.gletscher.commands;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 
 public final class Commands {
 
-  private static final Set<Class<? extends AbstractCommand>> ALL_COMMANDS = ImmutableSet.of(
-      BackupCommand.class,
-      ContainsCommand.class,
-      HelpCommand.class,
-      RestoreCommand.class,
-      SearchCommand.class,
-      VersionCommand.class
-  );
+  private static final List<Class<? extends AbstractCommand>> ALL_COMMANDS =
+      ImmutableList.<Class<? extends AbstractCommand>>builder()
+          .add(BackupCommand.class)
+          .add(ContainsCommand.class)
+          .add(HelpCommand.class)
+          .add(RestoreCommand.class)
+          .add(SearchCommand.class)
+          .add(VersionCommand.class)
+          .build();
 
   static Class<? extends AbstractCommand> forName(String name) throws InvalidUsageException {
     for (Class<? extends AbstractCommand> command : ALL_COMMANDS) {

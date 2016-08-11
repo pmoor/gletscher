@@ -26,7 +26,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.Stack;
 
-public class CatalogAnalyzer {
+class CatalogAnalyzer {
 
   private final BlockStore blockStore;
 

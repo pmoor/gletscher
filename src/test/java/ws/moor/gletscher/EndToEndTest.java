@@ -137,7 +137,7 @@ public class EndToEndTest {
       FileTime lastModifiedTime1 = Files.getLastModifiedTime(path1);
       FileTime lastModifiedTime2 = Files.getLastModifiedTime(path2);
       if (!lastModifiedTime1.equals(lastModifiedTime2)) {
-        System.out.printf("last modified times do not match for %s (%s): %d vs. %d\n", path1, path2, lastModifiedTime1, lastModifiedTime2);
+        System.out.printf("last modified times do not match for %s (%s): %s vs. %s\n", path1, path2, lastModifiedTime1, lastModifiedTime2);
         return;
       }
     } else {

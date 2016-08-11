@@ -16,7 +16,6 @@
 
 package ws.moor.gletscher.cloud;
 
-import com.google.common.base.Function;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Futures;
@@ -26,6 +25,7 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.function.Function;
 
 abstract class TransformingCloudFileStorage implements CloudFileStorage {
 
@@ -36,7 +36,7 @@ abstract class TransformingCloudFileStorage implements CloudFileStorage {
     }
   };
 
-  protected TransformingCloudFileStorage(CloudFileStorage delegate) {
+  TransformingCloudFileStorage(CloudFileStorage delegate) {
     this.delegate = delegate;
   }
 
@@ -67,7 +67,7 @@ abstract class TransformingCloudFileStorage implements CloudFileStorage {
 
   @Override
   public ListenableFuture<byte[]> get(String name) {
-    return Futures.transform(delegate.get(name), decodingFn);
+    return Futures.transform(delegate.get(name), decodingFn::apply);
   }
 
   protected abstract byte[] encode(byte[] data);
