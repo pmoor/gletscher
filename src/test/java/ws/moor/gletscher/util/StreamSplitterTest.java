@@ -21,7 +21,6 @@ import com.google.common.hash.Hashing;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import ws.moor.gletscher.util.StreamSplitter;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

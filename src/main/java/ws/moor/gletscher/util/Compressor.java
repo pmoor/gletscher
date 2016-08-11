@@ -18,7 +18,6 @@ package ws.moor.gletscher.util;
 
 import com.google.api.client.repackaged.com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
-import ws.moor.gletscher.util.MoreArrays;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;

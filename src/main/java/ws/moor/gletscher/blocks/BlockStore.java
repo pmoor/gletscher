@@ -27,7 +27,11 @@ import com.google.common.util.concurrent.SettableFuture;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.util.Signer;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 
 public class BlockStore {
 
