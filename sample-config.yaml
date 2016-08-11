@@ -14,24 +14,32 @@
 # limitations under the License.
 #
 
-# 256 bit key.
-secret_key = 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+# Config file version identifier.
+version: 1
 
-# Path to your GCS crendentials file.
-gcs_credentials = /path/to/gcs/credentials.json
+# 256 bit key, Base64 encoded.
+secret_key: !!binary AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
 
-# Name of the GCS bucket.
-gcs_bucket_name = your-bucket-name
+# Google Cloud Storage Configuration.
+gcs:
+  # Path to your GCS crendentials file.
+  credentials: /path/to/gcs/credentials.json
 
-# (Optional) Prefix within the bucket, default "".
-# gcs_object_prefix = /Backup-A
+  # Name of the GCS bucket.
+  bucket_name: your-bucket-name
+
+  # (Optional) Prefix within the bucket, default "".
+  # object_prefix: /Backup-A
 
 # Where to cache retrieved blocks.
-cache_dir = /tmp/gletscher/cache
+cache_dir: /tmp/gletscher/cache
 
 # (Optional) Size of the largest block allowed, default 32 MiB.
-# max_split_size = 33554432
+# max_split_size: 33554432
 
 # (Optional) Algorithm to chunk file into blocks, default rolling hash.
 # Can alternatively be set to "fixed" for fixed size blocks.
-# split_algorithm = rolling
+# split_algorithm: rolling
+
+# (Optional) Whether to disable the local cache.
+# disable_cache: false
