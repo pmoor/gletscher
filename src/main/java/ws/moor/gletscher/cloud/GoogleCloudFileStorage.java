@@ -109,7 +109,7 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
       } catch (HttpResponseException e) {
         if (e.getStatusCode() == 412) {
           // precondition failed -> object already exists
-          throw new FileAlreadyExistsException();
+          throw new FileAlreadyExistsException(name);
         }
         throw e;
       }

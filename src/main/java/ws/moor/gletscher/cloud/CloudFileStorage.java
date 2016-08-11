@@ -24,7 +24,11 @@ import java.util.Map;
 
 public interface CloudFileStorage {
 
-  class FileAlreadyExistsException extends Exception {}
+  class FileAlreadyExistsException extends Exception {
+    FileAlreadyExistsException(String name) {
+      super("file already exists: " + name);
+    }
+  }
 
   class FileHeader {
     public final String name;

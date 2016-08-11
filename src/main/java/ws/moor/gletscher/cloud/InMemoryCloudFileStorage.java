@@ -65,7 +65,7 @@ public class InMemoryCloudFileStorage implements CloudFileStorage {
   @Override public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata) {
     return executor.submit(() -> {
       if (files.containsKey(name)) {
-        throw new FileAlreadyExistsException();
+        throw new FileAlreadyExistsException(name);
       }
       this.data.put(name, data.clone());
       files.put(name, new FileHeader(name, md5, data.length, ImmutableMap.copyOf(metadata)));
