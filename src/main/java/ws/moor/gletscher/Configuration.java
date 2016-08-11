@@ -34,7 +34,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
 
-class Configuration {
+public class Configuration {
 
   private final FileSystem fs;
   private final Map<String, Object> yaml;
@@ -45,7 +45,7 @@ class Configuration {
     return new Configuration(fs, result);
   }
 
-  static Configuration fromFile(Path configFile) throws IOException {
+  public static Configuration fromFile(Path configFile) throws IOException {
     Yaml yaml = new Yaml(new SafeConstructor());
     Map<String, Object> result =
         (Map<String, Object>) yaml.load(Files.newBufferedReader(configFile, StandardCharsets.UTF_8));

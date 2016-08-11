@@ -71,14 +71,18 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
     this.executor = executor;
   }
 
-  public static Storage buildStorageWithCredentials(Path credentialFilePath) throws GeneralSecurityException, IOException {
-    HttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-    JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
-    Credential credential = GoogleCredential.fromStream(Files.newInputStream(credentialFilePath), httpTransport, jsonFactory)
-        .createScoped(ImmutableSet.of("https://www.googleapis.com/auth/devstorage.read_write"));
-    return new Storage.Builder(httpTransport, jsonFactory, credential)
-        .setApplicationName("Gletscher/1.0")
-        .build();
+  public static Storage buildStorageWithCredentials(Path credentialFilePath) {
+    try {
+      HttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
+      JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
+      Credential credential = GoogleCredential.fromStream(Files.newInputStream(credentialFilePath), httpTransport, jsonFactory)
+          .createScoped(ImmutableSet.of("https://www.googleapis.com/auth/devstorage.read_write"));
+      return new Storage.Builder(httpTransport, jsonFactory, credential)
+          .setApplicationName("Gletscher/1.0")
+          .build();
+    } catch (GeneralSecurityException | IOException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   @Override

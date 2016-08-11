@@ -18,17 +18,22 @@ package ws.moor.gletscher;
 
 import com.google.common.base.Preconditions;
 import com.google.common.jimfs.Jimfs;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.cloud.InMemoryCloudFileStorage;
+import ws.moor.gletscher.commands.CommandContext;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.FileTime;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -43,8 +48,6 @@ public class EndToEndTest {
   public void testSomething() throws Exception {
     FileSystem fs = Jimfs.newFileSystem();
     CloudFileStorage inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
-    GletscherMain gletscherMain = new GletscherMain(fs, System.in, System.out, System.err);
-    gletscherMain.setCloudFileStorageForTesting(inMemoryStorage);
 
     Files.write(fs.getPath("/config.properties"),
         ("version: 1\n" +
@@ -55,18 +58,30 @@ public class EndToEndTest {
             "secret_key: !!binary AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n").getBytes(StandardCharsets.UTF_8));
     Files.createDirectories(fs.getPath("/tmp/cache"));
 
+    // initial backup
     createRandomFileTree(fs.getPath("/home/pmoor"), 4);
-    assertThat(gletscherMain.run("-c", "/config.properties", "backup", "/home/pmoor")).isEqualTo(0);
+    runCommandAndAssertSuccess(fs, inMemoryStorage,
+        "backup", "-c", "/config.properties", "/home/pmoor");
 
-    // second run
+    // incremental backup
     createRandomFileTree(fs.getPath("/", "home", "pmoor", "new child"), 2);
     createRandomFileTree(fs.getPath("/", "home", "cmoor"), 3);
-    assertThat(gletscherMain.run("-c", "/config.properties", "backup", "/home/pmoor", "/home/cmoor")).isEqualTo(0);
+    runCommandAndAssertSuccess(fs, inMemoryStorage,
+        "backup", "-c", "/config.properties", "/home/pmoor", "/home/cmoor");
 
-    assertThat(gletscherMain.run("-c", "/config.properties", "restore", "/tmp/restore")).isEqualTo(0);
+    // restore
+    runCommandAndAssertSuccess(fs, inMemoryStorage,
+        "restore", "-c", "/config.properties", "/tmp/restore");
 
     compare(fs.getPath("/", "home", "pmoor"), fs.getPath("/", "tmp", "restore", "home", "pmoor"));
     compare(fs.getPath("/", "home", "cmoor"), fs.getPath("/", "tmp", "restore", "home", "cmoor"));
+  }
+
+  private void runCommandAndAssertSuccess(FileSystem fs, CloudFileStorage inMemoryStorage, String... args) throws Exception {
+    TestCommandContext context = new TestCommandContext(fs, inMemoryStorage);
+    GletscherMain gletscherMain = new GletscherMain(context);
+    gletscherMain.run(args);
+    assertThat(context.status).isEqualTo(0);
   }
 
   private void compare(Path path1, Path path2) throws IOException {
@@ -173,5 +188,57 @@ public class EndToEndTest {
 
   private String createRandomFileName(Random rnd) {
     return String.valueOf(Math.abs(rnd.nextInt()));
+  }
+
+  private static class TestCommandContext implements CommandContext {
+    private final FileSystem fs;
+    private final CloudFileStorage cloudStorage;
+    private Integer status = null;
+
+    TestCommandContext(FileSystem fs, CloudFileStorage cloudStorage) {
+      this.fs = fs;
+      this.cloudStorage = cloudStorage;
+    }
+
+    @Override
+    public FileSystem getFileSystem() {
+      return fs;
+    }
+
+    @Override
+    public InputStream getStdIn() {
+      return System.in;
+    }
+
+    @Override
+    public PrintStream getStdOut() {
+      return System.out;
+    }
+
+    @Override
+    public PrintStream getStdErr() {
+      return System.err;
+    }
+
+    @Override
+    public Clock getClock() {
+      return Clock.systemDefaultZone();
+    }
+
+    @Override
+    public ListeningExecutorService getExecutor() {
+      return MoreExecutors.newDirectExecutorService();
+    }
+
+    @Override
+    public void exit(int status) {
+      Preconditions.checkState(this.status == null);
+      this.status = status;
+    }
+
+    @Override
+    public CloudFileStorage connectToCloud(Configuration config) {
+      return cloudStorage;
+    }
   }
 }
