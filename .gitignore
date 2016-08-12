@@ -1,7 +1,7 @@
 /credentials.json
 /target
-/gletscher.iml
-/.idea
+/.idea/tasks.xml
+/.idea/workspace.xml
 /cache
 /protoc-bin
 /config.yaml
