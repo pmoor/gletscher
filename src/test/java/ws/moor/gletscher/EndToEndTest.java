@@ -27,6 +27,7 @@ import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.cloud.InMemoryCloudFileStorage;
 import ws.moor.gletscher.commands.CommandContext;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
@@ -57,21 +58,29 @@ public class EndToEndTest {
     GletscherMain gletscherMain = new GletscherMain(context);
     gletscherMain.run();
     assertThat(context.status).isEqualTo(-1);
+    assertThat(context.stdOutString()).isEmpty();
+    assertThat(context.stdErrString()).contains("Invalid Usage: No command specified.");
 
     context = new TestCommandContext(fs, inMemoryStorage);
     gletscherMain = new GletscherMain(context);
     gletscherMain.run("help");
     assertThat(context.status).isEqualTo(0);
+    assertThat(context.stdErrString()).isEmpty();
+    assertThat(context.stdOutString()).contains("Usage:\n  gletscher [command]\n");
 
     context = new TestCommandContext(fs, inMemoryStorage);
     gletscherMain = new GletscherMain(context);
     gletscherMain.run("help", "invalid_command");
     assertThat(context.status).isEqualTo(-1);
+    assertThat(context.stdOutString()).isEmpty();
+    assertThat(context.stdErrString()).contains("Invalid Usage: Unknown command: invalid_command");
 
     context = new TestCommandContext(fs, inMemoryStorage);
     gletscherMain = new GletscherMain(context);
     gletscherMain.run("help", "backup");
     assertThat(context.status).isEqualTo(0);
+    assertThat(context.stdErrString()).isEmpty();
+    assertThat(context.stdOutString()).contains("Usage:\n  gletscher backup\n");
   }
 
   @Test
@@ -83,7 +92,7 @@ public class EndToEndTest {
         ("version: 1\n" +
             "cache_dir: /tmp/cache\n" +
             "max_split_size: 65536\n" +
-            "disable_cache: true\n" +
+            "disable_cache: false\n" +
             "split_algorithm: rolling\n" +
             "secret_key: !!binary AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n").getBytes(StandardCharsets.UTF_8));
     Files.createDirectories(fs.getPath("/tmp/cache"));
@@ -223,6 +232,9 @@ public class EndToEndTest {
   private static class TestCommandContext implements CommandContext {
     private final FileSystem fs;
     private final CloudFileStorage cloudStorage;
+
+    private final ByteArrayOutputStream stdOut = new ByteArrayOutputStream();
+    private final ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
     private Integer status = null;
 
     TestCommandContext(FileSystem fs, CloudFileStorage cloudStorage) {
@@ -242,12 +254,12 @@ public class EndToEndTest {
 
     @Override
     public PrintStream getStdOut() {
-      return System.out;
+      return new PrintStream(stdOut);
     }
 
     @Override
     public PrintStream getStdErr() {
-      return System.err;
+      return new PrintStream(stdErr);
     }
 
     @Override
@@ -269,6 +281,14 @@ public class EndToEndTest {
     @Override
     public CloudFileStorage connectToCloud(Configuration config) {
       return cloudStorage;
+    }
+
+    String stdOutString() {
+      return new String(stdOut.toByteArray(), StandardCharsets.UTF_8);
+    }
+
+    String stdErrString() {
+      return new String(stdErr.toByteArray(), StandardCharsets.UTF_8);
     }
   }
 }
