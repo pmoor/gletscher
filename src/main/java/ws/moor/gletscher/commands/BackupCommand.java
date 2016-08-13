@@ -16,7 +16,6 @@
 
 package ws.moor.gletscher.commands;
 
-import com.google.common.collect.ImmutableSet;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import ws.moor.gletscher.BackUpper;
@@ -51,21 +50,22 @@ class BackupCommand extends AbstractCommand {
 
   @Override
   protected int runInternal(CommandLine commandLine, List<String> args) throws Exception {
-    if (args.isEmpty()) {
-      throw new InvalidUsageException(this, "Must provide at least one file name.");
-    }
-
-    ImmutableSet.Builder<Path> backupPathsBuilder = ImmutableSet.builder();
-    for (String file : args) {
-      Path path = context.getFileSystem().getPath(file);
-      if (!Files.isDirectory(path)) {
-        context.getStdErr().printf("not a directory: %s\n", file);
-        return -1;
-      }
-      backupPathsBuilder.add(path);
+    if (!args.isEmpty()) {
+      throw new InvalidUsageException(this, "Command does not accept any arguments.");
     }
 
     Configuration config = loadConfig(commandLine);
+    for (Path dir : config.getIncludes()) {
+      if (!Files.isDirectory(dir)) {
+        context.getStdErr().printf("not a directory: %s\n", dir);
+        return -1;
+      }
+      if (!Files.isReadable(dir)) {
+        context.getStdErr().printf("can't read directory: %s\n", dir);
+        return -1;
+      }
+    }
+
     CloudFileStorage cloudFileStorage = buildCloudFileStorage(config);
     BlockStore blockStore = new BlockStore(cloudFileStorage, new Signer(config.getSigningKey()));
     CatalogStore catalogStore = new CatalogStore(cloudFileStorage, context.getClock());
@@ -77,10 +77,9 @@ class BackupCommand extends AbstractCommand {
       readers.add(new RootCatalogReader(blockStore, root));
     }
     CatalogReader catalogReader = new CompositeCatalogReader(readers);
-    FileSystemReader<PersistedBlock> fileSystemReader = new FileSystemReader<>(
-        backupPathsBuilder.build(), config.getSkippedPaths(), context.getStdErr());
+    FileSystemReader<PersistedBlock> fileSystemReader = new FileSystemReader<>(config.getIncludes(), context.getStdErr());
 
-    BackUpper backUpper = new BackUpper(catalogReader, splitter, blockStore, context.getStdOut(), context.getStdErr());
+    BackUpper backUpper = new BackUpper(catalogReader, splitter, blockStore, config.getExcludes(), context.getStdOut(), context.getStdErr());
     PersistedBlock newRoot = fileSystemReader.start(backUpper);
 
     catalogStore.store(newRoot);

@@ -94,19 +94,27 @@ public class EndToEndTest {
             "max_split_size: 65536\n" +
             "disable_cache: false\n" +
             "split_algorithm: rolling\n" +
-            "secret_key: !!binary AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n").getBytes(StandardCharsets.UTF_8));
+            "secret_key: !!binary AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n" +
+            "include:\n" +
+            "  - /home/pmoor\n" +
+            "  - /home/cmoor\n" +
+            "  - /tmp\n" +
+            "exclude:\n" +
+            "  - \\.ignore$"
+        ).getBytes(StandardCharsets.UTF_8));
     Files.createDirectories(fs.getPath("/tmp/cache"));
+    Files.createDirectories(fs.getPath("/home/cmoor"));
 
     // initial backup
     createRandomFileTree(fs.getPath("/home/pmoor"), 4);
     runCommandAndAssertSuccess(fs, inMemoryStorage,
-        "backup", "-c", "/config.properties", "/home/pmoor");
+        "backup", "-c", "/config.properties");
 
     // incremental backup
     createRandomFileTree(fs.getPath("/", "home", "pmoor", "new child"), 2);
-    createRandomFileTree(fs.getPath("/", "home", "cmoor"), 3);
+    createRandomFileTree(fs.getPath("/", "home", "cmoor", "stuff"), 3);
     runCommandAndAssertSuccess(fs, inMemoryStorage,
-        "backup", "-c", "/config.properties", "/home/pmoor", "/home/cmoor");
+        "backup", "-c", "/config.properties");
 
     // restore
     runCommandAndAssertSuccess(fs, inMemoryStorage,
@@ -120,7 +128,13 @@ public class EndToEndTest {
     TestCommandContext context = new TestCommandContext(fs, inMemoryStorage);
     GletscherMain gletscherMain = new GletscherMain(context);
     gletscherMain.run(args);
-    assertThat(context.status).isEqualTo(0);
+    if (context.status != 0) {
+      System.err.println("stdout:");
+      System.err.println(context.stdOutString());
+      System.err.println("stderr:");
+      System.err.println(context.stdErrString());
+      throw new IllegalStateException("command was not successful");
+    }
   }
 
   private void compare(Path path1, Path path2) throws IOException {

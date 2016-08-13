@@ -45,15 +45,13 @@ public class FileSystemReader<T> {
   }
 
   private final Set<Path> roots;
-  private final Set<Path> skippedPaths;
   private final PrintStream stderr;
 
-  public FileSystemReader(Set<Path> paths, Set<Path> skippedPaths, PrintStream stderr) throws IOException {
+  public FileSystemReader(Set<Path> paths, PrintStream stderr) throws IOException {
     roots = new TreeSet<>();
     for (Path path : paths) {
       roots.add(path.toRealPath());
     }
-    this.skippedPaths = ImmutableSet.copyOf(skippedPaths);
     this.stderr = stderr;
   }
 
@@ -72,21 +70,15 @@ public class FileSystemReader<T> {
       }
     }
     removeRecursively(pathToRoots, roots);
-    removeRecursively(pathToRoots, skippedPaths);
 
     Recursor<T> recursor = new Recursor<T>() {
       @Override public T recurse(Path directory) {
         List<Entry> entries = new ArrayList<>();
 
         try {
-          if (skippedPaths.contains(directory)) {
-            // pretend it is empty
-          } else if (pathToRoots.containsKey(directory)) {
+          if (pathToRoots.containsKey(directory)) {
             // artificial directory, use only contents from in here
             for (Path child : pathToRoots.get(directory)) {
-              if (skippedPaths.contains(child)) {
-                continue;
-              }
               BasicFileAttributes attributes = readAttributes(child);
               entries.add(new Entry(child, attributes));
             }
@@ -94,9 +86,6 @@ public class FileSystemReader<T> {
             if (Files.isReadable(directory)) {
               try (Stream<Path> stream = Files.list(directory)) {
                 stream.forEach(child -> {
-                  if (skippedPaths.contains(child)) {
-                    return;
-                  }
                   BasicFileAttributes attributes = readAttributes(child);
                   entries.add(new Entry(child, attributes));
                 });

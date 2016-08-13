@@ -43,3 +43,16 @@ cache_dir: /tmp/gletscher/cache
 
 # (Optional) Whether to disable the local cache.
 # disable_cache: false
+
+# Directories (must exist and be readable) to back up.
+include:
+  - /home/pmoor
+  - /Volumes/External
+
+# java.util.regex.Pattern to exclude from backup.
+# If the pattern is .find() in the Path#toString() the file or directory
+# (and all its children) is skipped.
+exclude:
+  - /\.DS_Store$
+  - /\.fseventsd$
+  - ^/home/pmoor/Super Secret\.txt

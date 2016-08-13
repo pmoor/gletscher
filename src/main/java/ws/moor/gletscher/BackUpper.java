@@ -33,19 +33,24 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 public class BackUpper implements FileSystemReader.Visitor<PersistedBlock> {
 
   private final CatalogReader catalogReader;
   private final StreamSplitter splitter;
   private final BlockStore blockStore;
+  private final Set<Pattern> skipPatterns;
   private final PrintStream stdout;
   private final PrintStream stderr;
 
-  public BackUpper(CatalogReader catalogReader, StreamSplitter splitter, BlockStore blockStore, PrintStream stdout, PrintStream stderr) {
+  public BackUpper(CatalogReader catalogReader, StreamSplitter splitter, BlockStore blockStore,
+                   Set<Pattern> skipPatterns, PrintStream stdout, PrintStream stderr) {
     this.catalogReader = catalogReader;
     this.splitter = splitter;
     this.blockStore = blockStore;
+    this.skipPatterns = skipPatterns;
     this.stdout = stdout;
     this.stderr = stderr;
   }
@@ -55,6 +60,11 @@ public class BackUpper implements FileSystemReader.Visitor<PersistedBlock> {
     Gletscher.Directory.Builder dirProtoBuilder = Gletscher.Directory.newBuilder();
 
     for (FileSystemReader.Entry entry : entries) {
+      if (isSkippedPath(entry.path)) {
+        stdout.println("skipping: " + entry.path);
+        continue;
+      }
+
       if (entry.isRegularFile()) {
         Instant currentLastModifiedTime = entry.attributes.lastModifiedTime().toInstant();
 
@@ -111,5 +121,14 @@ public class BackUpper implements FileSystemReader.Visitor<PersistedBlock> {
 
     Gletscher.Directory dirProto = dirProtoBuilder.build();
     return Futures.getUnchecked(blockStore.store(dirProto.toByteArray()));
+  }
+
+  private boolean isSkippedPath(Path path) {
+    for (Pattern pattern : skipPatterns) {
+      if (pattern.matcher(path.toString()).find()) {
+        return true;
+      }
+    }
+    return false;
   }
 }

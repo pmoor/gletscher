@@ -22,6 +22,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.nio.file.FileSystem;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -40,19 +42,17 @@ public class ConfigurationTest {
         "  bucket_name: bucket-name",
         "  object_prefix: \" prefix/\"",
         "disable_cache: false",
-        "cache_dir: /tmp/cache",
+        "cache_dir: /tmp/cache.dir",
         "max_split_size: 42",
         "split_algorithm: rolling",
         "",
         "include:",
-        " - /Users/pmoor/BitTorrent Sync",
-        " - /Users/pmoor/Repositories",
-        " - /Users/pmoor/Google Drive",
-        " - /Users/pmoor/Pictures/Lightroom/Backups",
+        " - /Users/pmoor",
         " - /Volumes/External",
         "",
         "exclude:",
-        " - \\.DS_Store");
+        " - \\.DS_Store$",
+        " - \\.fseventsd$");
 
     assertThat(config.getEncryptionKey().getEncoded()).isEqualTo(new byte[32]);
     assertThat(config.getSigningKey().getEncoded()).isEqualTo(new byte[32]);
@@ -60,7 +60,11 @@ public class ConfigurationTest {
     assertThat(config.getBucketName()).isEqualTo("bucket-name");
     assertThat(config.getFilePrefix()).isEqualTo(" prefix/");
     assertThat(config.disableCache()).isFalse();
-    assertThat((Object) config.getLocalCacheDir()).isEqualTo(fs.getPath("/tmp/cache"));
+    assertThat((Object) config.getLocalCacheDir()).isEqualTo(fs.getPath("/tmp/cache.dir"));
     assertThat(config.getStreamSplitter().getMaxBlockSize()).isEqualTo(42);
+    assertThat(config.getIncludes())
+        .containsExactly(fs.getPath("/Users/pmoor"), fs.getPath("/Volumes/External"));
+    assertThat(config.getExcludes().stream().map(Pattern::pattern).collect(Collectors.toList()))
+        .containsExactly("\\.DS_Store$", "\\.fseventsd$", "^\\Q/tmp/cache.dir\\E$");
   }
 }

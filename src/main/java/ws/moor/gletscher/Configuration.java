@@ -18,7 +18,6 @@ package ws.moor.gletscher;
 
 import com.google.api.client.repackaged.com.google.common.base.Preconditions;
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableSet;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 import ws.moor.gletscher.util.Cryptor;
@@ -31,8 +30,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class Configuration {
 
@@ -83,10 +85,6 @@ public class Configuration {
     return fs.getPath((String) yaml.get("cache_dir"));
   }
 
-  public Set<Path> getSkippedPaths() {
-    return ImmutableSet.of(getLocalCacheDir());
-  }
-
   private int getMaxSplitSize() {
     return (int) yaml.get("max_split_size");
   }
@@ -108,5 +106,18 @@ public class Configuration {
 
   private Map<String, Object> findGcsNode() {
     return (Map<String, Object>) yaml.get("gcs");
+  }
+
+  public Set<Path> getIncludes() {
+    return ((List<String>) yaml.get("include")).stream()
+        .map(fs::getPath).collect(Collectors.toSet());
+  }
+
+  public Set<Pattern> getExcludes() {
+    Set<Pattern> patterns = ((List<String>) yaml.get("exclude")).stream()
+        .map(Pattern::compile).collect(Collectors.toSet());
+    // Always exclude the cache directory.
+    patterns.add(Pattern.compile("^" + Pattern.quote(getLocalCacheDir().toString()) + "$"));
+    return patterns;
   }
 }
