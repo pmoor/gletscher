@@ -82,14 +82,17 @@ class RestoreCommand extends AbstractCommand {
     for (Gletscher.DirectoryEntry entry : dir.getEntryList()) {
       switch (entry.getTypeCase()) {
         case FILE:
-          Path actualFile = path.resolve(entry.getFile().getName());
-          OutputStream fos = new BufferedOutputStream(Files.newOutputStream(actualFile, StandardOpenOption.CREATE_NEW));
+          Path tmpFile = Files.createTempFile(path, ".gletscher-", ".tmprestore");
+          OutputStream fos = new BufferedOutputStream(Files.newOutputStream(tmpFile, StandardOpenOption.TRUNCATE_EXISTING));
           for (Gletscher.PersistedBlock block : entry.getFile().getBlockList()) {
             byte[] data = Futures.getUnchecked(blockStore.retrieve(PersistedBlock.fromProto(block)));
             fos.write(data);
           }
           fos.close();
-          Files.setLastModifiedTime(actualFile, FileTime.fromMillis(entry.getFile().getLastModifiedMillis()));
+          Files.setLastModifiedTime(tmpFile, FileTime.fromMillis(entry.getFile().getLastModifiedMillis()));
+
+          Path actualFile = path.resolve(entry.getFile().getName());
+          Files.move(tmpFile, actualFile);
           break;
         case DIRECTORY:
           Path childPath = path.resolve(entry.getDirectory().getName());
