@@ -21,12 +21,15 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.proto.Gletscher;
+import ws.moor.gletscher.util.ByteSize;
 
+import java.io.PrintStream;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Stack;
+import java.util.stream.Collectors;
 
-class CatalogAnalyzer {
+public class CatalogAnalyzer {
 
   private final BlockStore blockStore;
 
@@ -34,7 +37,9 @@ class CatalogAnalyzer {
     this.blockStore = blockStore;
   }
 
-  public void analyzer(PersistedBlock root) {
+  public void analyze(PersistedBlock root, PrintStream out) {
+    out.printf("Analyzing catalog root %s...\n", root);
+
     Stack<Gletscher.Directory> stack = new Stack<>();
     stack.push(fetchDirectory(root));
 
@@ -71,18 +76,17 @@ class CatalogAnalyzer {
       }
     }
 
-    System.out.println("directories: " + directories);
-    System.out.println("files: " + files);
-    System.out.println("symlinks: " + symlinks);
-    System.out.println("total blocks: " + totalBlocks);
-    System.out.println("total block size: " + totalBlockSize);
-    System.out.println("unique blocks: " + uniqueBlocks.size());
-    System.out.println("meta size: " + metaSize);
-    long uniqueSize = 0;
-    for (PersistedBlock block : uniqueBlocks) {
-      uniqueSize += block.getOriginalLength();
-    }
-    System.out.println("unique block size: " + uniqueSize);
+    long uniqueSize = uniqueBlocks.stream().collect(Collectors.summingLong(PersistedBlock::getOriginalLength));
+
+    out.println("      directories: " + directories);
+    out.println("            files: " + files);
+    out.println("         symlinks: " + symlinks);
+    out.println("        meta size: " + ByteSize.ofBytes(metaSize));
+    out.println("     total blocks: " + totalBlocks);
+    out.println(" total block size: " + ByteSize.ofBytes(totalBlockSize));
+    out.println("    unique blocks: " + uniqueBlocks.size());
+    out.println("unique block size: " + ByteSize.ofBytes(uniqueSize));
+    out.println();
 
 //    Set<PersistedBlock> allBlocksThere = blockStore.listAllBlocks();
 //    System.out.println("all blocks in storage: " + allBlocksThere.size());
@@ -99,7 +103,6 @@ class CatalogAnalyzer {
 //      totalSize += block.getOriginalLength();
 //    }
 //    System.out.println("excess blocks size: " + totalSize);
-
   }
 
   private Gletscher.Directory fetchDirectory(PersistedBlock root) {

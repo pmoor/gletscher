@@ -32,6 +32,7 @@ public final class Commands {
           .add(HelpCommand.class)
           .add(RestoreCommand.class)
           .add(SearchCommand.class)
+          .add(StatsCommand.class)
           .add(VersionCommand.class)
           .build();
 
