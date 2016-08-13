@@ -22,7 +22,9 @@ secret_key: !!binary AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
 
 # Google Cloud Storage Configuration.
 gcs:
-  # Path to your GCS crendentials file.
+  # Path to your GCS crendentials file. The account ideally only has
+  # "roles/storage.objectCreator" (Storage Object Creator) permissions
+  # so it can't delete/overwrite existing data.
   credentials: /path/to/gcs/credentials.json
 
   # Name of the GCS bucket.
