@@ -206,8 +206,7 @@ public class EndToEndTest {
       String name = createRandomFileName(rnd);
       names.add(name);
       Path path = root.resolve(name);
-      int size = rnd.nextInt(256 << 10);
-      byte[] data = new byte[size];
+      byte[] data = new byte[rnd.nextInt(128 << 10)];
       rnd.nextBytes(data);
 
       Files.write(path, data, StandardOpenOption.CREATE_NEW);

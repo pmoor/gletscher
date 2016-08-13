@@ -20,9 +20,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -31,7 +28,7 @@ import static com.google.common.truth.Truth.assertThat;
 public class RollingHashTest {
 
   @Test
-  public void something() {
+  public void testCorrectness() {
     Random rnd = new Random(1);
 
     RollingHash[] hashes = new RollingHash[128];
@@ -122,53 +119,5 @@ public class RollingHashTest {
     }
 
     assertThat(a.adler32()).isEqualTo(638243);
-  }
-
-  @Test
-  public void runABunch() throws IOException {
-    Random rnd = new Random();
-    List<Long> runs = new ArrayList<>();
-    long sum = 0;
-    for (int i = 0; i < 100; i++) {
-      RollingHash h = new RollingHash();
-      long runLength = 1;
-      while (!h.update(rnd.nextInt(0xff))) {
-        runLength++;
-      }
-      runs.add(runLength);
-      sum += runLength;
-    }
-
-    System.out.printf("avg: %d\n", sum / runs.size());
-  }
-
-  @Test
-  public void lengthDistribution() {
-    Random rnd = new Random(2);
-
-    RollingHash a = new RollingHash();
-    int min = Integer.MAX_VALUE;
-    int max = 0;
-    int greater16 = 0;
-    int runs = 0;
-    int runLength = 0;
-    for (long i = 0; i < (1 << 30); i++) {
-      runLength++;
-      if (a.update(rnd.nextInt(0xff))) {
-        runs++;
-        min = Math.min(min, runLength);
-        max = Math.max(max, runLength);
-        if (runLength > (16 << 20)) {
-          greater16++;
-        }
-        runLength = 0;
-        a.reset();
-      }
-    }
-    System.out.println(runs);
-    System.out.println(greater16);
-    System.out.println(min);
-    System.out.println(max);
-    System.out.println((4L << 30) / runs);
   }
 }

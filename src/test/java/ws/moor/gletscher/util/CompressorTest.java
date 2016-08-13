@@ -33,14 +33,8 @@ public class CompressorTest {
     Compressor compressor = new Compressor();
 
     for (int i = 0; i < 100; i++) {
-      byte[] plaintext = new byte[rnd.nextInt(1 << 20)];
+      byte[] plaintext = new byte[rnd.nextInt(512 << 10)];
       rnd.nextBytes(plaintext);
-
-      assertThat(compressor.decompress(compressor.compress(plaintext))).isEqualTo(plaintext);
-    }
-
-    for (int i = 0; i < 100; i++) {
-      byte[] plaintext = new byte[rnd.nextInt(1 << 20)];
 
       assertThat(compressor.decompress(compressor.compress(plaintext))).isEqualTo(plaintext);
     }

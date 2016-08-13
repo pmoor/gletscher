@@ -16,6 +16,7 @@
 
 package ws.moor.gletscher.util;
 
+import com.google.common.collect.Sets;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import org.junit.Test;
@@ -24,50 +25,35 @@ import org.junit.runners.JUnit4;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
+
+import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class StreamSplitterTest {
 
   @Test
-  public void findsDuplicatesAtRandomPlaces() throws IOException {
+  public void findsCommonBlocksIfOffsetByOne() throws IOException {
     Random rnd = new Random(0);
 
-    for (int i = 0; i < 10; i++) {
-      byte[] fileA = new byte[128 << 20];
-      rnd.nextBytes(fileA);
+    byte[] fileA = new byte[8 << 20];
+    rnd.nextBytes(fileA);
 
-      byte[] fileB = new byte[128 << 20];
-      rnd.nextBytes(fileB);
+    byte[] fileB = Arrays.copyOfRange(fileA, 1, fileA.length);
 
-      int offset = 0;
-      int totalCommonSize = 0;
-      while (offset < 120 << 20) {
-        int subsetSize = rnd.nextInt(fileA.length - offset);
-        int startOffset = offset + rnd.nextInt(fileA.length - subsetSize - offset);
-        int targetOffset = offset + rnd.nextInt(fileB.length - subsetSize - offset);
-        System.arraycopy(fileA, startOffset, fileB, targetOffset, subsetSize);
-        offset = startOffset + subsetSize;
-        totalCommonSize += subsetSize;
-      }
+    StreamSplitter splitter = StreamSplitter.rollingHashSplitter(32 << 20);
 
-      StreamSplitter splitter = StreamSplitter.rollingHashSplitter(48 << 20);
+    Set<HashCode> fileAHashes = new HashSet<>();
+    splitter.split(new ByteArrayInputStream(fileA)).forEachRemaining(block ->
+        fileAHashes.add(Hashing.md5().hashBytes(block)));
 
-      Set<HashCode> fileAHashes = new HashSet<>();
-      splitter.split(new ByteArrayInputStream(fileA)).forEachRemaining(block ->
-          fileAHashes.add(Hashing.md5().hashBytes(block)));
+    Set<HashCode> fileBHashes = new HashSet<>();
+    splitter.split(new ByteArrayInputStream(fileB)).forEachRemaining(block ->
+        fileBHashes.add(Hashing.md5().hashBytes(block)));
 
-      AtomicInteger sharedSize = new AtomicInteger();
-      splitter.split(new ByteArrayInputStream(fileB)).forEachRemaining(block -> {
-        HashCode hashCode = Hashing.md5().hashBytes(block);
-        if (fileAHashes.contains(hashCode)) {
-          sharedSize.getAndAdd(block.length);
-        }
-      });
-      System.out.printf("common MB: %.3f\tfound MB: %.3f\tefficiency: %.2f%%\n", totalCommonSize / 1024.0 / 1024.0, sharedSize.get() / 1024.0 / 1024.0, 100.0 * sharedSize.get() / totalCommonSize);
-    }
+    assertThat(Sets.union(fileAHashes, fileBHashes).size()).isLessThan(fileAHashes.size() + fileBHashes.size());
   }
 }
