@@ -18,19 +18,15 @@ package ws.moor.gletscher;
 
 import com.google.common.base.Preconditions;
 import com.google.common.jimfs.Jimfs;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.cloud.InMemoryCloudFileStorage;
-import ws.moor.gletscher.commands.CommandContext;
+import ws.moor.gletscher.commands.testing.TestCommandContext;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
@@ -38,50 +34,13 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
-import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
-import static com.google.common.truth.Truth.assertThat;
-
 @RunWith(JUnit4.class)
 public class EndToEndTest {
-
-  @Test
-  public void testHelpScreen() throws Exception {
-    FileSystem fs = Jimfs.newFileSystem();
-    CloudFileStorage inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
-
-    TestCommandContext context = new TestCommandContext(fs, inMemoryStorage);
-    GletscherMain gletscherMain = new GletscherMain(context);
-    gletscherMain.run();
-    assertThat(context.status).isEqualTo(-1);
-    assertThat(context.stdOutString()).isEmpty();
-    assertThat(context.stdErrString()).contains("Invalid Usage: No command specified.");
-
-    context = new TestCommandContext(fs, inMemoryStorage);
-    gletscherMain = new GletscherMain(context);
-    gletscherMain.run("help");
-    assertThat(context.status).isEqualTo(0);
-    assertThat(context.stdErrString()).isEmpty();
-    assertThat(context.stdOutString()).contains("Usage:\n  gletscher [command]\n");
-
-    context = new TestCommandContext(fs, inMemoryStorage);
-    gletscherMain = new GletscherMain(context);
-    gletscherMain.run("help", "invalid_command");
-    assertThat(context.status).isEqualTo(-1);
-    assertThat(context.stdOutString()).isEmpty();
-    assertThat(context.stdErrString()).contains("Invalid Usage: Unknown command: invalid_command");
-
-    context = new TestCommandContext(fs, inMemoryStorage);
-    gletscherMain = new GletscherMain(context);
-    gletscherMain.run("help", "backup");
-    assertThat(context.status).isEqualTo(0);
-    assertThat(context.stdErrString()).isEmpty();
-    assertThat(context.stdOutString()).contains("Usage:\n  gletscher backup\n");
-  }
 
   @Test
   public void testBackupAndRestore() throws Exception {
@@ -242,66 +201,4 @@ public class EndToEndTest {
     return String.valueOf(Math.abs(rnd.nextInt()));
   }
 
-  private static class TestCommandContext implements CommandContext {
-    private final FileSystem fs;
-    private final CloudFileStorage cloudStorage;
-
-    private final ByteArrayOutputStream stdOut = new ByteArrayOutputStream();
-    private final ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
-    private Integer status = null;
-
-    TestCommandContext(FileSystem fs, CloudFileStorage cloudStorage) {
-      this.fs = fs;
-      this.cloudStorage = cloudStorage;
-    }
-
-    @Override
-    public FileSystem getFileSystem() {
-      return fs;
-    }
-
-    @Override
-    public InputStream getStdIn() {
-      return System.in;
-    }
-
-    @Override
-    public PrintStream getStdOut() {
-      return new PrintStream(stdOut);
-    }
-
-    @Override
-    public PrintStream getStdErr() {
-      return new PrintStream(stdErr);
-    }
-
-    @Override
-    public Clock getClock() {
-      return Clock.systemDefaultZone();
-    }
-
-    @Override
-    public ListeningExecutorService getExecutor() {
-      return MoreExecutors.newDirectExecutorService();
-    }
-
-    @Override
-    public void exit(int status) {
-      Preconditions.checkState(this.status == null);
-      this.status = status;
-    }
-
-    @Override
-    public CloudFileStorage connectToCloud(Configuration config) {
-      return cloudStorage;
-    }
-
-    String stdOutString() {
-      return new String(stdOut.toByteArray(), StandardCharsets.UTF_8);
-    }
-
-    String stdErrString() {
-      return new String(stdErr.toByteArray(), StandardCharsets.UTF_8);
-    }
-  }
 }

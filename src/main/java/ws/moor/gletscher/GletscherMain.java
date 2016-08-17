@@ -36,11 +36,11 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-class GletscherMain {
+public class GletscherMain {
 
   private final CommandContext context;
 
-  GletscherMain(CommandContext context) {
+  public GletscherMain(CommandContext context) {
     this.context = context;
   }
 
@@ -49,7 +49,7 @@ class GletscherMain {
     main.run(args);
   }
 
-  void run(String... args) throws Exception {
+  public void run(String... args) throws Exception {
     context.exit(Commands.run(context, args));
   }
 
