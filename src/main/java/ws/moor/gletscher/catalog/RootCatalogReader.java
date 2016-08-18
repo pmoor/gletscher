@@ -16,7 +16,7 @@
 
 package ws.moor.gletscher.catalog;
 
-import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -24,36 +24,32 @@ import com.google.common.cache.Weigher;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.InvalidProtocolBufferException;
 import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.proto.Gletscher;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Deque;
 import java.util.Iterator;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 public class RootCatalogReader implements CatalogReader {
 
   private static final Gletscher.Directory NULL_DIR = Gletscher.Directory.getDefaultInstance();
 
   private final BlockStore blockStore;
-  private final PersistedBlock root;
+  private final Catalog catalog;
   private final LoadingCache<Path, Gletscher.Directory> dirCache = CacheBuilder.newBuilder()
       .maximumWeight(4 << 20) // 4 MB
       .weigher((Weigher<Path, Gletscher.Directory>) (k, v) -> k.toString().length() + v.getSerializedSize())
       .build(CacheLoader.from(this::findDirectory));
 
-  public RootCatalogReader(BlockStore blockStore, PersistedBlock root) {
+  public RootCatalogReader(BlockStore blockStore, Catalog catalog) {
     this.blockStore = blockStore;
-    this.root = root;
+    this.catalog = catalog;
   }
 
   @Override
@@ -84,9 +80,10 @@ public class RootCatalogReader implements CatalogReader {
 
   public Iterator<FileInformation> walk() {
     final Deque<PathAndBlock> stack = new ArrayDeque<>();
-    stack.add(new PathAndBlock(Paths.get("/"), root));
+    for (Map.Entry<Path, PersistedBlock> entry : catalog.getRoots().entrySet()) {
+      stack.add(new PathAndBlock(entry.getKey(), entry.getValue()));
+    }
     return new AbstractIterator<FileInformation>() {
-
       private Path currentPath;
       private Iterator<Gletscher.DirectoryEntry> currentDir;
 
@@ -103,9 +100,10 @@ public class RootCatalogReader implements CatalogReader {
                   PersistedBlock.fromProto(next.getDirectory().getBlock())));
               break;
             case SYMLINK:
+              // TODO(pmoor): implement
               break;
             default:
-              // ignore
+              throw new IllegalArgumentException(next.getTypeCase().toString());
           }
         }
 
@@ -122,25 +120,6 @@ public class RootCatalogReader implements CatalogReader {
     };
   }
 
-  public void prefetch() {
-    System.out.printf("total size: %d\n", Futures.getUnchecked(retrieveRecursive(root)));
-  }
-
-  private ListenableFuture<Long> retrieveRecursive(PersistedBlock directory) {
-    return Futures.transformAsync(blockStore.retrieve(directory), bytes -> {
-      List<ListenableFuture<Long>> children = new ArrayList<>();
-      Gletscher.Directory directory1 = parseDirectory(bytes);
-      for (Gletscher.DirectoryEntry entry : directory1.getEntryList()) {
-        if (entry.getTypeCase() == Gletscher.DirectoryEntry.TypeCase.DIRECTORY) {
-          PersistedBlock child = PersistedBlock.fromProto(entry.getDirectory().getBlock());
-          children.add(retrieveRecursive(child));
-        }
-      }
-      return Futures.transform(Futures.allAsList(children),
-              (Function<List<Long>, Long>) objects -> objects.stream().collect(Collectors.summingLong(Long::longValue)));
-    });
-  }
-
   private static class PathAndBlock {
     final Path path;
     final PersistedBlock block;
@@ -153,7 +132,8 @@ public class RootCatalogReader implements CatalogReader {
 
   private Gletscher.Directory findDirectory(Path dir) {
     if (dir.getParent() == null) {
-      return fetchDir(this.root);
+      Preconditions.checkState(dir.getRoot().equals(dir));
+      return fetchDir(catalog.getRootBlock(dir.getRoot()));
     }
 
     Gletscher.Directory parent = dirCache.getUnchecked(dir.getParent());

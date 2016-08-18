@@ -51,7 +51,9 @@ message Directory {
   repeated DirectoryEntry entry = 1;
 }
 
-message BackupRecord {
-  PersistedBlock rootDirectory = 1;
-  uint64 creation_time_millis = 2;
+message Catalog {
+  map<string, PersistedBlock> roots = 1;
+
+  uint64 start_time_millis = 2;
+  uint64 end_time_millis = 3;
 }

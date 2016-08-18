@@ -20,15 +20,13 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import ws.moor.gletscher.Configuration;
 import ws.moor.gletscher.blocks.BlockStore;
-import ws.moor.gletscher.blocks.PersistedBlock;
+import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogReader;
 import ws.moor.gletscher.catalog.CatalogStore;
 import ws.moor.gletscher.catalog.RootCatalogReader;
 import ws.moor.gletscher.cloud.CloudFileStorage;
-import ws.moor.gletscher.proto.Gletscher;
 import ws.moor.gletscher.util.Signer;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -50,7 +48,7 @@ class SearchCommand extends AbstractCommand {
     Configuration config = loadConfig(commandLine);
     CloudFileStorage cloudFileStorage = buildCloudFileStorage(config);
     BlockStore blockStore = new BlockStore(cloudFileStorage, new Signer(config.getSigningKey()));
-    CatalogStore catalogStore = new CatalogStore(cloudFileStorage, context.getClock());
+    CatalogStore catalogStore = new CatalogStore(context.getFileSystem(), cloudFileStorage);
 
     List<Pattern> positive = new ArrayList<>();
     List<Pattern> negative = new ArrayList<>();
@@ -64,12 +62,10 @@ class SearchCommand extends AbstractCommand {
       (isNegative ? negative : positive).add(pattern);
     }
 
-    List<Gletscher.BackupRecord> lastBackups = catalogStore.findLastBackups(16);
-    for (Gletscher.BackupRecord backup : lastBackups) {
-      PersistedBlock root = PersistedBlock.fromProto(backup.getRootDirectory());
-      context.getStdOut().printf("Backup from %s (%s):\n", Instant.ofEpochMilli(backup.getCreationTimeMillis()), root);
+    for (Catalog catalog : catalogStore.findLastCatalogs(16)) {
+      context.getStdOut().printf("Backup %s:\n", catalog);
 
-      RootCatalogReader reader = new RootCatalogReader(blockStore, root);
+      RootCatalogReader reader = new RootCatalogReader(blockStore, catalog);
       Iterator<CatalogReader.FileInformation> iterator = reader.walk();
       while (iterator.hasNext()) {
         CatalogReader.FileInformation file = iterator.next();

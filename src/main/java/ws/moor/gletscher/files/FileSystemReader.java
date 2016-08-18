@@ -30,7 +30,9 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Stream;
 
@@ -44,32 +46,30 @@ public class FileSystemReader<T> {
     T recurse(Path directory);
   }
 
-  private final Set<Path> roots;
+  private final Set<Path> paths;
   private final PrintStream stderr;
 
   public FileSystemReader(Set<Path> paths, PrintStream stderr) throws IOException {
-    roots = new TreeSet<>();
+    this.paths = new TreeSet<>();
     for (Path path : paths) {
-      roots.add(path.toRealPath());
+      this.paths.add(path.toRealPath());
     }
     this.stderr = stderr;
   }
 
-  public T start(Visitor<T> visitor) {
+  public Map<Path, T> start(Visitor<T> visitor) {
     Multimap<Path, Path> pathToRoots = TreeMultimap.create();
-    Path theRoot = null;
-    for (Path root : roots) {
-      while (root.getParent() != null) {
-        pathToRoots.put(root.getParent(), root);
-        root = root.getParent();
+    Set<Path> roots = new TreeSet<>();
+    for (Path root : paths) {
+      Path current = root;
+      while (current.getParent() != null) {
+        pathToRoots.put(current.getParent(), current);
+        current = current.getParent();
       }
-      if (theRoot == null) {
-        theRoot = root;
-      } else {
-        Preconditions.checkState(theRoot.equals(root));
-      }
+      Preconditions.checkState(root.getRoot().equals(current));
+      roots.add(current);
     }
-    removeRecursively(pathToRoots, roots);
+    removeRecursively(pathToRoots, paths);
 
     Recursor<T> recursor = new Recursor<T>() {
       @Override public T recurse(Path directory) {
@@ -102,7 +102,11 @@ public class FileSystemReader<T> {
       }
     };
 
-    return recursor.recurse(theRoot);
+    Map<Path, T> result = new TreeMap<>();
+    for (Path root : roots) {
+      result.put(root, recursor.recurse(root));
+    }
+    return result;
   }
 
   private BasicFileAttributes readAttributes(Path child) {

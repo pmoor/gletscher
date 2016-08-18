@@ -22,11 +22,11 @@ import org.apache.commons.cli.Options;
 import ws.moor.gletscher.Configuration;
 import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.blocks.PersistedBlock;
+import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogReader;
 import ws.moor.gletscher.catalog.CatalogStore;
 import ws.moor.gletscher.catalog.RootCatalogReader;
 import ws.moor.gletscher.cloud.CloudFileStorage;
-import ws.moor.gletscher.proto.Gletscher;
 import ws.moor.gletscher.util.Signer;
 import ws.moor.gletscher.util.StreamSplitter;
 
@@ -84,18 +84,16 @@ class ContainsCommand extends AbstractCommand {
 
     CloudFileStorage cloudFileStorage = buildCloudFileStorage(config);
     BlockStore blockStore = new BlockStore(cloudFileStorage, new Signer(config.getSigningKey()));
-    CatalogStore catalogStore = new CatalogStore(cloudFileStorage, context.getClock());
+    CatalogStore catalogStore = new CatalogStore(context.getFileSystem(), cloudFileStorage);
 
-    List<Gletscher.BackupRecord> lastBackups = catalogStore.findLastBackups(16);
-    for (Gletscher.BackupRecord backup : lastBackups) {
-      PersistedBlock root = PersistedBlock.fromProto(backup.getRootDirectory());
-      RootCatalogReader catalogReader = new RootCatalogReader(blockStore, root);
+    for (Catalog catalog : catalogStore.findLastCatalogs(16)) {
+      RootCatalogReader catalogReader = new RootCatalogReader(blockStore, catalog);
       Iterator<CatalogReader.FileInformation> it = catalogReader.walk();
       while (it.hasNext()) {
         CatalogReader.FileInformation file = it.next();
         for (Map.Entry<Path, List<PersistedBlock>> entry : blocksByPath.entrySet()) {
           if (file.blockList.equals(entry.getValue())) {
-            context.getStdOut().printf("match with %s in %s\n", file.path, root);
+            context.getStdOut().printf("match with %s in %s\n", file.path, catalog);
           }
         }
       }

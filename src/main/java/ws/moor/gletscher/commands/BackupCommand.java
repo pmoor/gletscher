@@ -22,20 +22,22 @@ import ws.moor.gletscher.BackUpper;
 import ws.moor.gletscher.Configuration;
 import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.blocks.PersistedBlock;
+import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogReader;
 import ws.moor.gletscher.catalog.CatalogStore;
 import ws.moor.gletscher.catalog.CompositeCatalogReader;
 import ws.moor.gletscher.catalog.RootCatalogReader;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.files.FileSystemReader;
-import ws.moor.gletscher.proto.Gletscher;
 import ws.moor.gletscher.util.Signer;
 import ws.moor.gletscher.util.StreamSplitter;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Command(name = "backup", description = "Backup local files remotely.")
 class BackupCommand extends AbstractCommand {
@@ -68,22 +70,24 @@ class BackupCommand extends AbstractCommand {
 
     CloudFileStorage cloudFileStorage = buildCloudFileStorage(config);
     BlockStore blockStore = new BlockStore(cloudFileStorage, new Signer(config.getSigningKey()));
-    CatalogStore catalogStore = new CatalogStore(cloudFileStorage, context.getClock());
+    CatalogStore catalogStore = new CatalogStore(context.getFileSystem(), cloudFileStorage);
 
     StreamSplitter splitter = config.getStreamSplitter();
     List<CatalogReader> readers = new ArrayList<>();
-    for (Gletscher.BackupRecord backupRecord : catalogStore.findLastBackups(10)) {
-      PersistedBlock root = PersistedBlock.fromProto(backupRecord.getRootDirectory());
-      readers.add(new RootCatalogReader(blockStore, root));
+    for (Catalog catalog : catalogStore.findLastCatalogs(10)) {
+      readers.add(new RootCatalogReader(blockStore, catalog));
     }
     CatalogReader catalogReader = new CompositeCatalogReader(readers);
+
+    Instant startTime = context.getClock().instant();
     FileSystemReader<PersistedBlock> fileSystemReader = new FileSystemReader<>(config.getIncludes(), context.getStdErr());
-
     BackUpper backUpper = new BackUpper(catalogReader, splitter, blockStore, config.getExcludes(), context.getStdOut(), context.getStdErr());
-    PersistedBlock newRoot = fileSystemReader.start(backUpper);
+    Map<Path, PersistedBlock> roots = fileSystemReader.start(backUpper);
 
-    catalogStore.store(newRoot);
-    context.getStdOut().println("new root: " + newRoot);
+    Instant endTime = context.getClock().instant();
+    Catalog catalog = Catalog.fromNewBackup(startTime, endTime, roots);
+    catalogStore.store(catalog);
+    context.getStdOut().println("new catalog: " + catalog);
     return 0;
   }
 }

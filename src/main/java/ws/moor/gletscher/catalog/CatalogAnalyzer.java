@@ -37,11 +37,13 @@ public class CatalogAnalyzer {
     this.blockStore = blockStore;
   }
 
-  public void analyze(PersistedBlock root, PrintStream out) {
-    out.printf("Analyzing catalog root %s...\n", root);
+  public void analyze(Catalog catalog, PrintStream out) {
+    out.printf("Analyzing catalog %s...\n", catalog);
 
     Stack<Gletscher.Directory> stack = new Stack<>();
-    stack.push(fetchDirectory(root));
+    for (PersistedBlock root : catalog.getRoots().values()) {
+      stack.push(fetchDirectory(root));
+    }
 
     int directories = 0;
     int files = 0;
@@ -78,6 +80,7 @@ public class CatalogAnalyzer {
 
     long uniqueSize = uniqueBlocks.stream().collect(Collectors.summingLong(PersistedBlock::getOriginalLength));
 
+    out.println("            roots: " + catalog.getRoots().size());
     out.println("      directories: " + directories);
     out.println("            files: " + files);
     out.println("         symlinks: " + symlinks);

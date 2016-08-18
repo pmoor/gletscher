@@ -16,12 +16,14 @@
 
 package ws.moor.gletscher.commands;
 
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Futures;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import ws.moor.gletscher.Configuration;
 import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.blocks.PersistedBlock;
+import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogStore;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.proto.Gletscher;
@@ -64,16 +66,16 @@ class RestoreCommand extends AbstractCommand {
     Configuration config = loadConfig(commandLine);
     CloudFileStorage cloudFileStorage = buildCloudFileStorage(config);
     BlockStore blockStore = new BlockStore(cloudFileStorage, new Signer(config.getSigningKey()));
-    CatalogStore catalogStore = new CatalogStore(cloudFileStorage, context.getClock());
+    CatalogStore catalogStore = new CatalogStore(context.getFileSystem(), cloudFileStorage);
 
-    List<Gletscher.BackupRecord> lastBackups = catalogStore.findLastBackups(1);
-    if (lastBackups.isEmpty()) {
+    List<Catalog> lastCatalogs = catalogStore.findLastCatalogs(1);
+    if (lastCatalogs.isEmpty()) {
       context.getStdErr().println("no existing backup found");
       return -1;
     }
 
-    PersistedBlock root = PersistedBlock.fromProto(lastBackups.get(0).getRootDirectory());
-    Gletscher.Directory rootDir = Gletscher.Directory.parseFrom(Futures.getUnchecked(blockStore.retrieve(root)));
+    Catalog catalog = Iterables.getOnlyElement(lastCatalogs);
+    Gletscher.Directory rootDir = Gletscher.Directory.parseFrom(Futures.getUnchecked(blockStore.retrieve(catalog.getOnlyRootBlock())));
     restoreInner(blockStore, rootDir, restoreRoot);
     return 0;
   }

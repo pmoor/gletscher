@@ -17,43 +17,40 @@
 package ws.moor.gletscher.catalog;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Futures;
 import com.google.protobuf.InvalidProtocolBufferException;
-import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.proto.Gletscher;
 
-import java.time.Clock;
+import java.nio.file.FileSystem;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
 public class CatalogStore {
 
+  private final FileSystem fs;
   private final CloudFileStorage storage;
-  private final Clock clock;
   private final DateTimeFormatter dateTimeFormatter;
 
-  public CatalogStore(CloudFileStorage storage, Clock clock) {
+  public CatalogStore(FileSystem fs, CloudFileStorage storage) {
+    this.fs = fs;
     this.storage = storage;
-    this.clock = clock;
     dateTimeFormatter = DateTimeFormatter
         .ofPattern("yyyy/MM/dd/HH:mm:ss-N", Locale.US)
-        .withZone(clock.getZone());
+        .withZone(ZoneId.of("UTC"));
   }
 
-  public void store(PersistedBlock rootDirectory) {
-    Instant now = clock.instant();
-    String fileName = createFileName(now);
-
-    Gletscher.BackupRecord.Builder builder = Gletscher.BackupRecord.newBuilder();
-    builder.setRootDirectory(rootDirectory.toProto());
-    builder.setCreationTimeMillis(now.toEpochMilli());
-    byte[] data = builder.build().toByteArray();
+  public void store(Catalog catalog) {
+    String fileName = createFileName(catalog.getStartTime());
+    byte[] data = catalog.toProto().toByteArray();
     Futures.getUnchecked(storage.store(fileName, data, Hashing.md5().hashBytes(data), ImmutableMap.of()));
   }
 
@@ -61,17 +58,19 @@ public class CatalogStore {
     return String.format("backups/%s", dateTimeFormatter.format(now));
   }
 
-  public List<Gletscher.BackupRecord> findLastBackups(int count) {
-    List<Gletscher.BackupRecord> records = new ArrayList<>(count);
+  public List<Catalog> findLastCatalogs(int count) {
+    List<Catalog> catalogs = new ArrayList<>(count);
 
     List<CloudFileStorage.FileHeader> files = Lists.newArrayList(storage.listFiles("backups/"));
-    for (int i = files.size() - 1; i >= 0 && i >= files.size() - count; i--) {
+    Collections.reverse(files);
+    for (CloudFileStorage.FileHeader header : Iterables.limit(files, count)) {
       try {
-        records.add(Gletscher.BackupRecord.parseFrom(Futures.getUnchecked(storage.get(files.get(i).name))));
+        Gletscher.Catalog proto = Gletscher.Catalog.parseFrom(Futures.getUnchecked(storage.get(header.name)));
+        catalogs.add(Catalog.fromProto(fs, proto));
       } catch (InvalidProtocolBufferException e) {
-        // ignore
+        throw new IllegalArgumentException(e);
       }
     }
-    return records;
+    return catalogs;
   }
 }

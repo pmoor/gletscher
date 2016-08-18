@@ -20,11 +20,10 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import ws.moor.gletscher.Configuration;
 import ws.moor.gletscher.blocks.BlockStore;
-import ws.moor.gletscher.blocks.PersistedBlock;
+import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogAnalyzer;
 import ws.moor.gletscher.catalog.CatalogStore;
 import ws.moor.gletscher.cloud.CloudFileStorage;
-import ws.moor.gletscher.proto.Gletscher;
 import ws.moor.gletscher.util.Signer;
 
 import java.util.List;
@@ -51,12 +50,10 @@ class StatsCommand extends AbstractCommand {
     CloudFileStorage cloudFileStorage = buildCloudFileStorage(config);
     BlockStore blockStore = new BlockStore(cloudFileStorage, new Signer(config.getSigningKey()));
     CatalogAnalyzer analyzer = new CatalogAnalyzer(blockStore);
-    CatalogStore catalogStore = new CatalogStore(cloudFileStorage, context.getClock());
+    CatalogStore catalogStore = new CatalogStore(context.getFileSystem(), cloudFileStorage);
 
-    List<Gletscher.BackupRecord> lastBackups = catalogStore.findLastBackups(3);
-    for (Gletscher.BackupRecord backup : lastBackups) {
-      PersistedBlock root = PersistedBlock.fromProto(backup.getRootDirectory());
-      analyzer.analyze(root, context.getStdOut());
+    for (Catalog catalog : catalogStore.findLastCatalogs(3)) {
+      analyzer.analyze(catalog, context.getStdOut());
     }
 
     return 0;

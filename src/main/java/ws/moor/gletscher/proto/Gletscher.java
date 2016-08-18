@@ -4159,41 +4159,40 @@ public final class Gletscher {
 
   }
 
-  public interface BackupRecordOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:ws.moor.gletscher.proto.BackupRecord)
+  public interface CatalogOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:ws.moor.gletscher.proto.Catalog)
       com.google.protobuf.MessageOrBuilder {
 
     /**
-     * <code>optional .ws.moor.gletscher.proto.PersistedBlock rootDirectory = 1;</code>
+     * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
      */
-    boolean hasRootDirectory();
-    /**
-     * <code>optional .ws.moor.gletscher.proto.PersistedBlock rootDirectory = 1;</code>
-     */
-    ws.moor.gletscher.proto.Gletscher.PersistedBlock getRootDirectory();
-    /**
-     * <code>optional .ws.moor.gletscher.proto.PersistedBlock rootDirectory = 1;</code>
-     */
-    ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder getRootDirectoryOrBuilder();
+    java.util.Map<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock>
+    getRoots();
 
     /**
-     * <code>optional uint64 creation_time_millis = 2;</code>
+     * <code>optional uint64 start_time_millis = 2;</code>
      */
-    long getCreationTimeMillis();
+    long getStartTimeMillis();
+
+    /**
+     * <code>optional uint64 end_time_millis = 3;</code>
+     */
+    long getEndTimeMillis();
   }
   /**
-   * Protobuf type {@code ws.moor.gletscher.proto.BackupRecord}
+   * Protobuf type {@code ws.moor.gletscher.proto.Catalog}
    */
-  public  static final class BackupRecord extends
+  public  static final class Catalog extends
       com.google.protobuf.GeneratedMessage implements
-      // @@protoc_insertion_point(message_implements:ws.moor.gletscher.proto.BackupRecord)
-      BackupRecordOrBuilder {
-    // Use BackupRecord.newBuilder() to construct.
-    private BackupRecord(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
+      // @@protoc_insertion_point(message_implements:ws.moor.gletscher.proto.Catalog)
+      CatalogOrBuilder {
+    // Use Catalog.newBuilder() to construct.
+    private Catalog(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
       super(builder);
     }
-    private BackupRecord() {
-      creationTimeMillis_ = 0L;
+    private Catalog() {
+      startTimeMillis_ = 0L;
+      endTimeMillis_ = 0L;
     }
 
     @java.lang.Override
@@ -4201,7 +4200,7 @@ public final class Gletscher {
     getUnknownFields() {
       return com.google.protobuf.UnknownFieldSet.getDefaultInstance();
     }
-    private BackupRecord(
+    private Catalog(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry) {
       this();
@@ -4221,21 +4220,25 @@ public final class Gletscher {
               break;
             }
             case 10: {
-              ws.moor.gletscher.proto.Gletscher.PersistedBlock.Builder subBuilder = null;
-              if (rootDirectory_ != null) {
-                subBuilder = rootDirectory_.toBuilder();
+              if (!((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
+                roots_ = com.google.protobuf.MapField.newMapField(
+                    RootsDefaultEntryHolder.defaultEntry);
+                mutable_bitField0_ |= 0x00000001;
               }
-              rootDirectory_ = input.readMessage(ws.moor.gletscher.proto.Gletscher.PersistedBlock.parser(), extensionRegistry);
-              if (subBuilder != null) {
-                subBuilder.mergeFrom(rootDirectory_);
-                rootDirectory_ = subBuilder.buildPartial();
-              }
-
+              com.google.protobuf.MapEntry<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock>
+              roots = input.readMessage(
+                  RootsDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
+              roots_.getMutableMap().put(roots.getKey(), roots.getValue());
               break;
             }
             case 16: {
 
-              creationTimeMillis_ = input.readUInt64();
+              startTimeMillis_ = input.readUInt64();
+              break;
+            }
+            case 24: {
+
+              endTimeMillis_ = input.readUInt64();
               break;
             }
           }
@@ -4252,44 +4255,74 @@ public final class Gletscher {
     }
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_BackupRecord_descriptor;
+      return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_Catalog_descriptor;
     }
 
+    @SuppressWarnings({"rawtypes"})
+    protected com.google.protobuf.MapField internalGetMapField(
+        int number) {
+      switch (number) {
+        case 1:
+          return internalGetRoots();
+        default:
+          throw new RuntimeException(
+              "Invalid map field number: " + number);
+      }
+    }
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_BackupRecord_fieldAccessorTable
+      return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_Catalog_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              ws.moor.gletscher.proto.Gletscher.BackupRecord.class, ws.moor.gletscher.proto.Gletscher.BackupRecord.Builder.class);
+              ws.moor.gletscher.proto.Gletscher.Catalog.class, ws.moor.gletscher.proto.Gletscher.Catalog.Builder.class);
     }
 
-    public static final int ROOTDIRECTORY_FIELD_NUMBER = 1;
-    private ws.moor.gletscher.proto.Gletscher.PersistedBlock rootDirectory_;
-    /**
-     * <code>optional .ws.moor.gletscher.proto.PersistedBlock rootDirectory = 1;</code>
-     */
-    public boolean hasRootDirectory() {
-      return rootDirectory_ != null;
+    private int bitField0_;
+    public static final int ROOTS_FIELD_NUMBER = 1;
+    private static final class RootsDefaultEntryHolder {
+      static final com.google.protobuf.MapEntry<
+          java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> defaultEntry =
+              com.google.protobuf.MapEntry
+              .<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock>newDefaultInstance(
+                  ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_Catalog_RootsEntry_descriptor, 
+                  com.google.protobuf.WireFormat.FieldType.STRING,
+                  "",
+                  com.google.protobuf.WireFormat.FieldType.MESSAGE,
+                  ws.moor.gletscher.proto.Gletscher.PersistedBlock.getDefaultInstance());
+    }
+    private com.google.protobuf.MapField<
+        java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> roots_;
+    private com.google.protobuf.MapField<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock>
+    internalGetRoots() {
+      if (roots_ == null) {
+        return com.google.protobuf.MapField.emptyMapField(
+            RootsDefaultEntryHolder.defaultEntry);
+     }
+      return roots_;
     }
     /**
-     * <code>optional .ws.moor.gletscher.proto.PersistedBlock rootDirectory = 1;</code>
+     * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
      */
-    public ws.moor.gletscher.proto.Gletscher.PersistedBlock getRootDirectory() {
-      return rootDirectory_ == null ? ws.moor.gletscher.proto.Gletscher.PersistedBlock.getDefaultInstance() : rootDirectory_;
-    }
-    /**
-     * <code>optional .ws.moor.gletscher.proto.PersistedBlock rootDirectory = 1;</code>
-     */
-    public ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder getRootDirectoryOrBuilder() {
-      return getRootDirectory();
+
+    public java.util.Map<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> getRoots() {
+      return internalGetRoots().getMap();
     }
 
-    public static final int CREATION_TIME_MILLIS_FIELD_NUMBER = 2;
-    private long creationTimeMillis_;
+    public static final int START_TIME_MILLIS_FIELD_NUMBER = 2;
+    private long startTimeMillis_;
     /**
-     * <code>optional uint64 creation_time_millis = 2;</code>
+     * <code>optional uint64 start_time_millis = 2;</code>
      */
-    public long getCreationTimeMillis() {
-      return creationTimeMillis_;
+    public long getStartTimeMillis() {
+      return startTimeMillis_;
+    }
+
+    public static final int END_TIME_MILLIS_FIELD_NUMBER = 3;
+    private long endTimeMillis_;
+    /**
+     * <code>optional uint64 end_time_millis = 3;</code>
+     */
+    public long getEndTimeMillis() {
+      return endTimeMillis_;
     }
 
     private byte memoizedIsInitialized = -1;
@@ -4304,11 +4337,20 @@ public final class Gletscher {
 
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (rootDirectory_ != null) {
-        output.writeMessage(1, getRootDirectory());
+      for (java.util.Map.Entry<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> entry
+           : internalGetRoots().getMap().entrySet()) {
+        com.google.protobuf.MapEntry<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock>
+        roots = RootsDefaultEntryHolder.defaultEntry.newBuilderForType()
+            .setKey(entry.getKey())
+            .setValue(entry.getValue())
+            .build();
+        output.writeMessage(1, roots);
       }
-      if (creationTimeMillis_ != 0L) {
-        output.writeUInt64(2, creationTimeMillis_);
+      if (startTimeMillis_ != 0L) {
+        output.writeUInt64(2, startTimeMillis_);
+      }
+      if (endTimeMillis_ != 0L) {
+        output.writeUInt64(3, endTimeMillis_);
       }
     }
 
@@ -4317,66 +4359,76 @@ public final class Gletscher {
       if (size != -1) return size;
 
       size = 0;
-      if (rootDirectory_ != null) {
+      for (java.util.Map.Entry<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> entry
+           : internalGetRoots().getMap().entrySet()) {
+        com.google.protobuf.MapEntry<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock>
+        roots = RootsDefaultEntryHolder.defaultEntry.newBuilderForType()
+            .setKey(entry.getKey())
+            .setValue(entry.getValue())
+            .build();
         size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(1, getRootDirectory());
+            .computeMessageSize(1, roots);
       }
-      if (creationTimeMillis_ != 0L) {
+      if (startTimeMillis_ != 0L) {
         size += com.google.protobuf.CodedOutputStream
-          .computeUInt64Size(2, creationTimeMillis_);
+          .computeUInt64Size(2, startTimeMillis_);
+      }
+      if (endTimeMillis_ != 0L) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeUInt64Size(3, endTimeMillis_);
       }
       memoizedSize = size;
       return size;
     }
 
     private static final long serialVersionUID = 0L;
-    public static ws.moor.gletscher.proto.Gletscher.BackupRecord parseFrom(
+    public static ws.moor.gletscher.proto.Gletscher.Catalog parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static ws.moor.gletscher.proto.Gletscher.BackupRecord parseFrom(
+    public static ws.moor.gletscher.proto.Gletscher.Catalog parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static ws.moor.gletscher.proto.Gletscher.BackupRecord parseFrom(byte[] data)
+    public static ws.moor.gletscher.proto.Gletscher.Catalog parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static ws.moor.gletscher.proto.Gletscher.BackupRecord parseFrom(
+    public static ws.moor.gletscher.proto.Gletscher.Catalog parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static ws.moor.gletscher.proto.Gletscher.BackupRecord parseFrom(java.io.InputStream input)
+    public static ws.moor.gletscher.proto.Gletscher.Catalog parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return PARSER.parseFrom(input);
     }
-    public static ws.moor.gletscher.proto.Gletscher.BackupRecord parseFrom(
+    public static ws.moor.gletscher.proto.Gletscher.Catalog parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return PARSER.parseFrom(input, extensionRegistry);
     }
-    public static ws.moor.gletscher.proto.Gletscher.BackupRecord parseDelimitedFrom(java.io.InputStream input)
+    public static ws.moor.gletscher.proto.Gletscher.Catalog parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return PARSER.parseDelimitedFrom(input);
     }
-    public static ws.moor.gletscher.proto.Gletscher.BackupRecord parseDelimitedFrom(
+    public static ws.moor.gletscher.proto.Gletscher.Catalog parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return PARSER.parseDelimitedFrom(input, extensionRegistry);
     }
-    public static ws.moor.gletscher.proto.Gletscher.BackupRecord parseFrom(
+    public static ws.moor.gletscher.proto.Gletscher.Catalog parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return PARSER.parseFrom(input);
     }
-    public static ws.moor.gletscher.proto.Gletscher.BackupRecord parseFrom(
+    public static ws.moor.gletscher.proto.Gletscher.Catalog parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -4387,7 +4439,7 @@ public final class Gletscher {
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-    public static Builder newBuilder(ws.moor.gletscher.proto.Gletscher.BackupRecord prototype) {
+    public static Builder newBuilder(ws.moor.gletscher.proto.Gletscher.Catalog prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
     public Builder toBuilder() {
@@ -4402,25 +4454,47 @@ public final class Gletscher {
       return builder;
     }
     /**
-     * Protobuf type {@code ws.moor.gletscher.proto.BackupRecord}
+     * Protobuf type {@code ws.moor.gletscher.proto.Catalog}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:ws.moor.gletscher.proto.BackupRecord)
-        ws.moor.gletscher.proto.Gletscher.BackupRecordOrBuilder {
+        // @@protoc_insertion_point(builder_implements:ws.moor.gletscher.proto.Catalog)
+        ws.moor.gletscher.proto.Gletscher.CatalogOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_BackupRecord_descriptor;
+        return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_Catalog_descriptor;
       }
 
+      @SuppressWarnings({"rawtypes"})
+      protected com.google.protobuf.MapField internalGetMapField(
+          int number) {
+        switch (number) {
+          case 1:
+            return internalGetRoots();
+          default:
+            throw new RuntimeException(
+                "Invalid map field number: " + number);
+        }
+      }
+      @SuppressWarnings({"rawtypes"})
+      protected com.google.protobuf.MapField internalGetMutableMapField(
+          int number) {
+        switch (number) {
+          case 1:
+            return internalGetMutableRoots();
+          default:
+            throw new RuntimeException(
+                "Invalid map field number: " + number);
+        }
+      }
       protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_BackupRecord_fieldAccessorTable
+        return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_Catalog_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                ws.moor.gletscher.proto.Gletscher.BackupRecord.class, ws.moor.gletscher.proto.Gletscher.BackupRecord.Builder.class);
+                ws.moor.gletscher.proto.Gletscher.Catalog.class, ws.moor.gletscher.proto.Gletscher.Catalog.Builder.class);
       }
 
-      // Construct using ws.moor.gletscher.proto.Gletscher.BackupRecord.newBuilder()
+      // Construct using ws.moor.gletscher.proto.Gletscher.Catalog.newBuilder()
       private Builder() {
         maybeForceBuilderInitialization();
       }
@@ -4436,62 +4510,62 @@ public final class Gletscher {
       }
       public Builder clear() {
         super.clear();
-        if (rootDirectoryBuilder_ == null) {
-          rootDirectory_ = null;
-        } else {
-          rootDirectory_ = null;
-          rootDirectoryBuilder_ = null;
-        }
-        creationTimeMillis_ = 0L;
+        internalGetMutableRoots().clear();
+        startTimeMillis_ = 0L;
+
+        endTimeMillis_ = 0L;
 
         return this;
       }
 
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_BackupRecord_descriptor;
+        return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_Catalog_descriptor;
       }
 
-      public ws.moor.gletscher.proto.Gletscher.BackupRecord getDefaultInstanceForType() {
-        return ws.moor.gletscher.proto.Gletscher.BackupRecord.getDefaultInstance();
+      public ws.moor.gletscher.proto.Gletscher.Catalog getDefaultInstanceForType() {
+        return ws.moor.gletscher.proto.Gletscher.Catalog.getDefaultInstance();
       }
 
-      public ws.moor.gletscher.proto.Gletscher.BackupRecord build() {
-        ws.moor.gletscher.proto.Gletscher.BackupRecord result = buildPartial();
+      public ws.moor.gletscher.proto.Gletscher.Catalog build() {
+        ws.moor.gletscher.proto.Gletscher.Catalog result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
         return result;
       }
 
-      public ws.moor.gletscher.proto.Gletscher.BackupRecord buildPartial() {
-        ws.moor.gletscher.proto.Gletscher.BackupRecord result = new ws.moor.gletscher.proto.Gletscher.BackupRecord(this);
-        if (rootDirectoryBuilder_ == null) {
-          result.rootDirectory_ = rootDirectory_;
-        } else {
-          result.rootDirectory_ = rootDirectoryBuilder_.build();
-        }
-        result.creationTimeMillis_ = creationTimeMillis_;
+      public ws.moor.gletscher.proto.Gletscher.Catalog buildPartial() {
+        ws.moor.gletscher.proto.Gletscher.Catalog result = new ws.moor.gletscher.proto.Gletscher.Catalog(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        result.roots_ = internalGetRoots();
+        result.roots_.makeImmutable();
+        result.startTimeMillis_ = startTimeMillis_;
+        result.endTimeMillis_ = endTimeMillis_;
+        result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
       }
 
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof ws.moor.gletscher.proto.Gletscher.BackupRecord) {
-          return mergeFrom((ws.moor.gletscher.proto.Gletscher.BackupRecord)other);
+        if (other instanceof ws.moor.gletscher.proto.Gletscher.Catalog) {
+          return mergeFrom((ws.moor.gletscher.proto.Gletscher.Catalog)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(ws.moor.gletscher.proto.Gletscher.BackupRecord other) {
-        if (other == ws.moor.gletscher.proto.Gletscher.BackupRecord.getDefaultInstance()) return this;
-        if (other.hasRootDirectory()) {
-          mergeRootDirectory(other.getRootDirectory());
+      public Builder mergeFrom(ws.moor.gletscher.proto.Gletscher.Catalog other) {
+        if (other == ws.moor.gletscher.proto.Gletscher.Catalog.getDefaultInstance()) return this;
+        internalGetMutableRoots().mergeFrom(
+            other.internalGetRoots());
+        if (other.getStartTimeMillis() != 0L) {
+          setStartTimeMillis(other.getStartTimeMillis());
         }
-        if (other.getCreationTimeMillis() != 0L) {
-          setCreationTimeMillis(other.getCreationTimeMillis());
+        if (other.getEndTimeMillis() != 0L) {
+          setEndTimeMillis(other.getEndTimeMillis());
         }
         onChanged();
         return this;
@@ -4505,11 +4579,11 @@ public final class Gletscher {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
-        ws.moor.gletscher.proto.Gletscher.BackupRecord parsedMessage = null;
+        ws.moor.gletscher.proto.Gletscher.Catalog parsedMessage = null;
         try {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (ws.moor.gletscher.proto.Gletscher.BackupRecord) e.getUnfinishedMessage();
+          parsedMessage = (ws.moor.gletscher.proto.Gletscher.Catalog) e.getUnfinishedMessage();
           throw e;
         } finally {
           if (parsedMessage != null) {
@@ -4518,146 +4592,100 @@ public final class Gletscher {
         }
         return this;
       }
+      private int bitField0_;
 
-      private ws.moor.gletscher.proto.Gletscher.PersistedBlock rootDirectory_ = null;
-      private com.google.protobuf.SingleFieldBuilder<
-          ws.moor.gletscher.proto.Gletscher.PersistedBlock, ws.moor.gletscher.proto.Gletscher.PersistedBlock.Builder, ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder> rootDirectoryBuilder_;
-      /**
-       * <code>optional .ws.moor.gletscher.proto.PersistedBlock rootDirectory = 1;</code>
-       */
-      public boolean hasRootDirectory() {
-        return rootDirectoryBuilder_ != null || rootDirectory_ != null;
+      private com.google.protobuf.MapField<
+          java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> roots_;
+      private com.google.protobuf.MapField<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock>
+      internalGetRoots() {
+        if (roots_ == null) {
+          return com.google.protobuf.MapField.emptyMapField(
+              RootsDefaultEntryHolder.defaultEntry);
+       }
+        return roots_;
+      }
+      private com.google.protobuf.MapField<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock>
+      internalGetMutableRoots() {
+        onChanged();;
+        if (roots_ == null) {
+          roots_ = com.google.protobuf.MapField.newMapField(
+              RootsDefaultEntryHolder.defaultEntry);
+        }
+        if (!roots_.isMutable()) {
+          roots_ = roots_.copy();
+        }
+        return roots_;
       }
       /**
-       * <code>optional .ws.moor.gletscher.proto.PersistedBlock rootDirectory = 1;</code>
+       * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
        */
-      public ws.moor.gletscher.proto.Gletscher.PersistedBlock getRootDirectory() {
-        if (rootDirectoryBuilder_ == null) {
-          return rootDirectory_ == null ? ws.moor.gletscher.proto.Gletscher.PersistedBlock.getDefaultInstance() : rootDirectory_;
-        } else {
-          return rootDirectoryBuilder_.getMessage();
-        }
+      public java.util.Map<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> getRoots() {
+        return internalGetRoots().getMap();
       }
       /**
-       * <code>optional .ws.moor.gletscher.proto.PersistedBlock rootDirectory = 1;</code>
+       * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
        */
-      public Builder setRootDirectory(ws.moor.gletscher.proto.Gletscher.PersistedBlock value) {
-        if (rootDirectoryBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          rootDirectory_ = value;
-          onChanged();
-        } else {
-          rootDirectoryBuilder_.setMessage(value);
-        }
-
+      public java.util.Map<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock>
+      getMutableRoots() {
+        return internalGetMutableRoots().getMutableMap();
+      }
+      /**
+       * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
+       */
+      public Builder putAllRoots(
+          java.util.Map<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> values) {
+        getMutableRoots().putAll(values);
         return this;
       }
-      /**
-       * <code>optional .ws.moor.gletscher.proto.PersistedBlock rootDirectory = 1;</code>
-       */
-      public Builder setRootDirectory(
-          ws.moor.gletscher.proto.Gletscher.PersistedBlock.Builder builderForValue) {
-        if (rootDirectoryBuilder_ == null) {
-          rootDirectory_ = builderForValue.build();
-          onChanged();
-        } else {
-          rootDirectoryBuilder_.setMessage(builderForValue.build());
-        }
 
-        return this;
+      private long startTimeMillis_ ;
+      /**
+       * <code>optional uint64 start_time_millis = 2;</code>
+       */
+      public long getStartTimeMillis() {
+        return startTimeMillis_;
       }
       /**
-       * <code>optional .ws.moor.gletscher.proto.PersistedBlock rootDirectory = 1;</code>
+       * <code>optional uint64 start_time_millis = 2;</code>
        */
-      public Builder mergeRootDirectory(ws.moor.gletscher.proto.Gletscher.PersistedBlock value) {
-        if (rootDirectoryBuilder_ == null) {
-          if (rootDirectory_ != null) {
-            rootDirectory_ =
-              ws.moor.gletscher.proto.Gletscher.PersistedBlock.newBuilder(rootDirectory_).mergeFrom(value).buildPartial();
-          } else {
-            rootDirectory_ = value;
-          }
-          onChanged();
-        } else {
-          rootDirectoryBuilder_.mergeFrom(value);
-        }
-
-        return this;
-      }
-      /**
-       * <code>optional .ws.moor.gletscher.proto.PersistedBlock rootDirectory = 1;</code>
-       */
-      public Builder clearRootDirectory() {
-        if (rootDirectoryBuilder_ == null) {
-          rootDirectory_ = null;
-          onChanged();
-        } else {
-          rootDirectory_ = null;
-          rootDirectoryBuilder_ = null;
-        }
-
-        return this;
-      }
-      /**
-       * <code>optional .ws.moor.gletscher.proto.PersistedBlock rootDirectory = 1;</code>
-       */
-      public ws.moor.gletscher.proto.Gletscher.PersistedBlock.Builder getRootDirectoryBuilder() {
+      public Builder setStartTimeMillis(long value) {
         
-        onChanged();
-        return getRootDirectoryFieldBuilder().getBuilder();
-      }
-      /**
-       * <code>optional .ws.moor.gletscher.proto.PersistedBlock rootDirectory = 1;</code>
-       */
-      public ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder getRootDirectoryOrBuilder() {
-        if (rootDirectoryBuilder_ != null) {
-          return rootDirectoryBuilder_.getMessageOrBuilder();
-        } else {
-          return rootDirectory_ == null ?
-              ws.moor.gletscher.proto.Gletscher.PersistedBlock.getDefaultInstance() : rootDirectory_;
-        }
-      }
-      /**
-       * <code>optional .ws.moor.gletscher.proto.PersistedBlock rootDirectory = 1;</code>
-       */
-      private com.google.protobuf.SingleFieldBuilder<
-          ws.moor.gletscher.proto.Gletscher.PersistedBlock, ws.moor.gletscher.proto.Gletscher.PersistedBlock.Builder, ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder> 
-          getRootDirectoryFieldBuilder() {
-        if (rootDirectoryBuilder_ == null) {
-          rootDirectoryBuilder_ = new com.google.protobuf.SingleFieldBuilder<
-              ws.moor.gletscher.proto.Gletscher.PersistedBlock, ws.moor.gletscher.proto.Gletscher.PersistedBlock.Builder, ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder>(
-                  getRootDirectory(),
-                  getParentForChildren(),
-                  isClean());
-          rootDirectory_ = null;
-        }
-        return rootDirectoryBuilder_;
-      }
-
-      private long creationTimeMillis_ ;
-      /**
-       * <code>optional uint64 creation_time_millis = 2;</code>
-       */
-      public long getCreationTimeMillis() {
-        return creationTimeMillis_;
-      }
-      /**
-       * <code>optional uint64 creation_time_millis = 2;</code>
-       */
-      public Builder setCreationTimeMillis(long value) {
-        
-        creationTimeMillis_ = value;
+        startTimeMillis_ = value;
         onChanged();
         return this;
       }
       /**
-       * <code>optional uint64 creation_time_millis = 2;</code>
+       * <code>optional uint64 start_time_millis = 2;</code>
        */
-      public Builder clearCreationTimeMillis() {
+      public Builder clearStartTimeMillis() {
         
-        creationTimeMillis_ = 0L;
+        startTimeMillis_ = 0L;
+        onChanged();
+        return this;
+      }
+
+      private long endTimeMillis_ ;
+      /**
+       * <code>optional uint64 end_time_millis = 3;</code>
+       */
+      public long getEndTimeMillis() {
+        return endTimeMillis_;
+      }
+      /**
+       * <code>optional uint64 end_time_millis = 3;</code>
+       */
+      public Builder setEndTimeMillis(long value) {
+        
+        endTimeMillis_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional uint64 end_time_millis = 3;</code>
+       */
+      public Builder clearEndTimeMillis() {
+        
+        endTimeMillis_ = 0L;
         onChanged();
         return this;
       }
@@ -4672,27 +4700,27 @@ public final class Gletscher {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:ws.moor.gletscher.proto.BackupRecord)
+      // @@protoc_insertion_point(builder_scope:ws.moor.gletscher.proto.Catalog)
     }
 
-    // @@protoc_insertion_point(class_scope:ws.moor.gletscher.proto.BackupRecord)
-    private static final ws.moor.gletscher.proto.Gletscher.BackupRecord DEFAULT_INSTANCE;
+    // @@protoc_insertion_point(class_scope:ws.moor.gletscher.proto.Catalog)
+    private static final ws.moor.gletscher.proto.Gletscher.Catalog DEFAULT_INSTANCE;
     static {
-      DEFAULT_INSTANCE = new ws.moor.gletscher.proto.Gletscher.BackupRecord();
+      DEFAULT_INSTANCE = new ws.moor.gletscher.proto.Gletscher.Catalog();
     }
 
-    public static ws.moor.gletscher.proto.Gletscher.BackupRecord getDefaultInstance() {
+    public static ws.moor.gletscher.proto.Gletscher.Catalog getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
-    private static final com.google.protobuf.Parser<BackupRecord>
-        PARSER = new com.google.protobuf.AbstractParser<BackupRecord>() {
-      public BackupRecord parsePartialFrom(
+    private static final com.google.protobuf.Parser<Catalog>
+        PARSER = new com.google.protobuf.AbstractParser<Catalog>() {
+      public Catalog parsePartialFrom(
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
         try {
-          return new BackupRecord(input, extensionRegistry);
+          return new Catalog(input, extensionRegistry);
         } catch (RuntimeException e) {
           if (e.getCause() instanceof
               com.google.protobuf.InvalidProtocolBufferException) {
@@ -4704,16 +4732,16 @@ public final class Gletscher {
       }
     };
 
-    public static com.google.protobuf.Parser<BackupRecord> parser() {
+    public static com.google.protobuf.Parser<Catalog> parser() {
       return PARSER;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Parser<BackupRecord> getParserForType() {
+    public com.google.protobuf.Parser<Catalog> getParserForType() {
       return PARSER;
     }
 
-    public ws.moor.gletscher.proto.Gletscher.BackupRecord getDefaultInstanceForType() {
+    public ws.moor.gletscher.proto.Gletscher.Catalog getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
 
@@ -4750,10 +4778,15 @@ public final class Gletscher {
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_ws_moor_gletscher_proto_Directory_fieldAccessorTable;
   private static com.google.protobuf.Descriptors.Descriptor
-    internal_static_ws_moor_gletscher_proto_BackupRecord_descriptor;
+    internal_static_ws_moor_gletscher_proto_Catalog_descriptor;
   private static
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_ws_moor_gletscher_proto_BackupRecord_fieldAccessorTable;
+      internal_static_ws_moor_gletscher_proto_Catalog_fieldAccessorTable;
+  private static com.google.protobuf.Descriptors.Descriptor
+    internal_static_ws_moor_gletscher_proto_Catalog_RootsEntry_descriptor;
+  private static
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_ws_moor_gletscher_proto_Catalog_RootsEntry_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -4778,10 +4811,13 @@ public final class Gletscher {
       "ChildDirectoryEntryH\000\0228\n\007symlink\030\003 \001(\0132%" +
       ".ws.moor.gletscher.proto.SymLinkEntryH\000B" +
       "\006\n\004type\"C\n\tDirectory\0226\n\005entry\030\001 \003(\0132\'.ws" +
-      ".moor.gletscher.proto.DirectoryEntry\"l\n\014" +
-      "BackupRecord\022>\n\rrootDirectory\030\001 \001(\0132\'.ws" +
-      ".moor.gletscher.proto.PersistedBlock\022\034\n\024" +
-      "creation_time_millis\030\002 \001(\004b\006proto3"
+      ".moor.gletscher.proto.DirectoryEntry\"\320\001\n" +
+      "\007Catalog\022:\n\005roots\030\001 \003(\0132+.ws.moor.gletsc" +
+      "her.proto.Catalog.RootsEntry\022\031\n\021start_ti" +
+      "me_millis\030\002 \001(\004\022\027\n\017end_time_millis\030\003 \001(\004" +
+      "\032U\n\nRootsEntry\022\013\n\003key\030\001 \001(\t\0226\n\005value\030\002 \001",
+      "(\0132\'.ws.moor.gletscher.proto.PersistedBl" +
+      "ock:\0028\001b\006proto3"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -4831,12 +4867,18 @@ public final class Gletscher {
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_ws_moor_gletscher_proto_Directory_descriptor,
         new java.lang.String[] { "Entry", });
-    internal_static_ws_moor_gletscher_proto_BackupRecord_descriptor =
+    internal_static_ws_moor_gletscher_proto_Catalog_descriptor =
       getDescriptor().getMessageTypes().get(6);
-    internal_static_ws_moor_gletscher_proto_BackupRecord_fieldAccessorTable = new
+    internal_static_ws_moor_gletscher_proto_Catalog_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_ws_moor_gletscher_proto_BackupRecord_descriptor,
-        new java.lang.String[] { "RootDirectory", "CreationTimeMillis", });
+        internal_static_ws_moor_gletscher_proto_Catalog_descriptor,
+        new java.lang.String[] { "Roots", "StartTimeMillis", "EndTimeMillis", });
+    internal_static_ws_moor_gletscher_proto_Catalog_RootsEntry_descriptor =
+      internal_static_ws_moor_gletscher_proto_Catalog_descriptor.getNestedTypes().get(0);
+    internal_static_ws_moor_gletscher_proto_Catalog_RootsEntry_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_ws_moor_gletscher_proto_Catalog_RootsEntry_descriptor,
+        new java.lang.String[] { "Key", "Value", });
   }
 
   // @@protoc_insertion_point(outer_class_scope)
