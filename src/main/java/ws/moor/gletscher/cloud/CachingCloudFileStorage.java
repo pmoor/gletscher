@@ -30,6 +30,7 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -41,7 +42,7 @@ public class CachingCloudFileStorage implements CloudFileStorage {
   private final Path localCacheDir;
   private final ListeningExecutorService executor;
 
-  private final Set<String> existingFiles = new TreeSet<>();
+  private final Set<String> existingFiles = Collections.synchronizedSet(new TreeSet<>());
 
   public CachingCloudFileStorage(CloudFileStorage delegate, Path localCacheDir, ListeningExecutorService executor) {
     Preconditions.checkArgument(Files.isDirectory(localCacheDir, LinkOption.NOFOLLOW_LINKS));
@@ -82,18 +83,25 @@ public class CachingCloudFileStorage implements CloudFileStorage {
     if (existingFiles.contains(name)) {
       return Futures.immediateFuture(true);
     }
-    ListenableFuture<Boolean> future = delegate.exists(name);
+
+    ListenableFuture<Boolean> future = executor.submit(() -> {
+      Path localPath = localCacheDir.resolve(name);
+      return Files.isRegularFile(localPath, LinkOption.NOFOLLOW_LINKS);
+    });
+    future = Futures.transformAsync(future, input -> {
+      if (input) {
+        return Futures.immediateFuture(true);
+      } else {
+        return delegate.exists(name);
+      }
+    });
     Futures.addCallback(future, new FutureCallback<Boolean>() {
-      @Override
-      public void onSuccess(@Nullable Boolean exists) {
+      @Override public void onSuccess(@Nullable Boolean exists) {
         if (exists) {
           existingFiles.add(name);
         }
       }
-
-      @Override
-      public void onFailure(Throwable throwable) {
-      }
+      @Override public void onFailure(Throwable throwable) { }
     });
     return future;
   }
