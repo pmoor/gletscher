@@ -18,7 +18,9 @@ package ws.moor.gletscher.commands;
 
 import org.apache.commons.cli.CommandLine;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Properties;
 
 @Command(name = "version", description = "Returns the current Gletscher version.")
 class VersionCommand extends AbstractCommand {
@@ -31,8 +33,15 @@ class VersionCommand extends AbstractCommand {
     if (!args.isEmpty()) {
       throw new InvalidUsageException(this, "version takes no arguments");
     }
-    // TODO(pmoor): Get from pom.xml
-    context.getStdOut().println("Gletscher Version 1.0");
+
+    String versionString = readVersionString();
+    context.getStdOut().println("Gletscher Version " + versionString);
     return 0;
+  }
+
+  private String readVersionString() throws IOException {
+    Properties properties = new Properties();
+    properties.load(getClass().getResourceAsStream("/META-INF/maven/ws.moor.gletscher/gletscher/pom.properties"));
+    return (String) properties.get("version");
   }
 }
