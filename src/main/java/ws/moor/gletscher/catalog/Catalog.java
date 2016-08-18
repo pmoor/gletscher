@@ -80,6 +80,6 @@ public class Catalog {
   }
 
   public PersistedBlock getOnlyRootBlock() {
-    return Iterables.getOnlyElement(roots.val);
+    return Iterables.getOnlyElement(roots.values());
   }
 }
