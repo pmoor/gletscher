@@ -62,13 +62,16 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
   private final String bucket;
   private final String filePrefix;
   private final ListeningExecutorService executor;
+  private final CostTracker costTracker;
 
-  public GoogleCloudFileStorage(Storage client, String bucket, String filePrefix, ListeningExecutorService executor) {
+  public GoogleCloudFileStorage(
+      Storage client, String bucket, String filePrefix, ListeningExecutorService executor, CostTracker costTracker) {
     Preconditions.checkArgument(filePrefix.endsWith("/"));
     this.client = client;
     this.bucket = bucket;
     this.filePrefix = filePrefix;
     this.executor = executor;
+    this.costTracker = costTracker;
   }
 
   public static Storage buildStorageWithCredentials(Path credentialFilePath) {
@@ -95,6 +98,7 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
             .setMetadata(metadata);
         ByteArrayContent content = new ByteArrayContent("application/octet-stream", data);
 
+        costTracker.trackInsert(metadata, data.length);
         Storage.Objects.Insert method = client.objects().insert(bucket, sob, content);
         method.setDisableGZipContent(true);
         method.setIfGenerationMatch(0L);
@@ -137,6 +141,7 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
         Objects result;
         try {
           result = retry(() -> {
+            costTracker.trackList();
             Storage.Objects.List list = client.objects().list(bucket);
             list.setPrefix(filePrefix + prefix);
             list.setMaxResults(1_000L);
@@ -175,6 +180,7 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
       get.setFields("");
       try {
         get.execute();
+        costTracker.trackHead();
         return true;
       } catch (HttpResponseException e) {
         if (e.getStatusCode() == 404) {
@@ -192,6 +198,7 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
       try {
         HttpResponse httpResponse = get.executeMedia();
         byte[] data = ByteStreams.toByteArray(httpResponse.getContent());
+        costTracker.trackGet(data.length);
         String hash = httpResponse.getHeaders().getFirstHeaderStringValue("x-goog-hash");
 
         Pattern pattern = Pattern.compile("md5=([A-Za-z0-9=/+]+)");

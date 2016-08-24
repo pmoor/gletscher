@@ -19,14 +19,10 @@ package ws.moor.gletscher.commands;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
-import ws.moor.gletscher.Configuration;
-import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogReader;
-import ws.moor.gletscher.catalog.CatalogStore;
 import ws.moor.gletscher.catalog.RootCatalogReader;
-import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.util.Signer;
 import ws.moor.gletscher.util.StreamSplitter;
 
@@ -56,8 +52,6 @@ class ContainsCommand extends AbstractCommand {
       throw new InvalidUsageException(this, "Must provide at least one file name.");
     }
 
-    Configuration config = loadConfig(commandLine);
-
     ImmutableList.Builder<Path> pathBuilder = ImmutableList.builder();
     for (String file : args) {
       Path path = context.getFileSystem().getPath(file);
@@ -81,10 +75,6 @@ class ContainsCommand extends AbstractCommand {
       }
       blocksByPath.put(path, blocks);
     }
-
-    CloudFileStorage cloudFileStorage = buildCloudFileStorage(config);
-    BlockStore blockStore = new BlockStore(cloudFileStorage, new Signer(config.getSigningKey()));
-    CatalogStore catalogStore = new CatalogStore(context.getFileSystem(), cloudFileStorage);
 
     for (Catalog catalog : catalogStore.findLastCatalogs(16)) {
       RootCatalogReader catalogReader = new RootCatalogReader(blockStore, catalog);

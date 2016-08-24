@@ -19,17 +19,12 @@ package ws.moor.gletscher.commands;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import ws.moor.gletscher.BackUpper;
-import ws.moor.gletscher.Configuration;
-import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogReader;
-import ws.moor.gletscher.catalog.CatalogStore;
 import ws.moor.gletscher.catalog.CompositeCatalogReader;
 import ws.moor.gletscher.catalog.RootCatalogReader;
-import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.files.FileSystemReader;
-import ws.moor.gletscher.util.Signer;
 import ws.moor.gletscher.util.StreamSplitter;
 
 import java.nio.file.Files;
@@ -56,7 +51,6 @@ class BackupCommand extends AbstractCommand {
       throw new InvalidUsageException(this, "Command does not accept any arguments.");
     }
 
-    Configuration config = loadConfig(commandLine);
     for (Path dir : config.getIncludes()) {
       if (!Files.isDirectory(dir)) {
         context.getStdErr().printf("not a directory: %s\n", dir);
@@ -67,10 +61,6 @@ class BackupCommand extends AbstractCommand {
         return -1;
       }
     }
-
-    CloudFileStorage cloudFileStorage = buildCloudFileStorage(config);
-    BlockStore blockStore = new BlockStore(cloudFileStorage, new Signer(config.getSigningKey()));
-    CatalogStore catalogStore = new CatalogStore(context.getFileSystem(), cloudFileStorage);
 
     StreamSplitter splitter = config.getStreamSplitter();
     List<CatalogReader> readers = new ArrayList<>();

@@ -18,13 +18,8 @@ package ws.moor.gletscher.commands;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
-import ws.moor.gletscher.Configuration;
-import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogAnalyzer;
-import ws.moor.gletscher.catalog.CatalogStore;
-import ws.moor.gletscher.cloud.CloudFileStorage;
-import ws.moor.gletscher.util.Signer;
 
 import java.util.List;
 
@@ -45,17 +40,10 @@ class StatsCommand extends AbstractCommand {
       throw new InvalidUsageException(this, "Command does not accept arguments.");
     }
 
-    Configuration config = loadConfig(commandLine);
-
-    CloudFileStorage cloudFileStorage = buildCloudFileStorage(config);
-    BlockStore blockStore = new BlockStore(cloudFileStorage, new Signer(config.getSigningKey()));
     CatalogAnalyzer analyzer = new CatalogAnalyzer(blockStore);
-    CatalogStore catalogStore = new CatalogStore(context.getFileSystem(), cloudFileStorage);
-
     for (Catalog catalog : catalogStore.findLastCatalogs(3)) {
       analyzer.analyze(catalog, context.getStdOut());
     }
-
     return 0;
   }
 }

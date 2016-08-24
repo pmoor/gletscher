@@ -19,6 +19,7 @@ package ws.moor.gletscher.commands;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import ws.moor.gletscher.Configuration;
 import ws.moor.gletscher.cloud.CloudFileStorage;
+import ws.moor.gletscher.cloud.CostTracker;
 
 import java.io.InputStream;
 import java.io.PrintStream;
@@ -40,5 +41,5 @@ public interface CommandContext {
 
   void exit(int status);
 
-  CloudFileStorage connectToCloud(Configuration config);
+  CloudFileStorage connectToCloud(Configuration config, CostTracker costTracker);
 }

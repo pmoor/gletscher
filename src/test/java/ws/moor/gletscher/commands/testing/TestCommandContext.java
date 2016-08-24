@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import ws.moor.gletscher.Configuration;
 import ws.moor.gletscher.cloud.CloudFileStorage;
+import ws.moor.gletscher.cloud.CostTracker;
 import ws.moor.gletscher.commands.CommandContext;
 
 import java.io.ByteArrayOutputStream;
@@ -83,7 +84,7 @@ public class TestCommandContext implements CommandContext {
   }
 
   @Override
-  public CloudFileStorage connectToCloud(Configuration config) {
+  public CloudFileStorage connectToCloud(Configuration config, CostTracker costTracker) {
     return cloudStorage;
   }
 

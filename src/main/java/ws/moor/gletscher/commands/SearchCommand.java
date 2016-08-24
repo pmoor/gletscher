@@ -18,14 +18,9 @@ package ws.moor.gletscher.commands;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
-import ws.moor.gletscher.Configuration;
-import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogReader;
-import ws.moor.gletscher.catalog.CatalogStore;
 import ws.moor.gletscher.catalog.RootCatalogReader;
-import ws.moor.gletscher.cloud.CloudFileStorage;
-import ws.moor.gletscher.util.Signer;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -45,11 +40,6 @@ class SearchCommand extends AbstractCommand {
 
   @Override
   protected int runInternal(CommandLine commandLine, List<String> args) throws Exception {
-    Configuration config = loadConfig(commandLine);
-    CloudFileStorage cloudFileStorage = buildCloudFileStorage(config);
-    BlockStore blockStore = new BlockStore(cloudFileStorage, new Signer(config.getSigningKey()));
-    CatalogStore catalogStore = new CatalogStore(context.getFileSystem(), cloudFileStorage);
-
     List<Pattern> positive = new ArrayList<>();
     List<Pattern> negative = new ArrayList<>();
     for (String arg : args) {

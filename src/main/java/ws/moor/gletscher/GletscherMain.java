@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.UncaughtExceptionHandlers;
 import ws.moor.gletscher.cloud.CloudFileStorage;
+import ws.moor.gletscher.cloud.CostTracker;
 import ws.moor.gletscher.cloud.GoogleCloudFileStorage;
 import ws.moor.gletscher.commands.CommandContext;
 import ws.moor.gletscher.commands.Commands;
@@ -72,9 +73,9 @@ public class GletscherMain {
     }
 
     @Override
-    public CloudFileStorage connectToCloud(Configuration config) {
+    public CloudFileStorage connectToCloud(Configuration config, CostTracker costTracker) {
       Storage storage = GoogleCloudFileStorage.buildStorageWithCredentials(config.getCredentialFilePath());
-      return new GoogleCloudFileStorage(storage, config.getBucketName(), config.getFilePrefix(), executor);
+      return new GoogleCloudFileStorage(storage, config.getBucketName(), config.getFilePrefix(), executor, costTracker);
     }
 
     @Override

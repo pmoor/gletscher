@@ -16,6 +16,7 @@
 
 package ws.moor.gletscher.commands;
 
+import com.google.common.base.Preconditions;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -23,9 +24,12 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import ws.moor.gletscher.Configuration;
+import ws.moor.gletscher.blocks.BlockStore;
+import ws.moor.gletscher.catalog.CatalogStore;
 import ws.moor.gletscher.cloud.CachingCloudFileStorage;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.cloud.CompressingCloudFileStorage;
+import ws.moor.gletscher.cloud.CostTracker;
 import ws.moor.gletscher.cloud.CountingCloudFileStorage;
 import ws.moor.gletscher.cloud.EncryptingCloudFileStorage;
 import ws.moor.gletscher.cloud.SigningCloudFileStorage;
@@ -37,16 +41,27 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 abstract class AbstractCommand {
 
   final CommandContext context;
+  final AtomicBoolean hasRun = new AtomicBoolean(false);
+
+  private boolean hasConfigArg = false;
+  private final CostTracker costTracker = new CostTracker();
+
+  protected Configuration config;
+  protected BlockStore blockStore;
+  protected CatalogStore catalogStore;
 
   AbstractCommand(CommandContext context) {
     this.context = context;
   }
 
   final int run(String[] args) throws Exception {
+    Preconditions.checkState(!hasRun.getAndSet(true), "Command already ran");
+
     Options options = new Options();
     addCommandLineOptions(options);
 
@@ -58,8 +73,20 @@ abstract class AbstractCommand {
       throw new InvalidUsageException(this, e.getMessage());
     }
 
+    if (hasConfigArg) {
+      config = loadConfig(commandLine);
+      CloudFileStorage cloudFileStorage = buildCloudFileStorage(config, costTracker);
+      blockStore = new BlockStore(cloudFileStorage, new Signer(config.getSigningKey()));
+      catalogStore = new CatalogStore(context.getFileSystem(), cloudFileStorage);
+    }
+
     List<String> argList = new ArrayList<>(commandLine.getArgList());
-    return runInternal(commandLine, argList);
+    int returnCode = runInternal(commandLine, argList);
+
+    if (costTracker.hasUsage()) {
+      costTracker.printSummary(context.getStdErr());
+    }
+    return returnCode;
   }
 
   void addCommandLineOptions(Options options) {}
@@ -67,11 +94,12 @@ abstract class AbstractCommand {
   protected abstract int runInternal(CommandLine commandLine, List<String> args) throws Exception;
 
   final void addConfigFileOption(Options options) {
+    hasConfigArg = true;
     options.addOption(Option.builder("c").longOpt("config").required().hasArg().argName("FILE").build());
   }
 
-  CloudFileStorage buildCloudFileStorage(Configuration config) {
-    CloudFileStorage cloudFileStorage = context.connectToCloud(config);
+  private CloudFileStorage buildCloudFileStorage(Configuration config, CostTracker costTracker) {
+    CloudFileStorage cloudFileStorage = context.connectToCloud(config, costTracker);
 
     CountingCloudFileStorage counting = new CountingCloudFileStorage(cloudFileStorage);
     cloudFileStorage = counting;
@@ -92,7 +120,7 @@ abstract class AbstractCommand {
     out.println(getCommandDescription());
   }
 
-  Configuration loadConfig(CommandLine commandLine) throws IOException {
+  private Configuration loadConfig(CommandLine commandLine) throws IOException {
     return Configuration.fromFile(context.getFileSystem().getPath(commandLine.getOptionValue("config")));
   }
 

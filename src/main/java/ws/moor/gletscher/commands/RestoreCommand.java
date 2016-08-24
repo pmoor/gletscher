@@ -20,14 +20,10 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Futures;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
-import ws.moor.gletscher.Configuration;
 import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.catalog.Catalog;
-import ws.moor.gletscher.catalog.CatalogStore;
-import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.proto.Gletscher;
-import ws.moor.gletscher.util.Signer;
 
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -62,11 +58,6 @@ class RestoreCommand extends AbstractCommand {
       return -1;
     }
     Files.createDirectories(restoreRoot);
-
-    Configuration config = loadConfig(commandLine);
-    CloudFileStorage cloudFileStorage = buildCloudFileStorage(config);
-    BlockStore blockStore = new BlockStore(cloudFileStorage, new Signer(config.getSigningKey()));
-    CatalogStore catalogStore = new CatalogStore(context.getFileSystem(), cloudFileStorage);
 
     List<Catalog> lastCatalogs = catalogStore.findLastCatalogs(1);
     if (lastCatalogs.isEmpty()) {
