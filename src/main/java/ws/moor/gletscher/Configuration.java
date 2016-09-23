@@ -85,6 +85,10 @@ public class Configuration {
     return fs.getPath((String) yaml.get("cache_dir"));
   }
 
+  private boolean hasLocalCacheDir() {
+    return yaml.get("cache_dir") != null;
+  }
+
   private int getMaxSplitSize() {
     return (int) yaml.get("max_split_size");
   }
@@ -116,8 +120,10 @@ public class Configuration {
   public Set<Pattern> getExcludes() {
     Set<Pattern> patterns = ((List<String>) yaml.get("exclude")).stream()
         .map(Pattern::compile).collect(Collectors.toSet());
-    // Always exclude the cache directory.
-    patterns.add(Pattern.compile("^" + Pattern.quote(getLocalCacheDir().toString()) + "$"));
+    if (hasLocalCacheDir()) {
+      // Always exclude the cache directory.
+      patterns.add(Pattern.compile("^" + Pattern.quote(getLocalCacheDir().toString()) + "$"));
+    }
     return patterns;
   }
 }
