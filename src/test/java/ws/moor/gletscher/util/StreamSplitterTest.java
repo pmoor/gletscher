@@ -39,9 +39,7 @@ public class StreamSplitterTest {
   public void findsCommonBlocksIfOffsetByOne() throws IOException {
     Random rnd = new Random(0);
 
-    byte[] fileA = new byte[8 << 20];
-    rnd.nextBytes(fileA);
-
+    byte[] fileA = MoreArrays.randomBytes(rnd, 4 << 20);
     byte[] fileB = Arrays.copyOfRange(fileA, 1, fileA.length);
 
     StreamSplitter splitter = StreamSplitter.rollingHashSplitter(32 << 20);

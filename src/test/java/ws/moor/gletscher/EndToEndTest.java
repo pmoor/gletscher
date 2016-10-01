@@ -25,6 +25,7 @@ import org.junit.runners.JUnit4;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
+import ws.moor.gletscher.util.MoreArrays;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -165,8 +166,7 @@ public class EndToEndTest {
       String name = createRandomFileName(rnd);
       names.add(name);
       Path path = root.resolve(name);
-      byte[] data = new byte[rnd.nextInt(128 << 10)];
-      rnd.nextBytes(data);
+      byte[] data = MoreArrays.randomBytes(rnd, rnd.nextInt(128 << 10));
 
       Files.write(path, data, StandardOpenOption.CREATE_NEW);
     }

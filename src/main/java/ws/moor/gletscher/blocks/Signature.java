@@ -44,12 +44,6 @@ public final class Signature implements Comparable<Signature> {
     return new Signature(mac.doFinal());
   }
 
-  public static Signature randomForTest() {
-    byte[] bytes = new byte[Signature.LENGTH];
-    new Random().nextBytes(bytes);
-    return new Signature(bytes);
-  }
-
   public static Signature fromByteString(ByteString bytes) {
     return new Signature(bytes.toByteArray());
   }

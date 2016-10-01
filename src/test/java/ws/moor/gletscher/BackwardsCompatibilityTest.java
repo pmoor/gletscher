@@ -89,7 +89,18 @@ public class BackwardsCompatibilityTest {
 
   @Test
   public void version20160930() throws Exception {
-    inMemoryStorage.mergeFromProto(Testing.FileList.parseFrom(getClass().getResourceAsStream("/20160930.bin")));
+    inMemoryStorage.mergeFromProto(
+        Testing.FileList.parseFrom(getClass().getResourceAsStream("/20160930.bin")));
+
+    runCommandAndAssertSuccess(fs, inMemoryStorage,
+        "restore", "-c", "/config.properties", "/restore");
+    assertProperlyRestored(fs.getPath("/restore"));
+  }
+
+  @Test
+  public void version20160930newCryptor() throws Exception {
+    inMemoryStorage.mergeFromProto(
+        Testing.FileList.parseFrom(getClass().getResourceAsStream("/20160930-new-cryptor.bin")));
 
     runCommandAndAssertSuccess(fs, inMemoryStorage,
         "restore", "-c", "/config.properties", "/restore");

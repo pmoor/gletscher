@@ -16,6 +16,8 @@
 
 package ws.moor.gletscher.util;
 
+import java.util.Random;
+
 public class MoreArrays {
 
   public static byte[] concatenate(byte[]... arrays) {
@@ -42,5 +44,11 @@ public class MoreArrays {
       }
     }
     return true;
+  }
+
+  public static byte[] randomBytes(Random rnd, int length) {
+    byte[] result = new byte[length];
+    rnd.nextBytes(result);
+    return result;
   }
 }

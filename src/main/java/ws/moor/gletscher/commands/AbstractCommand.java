@@ -107,7 +107,8 @@ abstract class AbstractCommand {
       cloudFileStorage = new CachingCloudFileStorage(counting, config.getLocalCacheDir(), context.getExecutor());
     }
     cloudFileStorage = new SigningCloudFileStorage(cloudFileStorage, new Signer(config.getSigningKey()));
-    cloudFileStorage = new EncryptingCloudFileStorage(cloudFileStorage, new Cryptor(config.getEncryptionKey()));
+    cloudFileStorage = new EncryptingCloudFileStorage(
+        cloudFileStorage, new Cryptor(config.getEncryptionKey(), config.getSigningKey()));
     cloudFileStorage = new CompressingCloudFileStorage(cloudFileStorage, new Compressor());
     return cloudFileStorage;
   }

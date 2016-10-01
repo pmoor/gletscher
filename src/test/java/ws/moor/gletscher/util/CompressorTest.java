@@ -33,8 +33,7 @@ public class CompressorTest {
     Compressor compressor = new Compressor();
 
     for (int i = 0; i < 100; i++) {
-      byte[] plaintext = new byte[rnd.nextInt(512 << 10)];
-      rnd.nextBytes(plaintext);
+      byte[] plaintext = MoreArrays.randomBytes(rnd, rnd.nextInt(512 << 10));
 
       assertThat(compressor.decompress(compressor.compress(plaintext))).isEqualTo(plaintext);
     }
