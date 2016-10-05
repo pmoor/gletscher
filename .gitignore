@@ -2,6 +2,7 @@
 /target
 /.idea/tasks.xml
 /.idea/workspace.xml
+/.idea/uiDesigner.xml
 /cache
 /protoc-bin
 /config.yaml
