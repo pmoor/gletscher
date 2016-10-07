@@ -18,7 +18,7 @@ package ws.moor.gletscher.blocks;
 
 import ws.moor.gletscher.proto.Gletscher;
 
-public class PersistedBlock {
+public class PersistedBlock implements Comparable<PersistedBlock> {
 
   private final Signature signature;
   private final int originalLength;
@@ -64,5 +64,11 @@ public class PersistedBlock {
         .setSignature(signature.asByteString())
         .setOriginalSize(originalLength)
         .build();
+  }
+
+  @Override
+  public int compareTo(PersistedBlock other) {
+    int cmp = signature.compareTo(other.signature);
+    return (cmp == 0) ? Integer.compare(originalLength, other.originalLength) : cmp;
   }
 }

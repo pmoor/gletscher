@@ -23,15 +23,19 @@ import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.util.Signer;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class BlockStore {
 
@@ -100,12 +104,24 @@ public class BlockStore {
   }
 
   public Set<PersistedBlock> listAllBlocks() {
-    Set<PersistedBlock> all = new HashSet<>();
-    Iterator<CloudFileStorage.FileHeader> it = cloudFileStorage.listFiles("blocks/");
-    while (it.hasNext()) {
-      CloudFileStorage.FileHeader header = it.next();
-      all.add(parseFileName(header.name));
+    final Set<PersistedBlock> all = new TreeSet<>();
+
+    ExecutorService executor = Executors.newFixedThreadPool(8);
+    for (int i = 0; i < 16; i++) {
+      final String prefix = String.format("blocks/%x", i);
+      executor.execute(() -> {
+        Set<PersistedBlock> set = new TreeSet<>();
+        Iterator<CloudFileStorage.FileHeader> it = cloudFileStorage.listFiles(prefix);
+        while (it.hasNext()) {
+          CloudFileStorage.FileHeader header = it.next();
+          set.add(parseFileName(header.name));
+        }
+        synchronized (all) {
+          all.addAll(set);
+        }
+      });
     }
+    MoreExecutors.shutdownAndAwaitTermination(executor, 1, TimeUnit.HOURS);
     return all;
   }
 
