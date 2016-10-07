@@ -33,6 +33,7 @@ public final class Commands {
           .add(RestoreCommand.class)
           .add(SearchCommand.class)
           .add(StatsCommand.class)
+          .add(VerifyCommand.class)
           .add(VersionCommand.class)
           .build();
 

@@ -58,6 +58,10 @@ public class CatalogStore {
     return String.format("backups/%s", dateTimeFormatter.format(now));
   }
 
+  public Catalog getLatestCatalog() {
+    return Iterables.getOnlyElement(findLastCatalogs(1));
+  }
+
   public List<Catalog> findLastCatalogs(int count) {
     List<Catalog> catalogs = new ArrayList<>(count);
 

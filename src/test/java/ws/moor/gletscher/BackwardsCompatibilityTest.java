@@ -29,7 +29,6 @@ import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
 import ws.moor.gletscher.proto.testing.Testing;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
@@ -81,6 +80,9 @@ public class BackwardsCompatibilityTest {
         "restore", "-c", "/config.properties", "/restore");
     assertProperlyRestored(fs.getPath("/restore"));
 
+    runCommandAndAssertSuccess(fs, inMemoryStorage,
+        "verify", "-c", "/config.properties");
+
     // remove comment to create new test test
 //    try (FileOutputStream fos = new FileOutputStream("/tmp/dump.bin")) {
 //      inMemoryStorage.toProto().writeTo(fos);
@@ -95,6 +97,9 @@ public class BackwardsCompatibilityTest {
     runCommandAndAssertSuccess(fs, inMemoryStorage,
         "restore", "-c", "/config.properties", "/restore");
     assertProperlyRestored(fs.getPath("/restore"));
+
+    runCommandAndAssertSuccess(fs, inMemoryStorage,
+        "verify", "-c", "/config.properties");
   }
 
   @Test
@@ -105,6 +110,9 @@ public class BackwardsCompatibilityTest {
     runCommandAndAssertSuccess(fs, inMemoryStorage,
         "restore", "-c", "/config.properties", "/restore");
     assertProperlyRestored(fs.getPath("/restore"));
+
+    runCommandAndAssertSuccess(fs, inMemoryStorage,
+        "verify", "-c", "/config.properties");
   }
 
   private void runCommandAndAssertSuccess(FileSystem fs, CloudFileStorage inMemoryStorage, String... args) throws Exception {

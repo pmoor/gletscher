@@ -18,6 +18,7 @@ package ws.moor.gletscher;
 
 import com.google.api.client.repackaged.com.google.common.base.Preconditions;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 import ws.moor.gletscher.util.Cryptor;
@@ -118,8 +119,8 @@ public class Configuration {
   }
 
   public Set<Pattern> getExcludes() {
-    Set<Pattern> patterns = ((List<String>) yaml.get("exclude")).stream()
-        .map(Pattern::compile).collect(Collectors.toSet());
+    List<String> excludeStrings = yaml.containsKey("exclude") ? (List<String>) yaml.get("exclude") : ImmutableList.of();
+    Set<Pattern> patterns = excludeStrings.stream().map(Pattern::compile).collect(Collectors.toSet());
     if (hasLocalCacheDir()) {
       // Always exclude the cache directory.
       patterns.add(Pattern.compile("^" + Pattern.quote(getLocalCacheDir().toString()) + "$"));

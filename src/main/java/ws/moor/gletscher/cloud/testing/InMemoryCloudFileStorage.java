@@ -16,6 +16,7 @@
 
 package ws.moor.gletscher.cloud.testing;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
@@ -84,6 +85,13 @@ public class InMemoryCloudFileStorage implements CloudFileStorage {
         return null;
       }
     });
+  }
+
+  public void delete(String name) {
+    synchronized (lock) {
+      Preconditions.checkArgument(files.containsKey(name), "file does not exist: %s", name);
+      files.remove(name);
+    }
   }
 
   public int getFileCount() {
