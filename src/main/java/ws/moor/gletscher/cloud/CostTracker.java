@@ -61,23 +61,33 @@ public class CostTracker {
   public synchronized void printSummary(PrintStream stream) {
     double totalCost = 0;
 
-    double cost = PRICE_PER_CLASS_A * insertRequests;
-    stream.printf("insert: %d, %s, $%02.6f\n", insertRequests, ByteSize.ofBytes(insertSize), cost);
-    totalCost += cost;
+    if (insertRequests > 0) {
+      double cost = PRICE_PER_CLASS_A * insertRequests;
+      stream.printf("insert: %d, %s, $%02.6f\n", insertRequests, ByteSize.ofBytes(insertSize), cost);
+      totalCost += cost;
+    }
 
-    cost = PRICE_PER_CLASS_B * getRequests + PRICE_PER_BYTE_RETRIEVED * getSize;
-    stream.printf("get: %d, %s, $%02.6f\n", getRequests, ByteSize.ofBytes(getSize), cost);
-    totalCost += cost;
+    if (getRequests > 0) {
+      double cost = PRICE_PER_CLASS_B * getRequests + PRICE_PER_BYTE_RETRIEVED * getSize;
+      stream.printf("get: %d, %s, $%02.6f\n", getRequests, ByteSize.ofBytes(getSize), cost);
+      totalCost += cost;
+    }
 
-    cost = PRICE_PER_CLASS_B * headRequests;
-    stream.printf("head: %d, $%02.6f\n", headRequests, cost);
-    totalCost += cost;
+    if (headRequests > 0) {
+      double cost = PRICE_PER_CLASS_B * headRequests;
+      stream.printf("head: %d, $%02.6f\n", headRequests, cost);
+      totalCost += cost;
+    }
 
-    cost = PRICE_PER_CLASS_A * listRequests;
-    stream.printf("list: %d, $%02.6f\n", listRequests, cost);
-    totalCost += cost;
+    if (listRequests > 0) {
+      double cost = PRICE_PER_CLASS_A * listRequests;
+      stream.printf("list: %d, $%02.6f\n", listRequests, cost);
+      totalCost += cost;
+    }
 
-    stream.printf("Total Cost (Approximate): $%02.6f\n", totalCost);
+    if (totalCost > 0) {
+      stream.printf("Total Cost (Approximate): $%02.6f\n", totalCost);
+    }
   }
 
   public synchronized boolean hasUsage() {
