@@ -141,4 +141,9 @@ public class CachingCloudFileStorage implements CloudFileStorage {
     }, executor);
     return data;
   }
+
+  @Override
+  public void close() {
+    delegate.close();
+  }
 }

@@ -72,6 +72,11 @@ public class SigningCloudFileStorage implements CloudFileStorage {
     return delegate.get(name);
   }
 
+  @Override
+  public void close() {
+    delegate.close();
+  }
+
   private Signature sign(HashCode md5, String name) {
     byte[] dataToSign = MoreArrays.concatenate(md5.asBytes(), name.getBytes(StandardCharsets.UTF_8));
     return signer.computeSignature(dataToSign);

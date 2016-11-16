@@ -22,7 +22,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.Iterator;
 import java.util.Map;
 
-public interface CloudFileStorage {
+public interface CloudFileStorage extends AutoCloseable {
 
   class FileAlreadyExistsException extends Exception {
     public FileAlreadyExistsException(String name) {
@@ -51,4 +51,6 @@ public interface CloudFileStorage {
   ListenableFuture<Boolean> exists(String name);
 
   ListenableFuture<byte[]> get(String name);
+
+  void close();
 }

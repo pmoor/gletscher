@@ -52,6 +52,7 @@ abstract class AbstractCommand {
   private final CostTracker costTracker = new CostTracker();
 
   protected Configuration config;
+  private CloudFileStorage cloudFileStorage;
   protected BlockStore blockStore;
   protected CatalogStore catalogStore;
 
@@ -75,13 +76,17 @@ abstract class AbstractCommand {
 
     if (hasConfigArg) {
       config = loadConfig(commandLine);
-      CloudFileStorage cloudFileStorage = buildCloudFileStorage(config, costTracker);
+      cloudFileStorage = buildCloudFileStorage(config, costTracker);
       blockStore = new BlockStore(cloudFileStorage, new Signer(config.getSigningKey()));
       catalogStore = new CatalogStore(context.getFileSystem(), cloudFileStorage);
     }
 
     List<String> argList = new ArrayList<>(commandLine.getArgList());
     int returnCode = runInternal(commandLine, argList);
+
+    if (cloudFileStorage != null) {
+      cloudFileStorage.close();  // caches can clean-up
+    }
 
     if (costTracker.hasUsage()) {
       costTracker.printSummary(context.getStdErr());
@@ -104,7 +109,7 @@ abstract class AbstractCommand {
     CountingCloudFileStorage counting = new CountingCloudFileStorage(cloudFileStorage);
     cloudFileStorage = counting;
     if (!config.disableCache()) {
-      cloudFileStorage = new CachingCloudFileStorage(counting, config.getLocalCacheDir(), context.getExecutor());
+      cloudFileStorage = new CachingCloudFileStorage(counting, config.getLocalCacheDir());
     }
     cloudFileStorage = new SigningCloudFileStorage(cloudFileStorage, new Signer(config.getSigningKey()));
     cloudFileStorage = new EncryptingCloudFileStorage(

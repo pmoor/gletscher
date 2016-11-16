@@ -74,6 +74,11 @@ public class InMemoryCloudFileStorage implements CloudFileStorage {
     });
   }
 
+  @Override
+  public void close() {
+    // no-op
+  }
+
   @Override public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata) {
     return executor.submit(() -> {
       synchronized (lock) {

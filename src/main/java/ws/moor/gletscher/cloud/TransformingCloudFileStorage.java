@@ -70,6 +70,11 @@ abstract class TransformingCloudFileStorage implements CloudFileStorage {
     return Futures.transform(delegate.get(name), decodingFn::apply);
   }
 
+  @Override
+  public void close() {
+    delegate.close();
+  }
+
   protected abstract byte[] encode(byte[] data);
 
   protected abstract byte[] decode(byte[] data);

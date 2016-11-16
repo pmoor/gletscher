@@ -221,6 +221,11 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
       }}));
   }
 
+  @Override
+  public void close() {
+    // no-op
+  }
+
   private FileHeader toFile(StorageObject object) {
     String name = object.getName();
     Preconditions.checkArgument(name.startsWith(filePrefix));

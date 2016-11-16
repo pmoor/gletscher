@@ -70,6 +70,11 @@ public class CountingCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
+  public void close() {
+    delegate.close();
+  }
+
+  @Override
   public String toString() {
     StringBuilder builder = new StringBuilder();
     builder.append("store count: ").append(storeCount).append("\n");
