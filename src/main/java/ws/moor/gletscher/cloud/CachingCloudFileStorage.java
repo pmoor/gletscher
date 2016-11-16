@@ -23,71 +23,66 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import ws.moor.gletscher.kv.KVStore;
+import ws.moor.gletscher.kv.KVStores;
+import ws.moor.gletscher.kv.Key;
 
 import javax.annotation.Nullable;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class CachingCloudFileStorage implements CloudFileStorage {
 
+  private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+
   private final CloudFileStorage delegate;
-  private final Path localCacheDir;
+  private final KVStore kvStore;
   private final ListeningExecutorService executor;
 
-  private final Set<String> existingFiles = Collections.synchronizedSet(new TreeSet<>());
-
-  public CachingCloudFileStorage(CloudFileStorage delegate, Path localCacheDir, ListeningExecutorService executor) {
+  public CachingCloudFileStorage(CloudFileStorage delegate, Path localCacheDir) {
     Preconditions.checkArgument(Files.isDirectory(localCacheDir, LinkOption.NOFOLLOW_LINKS));
     this.delegate = delegate;
-    this.localCacheDir = localCacheDir;
-    this.executor = executor;
+    this.kvStore = KVStores.openOrCreate(localCacheDir);
+    this.executor = MoreExecutors.listeningDecorator(
+        Executors.newFixedThreadPool(1, new ThreadFactoryBuilder().setNameFormat("cache-thread-%d").build()));
   }
 
   @Override
   public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata) {
     ListenableFuture<?> future = delegate.store(name, data, md5, metadata);
     Futures.addCallback(future, new FutureCallback<Object>() {
-      @Override
-      public void onSuccess(@Nullable Object o) {
-        existingFiles.add(name);
+      @Override public void onSuccess(@Nullable Object o) {
+        storeExists(name);
       }
 
       @Override
       public void onFailure(Throwable throwable) {
         if (throwable instanceof FileAlreadyExistsException) {
-          existingFiles.add(name);
+          storeExists(name);
         }
       }
-    });
+    }, executor);
     return future;
   }
 
   @Override
   public Iterator<FileHeader> listFiles(String prefix) {
     return Iterators.transform(delegate.listFiles(prefix), (file) -> {
-      existingFiles.add(file.name);
+      executor.execute(() -> storeExists(file.name));
       return file;
     });
   }
 
   @Override
   public ListenableFuture<Boolean> exists(String name) {
-    if (existingFiles.contains(name)) {
-      return Futures.immediateFuture(true);
-    }
-
-    ListenableFuture<Boolean> future = executor.submit(() -> {
-      Path localPath = localCacheDir.resolve(name);
-      return Files.isRegularFile(localPath, LinkOption.NOFOLLOW_LINKS);
-    });
+    ListenableFuture<Boolean> future = executor.submit(() -> checkExists(name));
     future = Futures.transformAsync(future, input -> {
       if (input) {
         return Futures.immediateFuture(true);
@@ -98,25 +93,17 @@ public class CachingCloudFileStorage implements CloudFileStorage {
     Futures.addCallback(future, new FutureCallback<Boolean>() {
       @Override public void onSuccess(@Nullable Boolean exists) {
         if (exists) {
-          existingFiles.add(name);
+          storeExists(name);
         }
       }
       @Override public void onFailure(Throwable throwable) { }
-    });
+    }, executor);
     return future;
   }
 
   @Override
   public ListenableFuture<byte[]> get(String name) {
-    Path localPath = localCacheDir.resolve(name);
-    ListenableFuture<byte[]> data = executor.submit(() -> {
-      if (Files.isRegularFile(localPath, LinkOption.NOFOLLOW_LINKS)) {
-        existingFiles.add(name);
-        return Files.readAllBytes(localPath);
-      } else {
-        return null;
-      }
-    });
+    ListenableFuture<byte[]> data = executor.submit(() -> readData(name));
     data = Futures.transformAsync(data, bytes -> {
       if (bytes == null) {
         return delegate.get(name);
@@ -127,13 +114,8 @@ public class CachingCloudFileStorage implements CloudFileStorage {
     Futures.addCallback(data, new FutureCallback<byte[]>() {
       @Override public void onSuccess(@Nullable byte[] data) {
         if (data != null) {
-          existingFiles.add(name);
-          try {
-            Files.createDirectories(localPath.getParent());
-            Files.write(localPath, data, StandardOpenOption.CREATE_NEW);
-          } catch (IOException e) {
-            // ignore
-          }
+          storeExists(name);
+          storeData(name, data);
         }
       }
 
@@ -142,8 +124,31 @@ public class CachingCloudFileStorage implements CloudFileStorage {
     return data;
   }
 
+  private void storeExists(String name) {
+    Key key = Key.fromUtf8("e:" + name);
+    kvStore.store(key, EMPTY_BYTE_ARRAY);
+  }
+
+  private boolean checkExists(String name) {
+    Key key = Key.fromUtf8("e:" + name);
+    return kvStore.contains(key);
+  }
+
+  private void storeData(String name, byte[] data) {
+    Key key = Key.fromUtf8("d:" + name);
+    kvStore.store(key, data);
+  }
+
+  private byte[] readData(String name) {
+    Key key = Key.fromUtf8("d:" + name);
+    return kvStore.get(key);
+  }
+
   @Override
   public void close() {
     delegate.close();
+
+    MoreExecutors.shutdownAndAwaitTermination(executor, 1, TimeUnit.MINUTES);
+    kvStore.close();
   }
 }
