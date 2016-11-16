@@ -41,7 +41,7 @@ import java.util.List;
 import java.util.Random;
 
 @RunWith(JUnit4.class)
-public class EndToEndTest {
+public class BackupRestoreIT {
 
   @Test
   public void testBackupAndRestore() throws Exception {
@@ -66,13 +66,13 @@ public class EndToEndTest {
     Files.createDirectories(fs.getPath("/home/cmoor"));
 
     // initial backup
-    createRandomFileTree(fs.getPath("/home/pmoor"), 4);
+    createRandomFileTree(fs.getPath("/home/pmoor"), 6);
     runCommandAndAssertSuccess(fs, inMemoryStorage,
         "backup", "-c", "/config.properties");
 
     // incremental backup
-    createRandomFileTree(fs.getPath("/", "home", "pmoor", "new child"), 2);
-    createRandomFileTree(fs.getPath("/", "home", "cmoor", "stuff"), 3);
+    createRandomFileTree(fs.getPath("/", "home", "pmoor", "new child"), 3);
+    createRandomFileTree(fs.getPath("/", "home", "cmoor", "stuff"), 5);
     runCommandAndAssertSuccess(fs, inMemoryStorage,
         "backup", "-c", "/config.properties");
 
@@ -82,6 +82,10 @@ public class EndToEndTest {
 
     compare(fs.getPath("/", "home", "pmoor"), fs.getPath("/", "tmp", "restore", "home", "pmoor"));
     compare(fs.getPath("/", "home", "cmoor"), fs.getPath("/", "tmp", "restore", "home", "cmoor"));
+
+    // verify
+    runCommandAndAssertSuccess(fs, inMemoryStorage,
+        "verify", "-c", "/config.properties");
   }
 
   private void runCommandAndAssertSuccess(FileSystem fs, CloudFileStorage inMemoryStorage, String... args) throws Exception {
