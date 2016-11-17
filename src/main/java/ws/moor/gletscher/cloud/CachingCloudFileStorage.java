@@ -18,6 +18,8 @@ package ws.moor.gletscher.cloud;
 
 import com.google.api.client.repackaged.com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
+import com.google.common.hash.BloomFilter;
+import com.google.common.hash.Funnels;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -30,9 +32,13 @@ import ws.moor.gletscher.kv.KVStores;
 import ws.moor.gletscher.kv.Key;
 
 import javax.annotation.Nullable;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -44,14 +50,19 @@ public class CachingCloudFileStorage implements CloudFileStorage {
 
   private final CloudFileStorage delegate;
   private final KVStore kvStore;
+  private final Clock clock;
   private final ListeningExecutorService executor;
+  private final BloomFilter<String> bloomFilter;
 
-  public CachingCloudFileStorage(CloudFileStorage delegate, Path localCacheDir) {
+  public CachingCloudFileStorage(CloudFileStorage delegate, Path localCacheDir, Clock clock) {
     Preconditions.checkArgument(Files.isDirectory(localCacheDir, LinkOption.NOFOLLOW_LINKS));
     this.delegate = delegate;
-    this.kvStore = KVStores.openOrCreate(localCacheDir);
+    this.kvStore = KVStores.open(localCacheDir);
+    this.clock = clock;
     this.executor = MoreExecutors.listeningDecorator(
         Executors.newFixedThreadPool(1, new ThreadFactoryBuilder().setNameFormat("cache-thread-%d").build()));
+
+    this.bloomFilter = BloomFilter.create(Funnels.stringFunnel(StandardCharsets.UTF_8), 100_000);
   }
 
   @Override
@@ -121,27 +132,50 @@ public class CachingCloudFileStorage implements CloudFileStorage {
   }
 
   private void storeExists(String name) {
+    bloomFilter.put(name);
     kvStore.store(Key.fromUtf8("e:" + name), EMPTY_BYTE_ARRAY);
   }
 
   private boolean checkExists(String name) {
-    return kvStore.contains(Key.fromUtf8("e:" + name))
+    boolean exists = kvStore.contains(Key.fromUtf8("e:" + name))
         || kvStore.contains(Key.fromUtf8("d:" + name));
+    if (exists) {
+      bloomFilter.put(name);
+    }
+    return exists;
   }
 
   private void storeData(String name, byte[] data) {
+    bloomFilter.put(name);
     kvStore.store(Key.fromUtf8("d:" + name), data);
   }
 
   private byte[] readData(String name) {
-    return kvStore.get(Key.fromUtf8("d:" + name));
+    byte[] data = kvStore.get(Key.fromUtf8("d:" + name));
+    if (data != null) {
+      bloomFilter.put(name);
+    }
+    return data;
   }
 
   @Override
   public void close() {
     delegate.close();
-
     MoreExecutors.shutdownAndAwaitTermination(executor, 1, TimeUnit.MINUTES);
+
+    storeBloomFilter();
     kvStore.close();
+  }
+
+  private void storeBloomFilter() {
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    try {
+      bloomFilter.writeTo(baos);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+
+    Key key = Key.fromUtf8(String.format("bloom:%d", clock.millis()));
+    kvStore.store(key, baos.toByteArray());
   }
 }
