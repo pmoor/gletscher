@@ -17,7 +17,6 @@
 package ws.moor.gletscher.cloud;
 
 import com.google.api.client.repackaged.com.google.common.base.Preconditions;
-import com.google.common.collect.Iterators;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
 import com.google.common.hash.HashCode;
@@ -67,26 +66,12 @@ public class CachingCloudFileStorage implements CloudFileStorage {
 
   @Override
   public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata) {
-    ListenableFuture<?> future = delegate.store(name, data, md5, metadata);
-    Futures.addCallback(future, new FutureCallback<Object>() {
-      @Override public void onSuccess(@Nullable Object o) {
-        storeExists(name);
-      }
-      @Override public void onFailure(Throwable throwable) {
-        if (throwable instanceof FileAlreadyExistsException) {
-          storeExists(name);
-        }
-      }
-    }, executor);
-    return future;
+    return delegate.store(name, data, md5, metadata);
   }
 
   @Override
   public Iterator<FileHeader> listFiles(String prefix) {
-    return Iterators.transform(delegate.listFiles(prefix), (file) -> {
-      executor.execute(() -> storeExists(file.name));
-      return file;
-    });
+    return delegate.listFiles(prefix);
   }
 
   @Override
