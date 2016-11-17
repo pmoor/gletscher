@@ -49,5 +49,5 @@ $ java -jar target/gletscher-*-jar-with-dependencies.jar \
 To restore the latest backup:
 ```
 $ java -jar target/gletscher-*-jar-with-dependencies.jar \
-    backup -c config.yaml "My Restore Directory"
+    restore -c config.yaml "My Restore Directory"
 ```
