@@ -46,7 +46,7 @@ public class Catalog {
     Instant startTime = Instant.ofEpochMilli(catalog.getStartTimeMillis());
     Instant endTime = Instant.ofEpochMilli(catalog.getEndTimeMillis());
     ImmutableMap.Builder<Path, PersistedBlock> rootBuilder = ImmutableMap.builder();
-    for (Map.Entry<String, Gletscher.PersistedBlock> entry : catalog.getRoots().entrySet()) {
+    for (Map.Entry<String, Gletscher.PersistedBlock> entry : catalog.getRootsMap().entrySet()) {
       rootBuilder.put(fs.getPath(entry.getKey()), PersistedBlock.fromProto(entry.getValue()));
     }
     return new Catalog(startTime, endTime, rootBuilder.build());
@@ -57,7 +57,7 @@ public class Catalog {
     builder.setStartTimeMillis(startTime.toEpochMilli());
     builder.setEndTimeMillis(endTime.toEpochMilli());
     for (Map.Entry<Path, PersistedBlock> entry : roots.entrySet()) {
-      builder.getMutableRoots().put(entry.getKey().toString(), entry.getValue().toProto());
+      builder.putRoots(entry.getKey().toString(), entry.getValue().toProto());
     }
     return builder.build();
   }
