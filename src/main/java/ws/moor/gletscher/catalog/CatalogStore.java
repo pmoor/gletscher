@@ -18,7 +18,7 @@ package ws.moor.gletscher.catalog;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
+import com.google.common.collect.Iterators;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Futures;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -30,7 +30,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 
@@ -44,7 +44,7 @@ public class CatalogStore {
     this.fs = fs;
     this.storage = storage;
     dateTimeFormatter = DateTimeFormatter
-        .ofPattern("yyyy/MM/dd/HH:mm:ss-N", Locale.US)
+        .ofPattern("yyyy-MM-dd-HH-mm-ss", Locale.US)
         .withZone(ZoneId.of("UTC"));
   }
 
@@ -55,7 +55,8 @@ public class CatalogStore {
   }
 
   private String createFileName(Instant now) {
-    return String.format("backups/%s", dateTimeFormatter.format(now));
+    long orderKey = (Long.MAX_VALUE - now.toEpochMilli());
+    return String.format("backups/%016x-%s", orderKey, dateTimeFormatter.format(now));
   }
 
   public Catalog getLatestCatalog() {
@@ -65,9 +66,9 @@ public class CatalogStore {
   public List<Catalog> findLastCatalogs(int count) {
     List<Catalog> catalogs = new ArrayList<>(count);
 
-    List<CloudFileStorage.FileHeader> files = Lists.newArrayList(storage.listFiles("backups/"));
-    Collections.reverse(files);
-    for (CloudFileStorage.FileHeader header : Iterables.limit(files, count)) {
+    Iterator<CloudFileStorage.FileHeader> it = Iterators.limit(storage.listFiles("backups/"), count);
+    while (it.hasNext()) {
+      CloudFileStorage.FileHeader header = it.next();
       try {
         Gletscher.Catalog proto = Gletscher.Catalog.parseFrom(Futures.getUnchecked(storage.get(header.name)));
         catalogs.add(Catalog.fromProto(fs, proto));
