@@ -125,11 +125,12 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
-  public Iterator<FileHeader> listFiles(String prefix) {
+  public Iterator<FileHeader> listFiles(String prefix, int limit) {
     return new AbstractIterator<FileHeader>() {
       String nextPageToken = null;
       Iterator<FileHeader> currentBatch = null;
       boolean done = false;
+      long remaining = limit;
 
       @Override protected FileHeader computeNext() {
         if (currentBatch != null && currentBatch.hasNext()) {
@@ -144,7 +145,7 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
             costTracker.trackList();
             Storage.Objects.List list = client.objects().list(bucket);
             list.setPrefix(filePrefix + prefix);
-            list.setMaxResults(1_000L);
+            list.setMaxResults(Math.min(1000, remaining));
             list.setFields("nextPageToken,items(name,size,md5Hash,metadata/*)");
             if (nextPageToken != null) {
               list.setPageToken(nextPageToken);
@@ -160,8 +161,9 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
         for (StorageObject object : result.getItems()) {
           batch.add(toFile(object));
         }
+        remaining -= batch.size();
         currentBatch = batch.iterator();
-        if (batch.size() < 1000) {
+        if (batch.size() < 1000 || remaining <= 0) {
           done = true;
           nextPageToken = null;
           Preconditions.checkState(result.getNextPageToken() == null);

@@ -47,8 +47,8 @@ public class CountingCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
-  public Iterator<FileHeader> listFiles(String prefix) {
-    return delegate.listFiles(prefix);
+  public Iterator<FileHeader> listFiles(String prefix, int limit) {
+    return delegate.listFiles(prefix, limit);
   }
 
   @Override

@@ -18,7 +18,6 @@ package ws.moor.gletscher.catalog;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Futures;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -66,7 +65,7 @@ public class CatalogStore {
   public List<Catalog> findLastCatalogs(int count) {
     List<Catalog> catalogs = new ArrayList<>(count);
 
-    Iterator<CloudFileStorage.FileHeader> it = Iterators.limit(storage.listFiles("backups/"), count);
+    Iterator<CloudFileStorage.FileHeader> it = storage.listFiles("backups/", count);
     while (it.hasNext()) {
       CloudFileStorage.FileHeader header = it.next();
       try {

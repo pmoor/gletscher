@@ -18,6 +18,7 @@ package ws.moor.gletscher.cloud.testing;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -45,10 +46,10 @@ public class InMemoryCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
-  public Iterator<FileHeader> listFiles(String prefix) {
+  public Iterator<FileHeader> listFiles(String prefix, int limit) {
     List<FileHeader> results = new ArrayList<>();
     synchronized (lock) {
-      for (Entry entry : files.tailMap(prefix).values()) {
+      for (Entry entry : Iterables.limit(files.tailMap(prefix).values(), limit)) {
         if (entry.name.startsWith(prefix)) {
           results.add(entry.header);
         } else {

@@ -111,7 +111,7 @@ public class BlockStore {
       final String prefix = String.format("blocks/%x", i);
       executor.execute(() -> {
         Set<PersistedBlock> set = new TreeSet<>();
-        Iterator<CloudFileStorage.FileHeader> it = cloudFileStorage.listFiles(prefix);
+        Iterator<CloudFileStorage.FileHeader> it = cloudFileStorage.listFiles(prefix, Integer.MAX_VALUE);
         while (it.hasNext()) {
           CloudFileStorage.FileHeader header = it.next();
           set.add(parseFileName(header.name));

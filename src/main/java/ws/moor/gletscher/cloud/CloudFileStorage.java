@@ -46,7 +46,7 @@ public interface CloudFileStorage extends AutoCloseable {
 
   ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata);
 
-  Iterator<FileHeader> listFiles(String prefix);
+  Iterator<FileHeader> listFiles(String prefix, int limit);
 
   ListenableFuture<Boolean> exists(String name);
 

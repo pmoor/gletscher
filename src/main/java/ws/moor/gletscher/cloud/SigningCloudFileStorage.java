@@ -51,8 +51,8 @@ public class SigningCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
-  public Iterator<FileHeader> listFiles(String prefix) {
-    return Iterators.transform(delegate.listFiles(prefix), file -> {
+  public Iterator<FileHeader> listFiles(String prefix, int limit) {
+    return Iterators.transform(delegate.listFiles(prefix, limit), file -> {
       Preconditions.checkArgument(file.metadata.containsKey(PROPERTY_NAME));
       Signature signature = sign(file.md5, file.name);
       if (!signature.toString().equals(file.metadata.get(PROPERTY_NAME))) {
