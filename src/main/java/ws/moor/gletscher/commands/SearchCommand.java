@@ -20,7 +20,6 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogReader;
-import ws.moor.gletscher.catalog.RootCatalogReader;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -55,7 +54,7 @@ class SearchCommand extends AbstractCommand {
     for (Catalog catalog : catalogStore.findLastCatalogs(16)) {
       context.getStdOut().printf("Backup %s:\n", catalog);
 
-      RootCatalogReader reader = new RootCatalogReader(blockStore, catalog);
+      CatalogReader reader = new CatalogReader(blockStore, catalog);
       Iterator<CatalogReader.FileInformation> iterator = reader.walk();
       while (iterator.hasNext()) {
         CatalogReader.FileInformation file = iterator.next();

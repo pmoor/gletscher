@@ -6,7 +6,13 @@ package ws.moor.gletscher.proto;
 public final class Gletscher {
   private Gletscher() {}
   public static void registerAllExtensions(
+      com.google.protobuf.ExtensionRegistryLite registry) {
+  }
+
+  public static void registerAllExtensions(
       com.google.protobuf.ExtensionRegistry registry) {
+    registerAllExtensions(
+        (com.google.protobuf.ExtensionRegistryLite) registry);
   }
   public interface PersistedBlockOrBuilder extends
       // @@protoc_insertion_point(interface_extends:ws.moor.gletscher.proto.PersistedBlock)
@@ -26,11 +32,11 @@ public final class Gletscher {
    * Protobuf type {@code ws.moor.gletscher.proto.PersistedBlock}
    */
   public  static final class PersistedBlock extends
-      com.google.protobuf.GeneratedMessage implements
+      com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:ws.moor.gletscher.proto.PersistedBlock)
       PersistedBlockOrBuilder {
     // Use PersistedBlock.newBuilder() to construct.
-    private PersistedBlock(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
+    private PersistedBlock(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
     private PersistedBlock() {
@@ -45,7 +51,8 @@ public final class Gletscher {
     }
     private PersistedBlock(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry) {
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
       this();
       int mutable_bitField0_ = 0;
       try {
@@ -75,11 +82,10 @@ public final class Gletscher {
           }
         }
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw new RuntimeException(e.setUnfinishedMessage(this));
+        throw e.setUnfinishedMessage(this);
       } catch (java.io.IOException e) {
-        throw new RuntimeException(
-            new com.google.protobuf.InvalidProtocolBufferException(
-                e.getMessage()).setUnfinishedMessage(this));
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
       } finally {
         makeExtensionsImmutable();
       }
@@ -89,7 +95,7 @@ public final class Gletscher {
       return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_PersistedBlock_descriptor;
     }
 
-    protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_PersistedBlock_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
@@ -152,6 +158,40 @@ public final class Gletscher {
     }
 
     private static final long serialVersionUID = 0L;
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof ws.moor.gletscher.proto.Gletscher.PersistedBlock)) {
+        return super.equals(obj);
+      }
+      ws.moor.gletscher.proto.Gletscher.PersistedBlock other = (ws.moor.gletscher.proto.Gletscher.PersistedBlock) obj;
+
+      boolean result = true;
+      result = result && getSignature()
+          .equals(other.getSignature());
+      result = result && (getOriginalSize()
+          == other.getOriginalSize());
+      return result;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptorForType().hashCode();
+      hash = (37 * hash) + SIGNATURE_FIELD_NUMBER;
+      hash = (53 * hash) + getSignature().hashCode();
+      hash = (37 * hash) + ORIGINAL_SIZE_FIELD_NUMBER;
+      hash = (53 * hash) + getOriginalSize();
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
     public static ws.moor.gletscher.proto.Gletscher.PersistedBlock parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -175,34 +215,40 @@ public final class Gletscher {
     }
     public static ws.moor.gletscher.proto.Gletscher.PersistedBlock parseFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return PARSER.parseFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.PersistedBlock parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
     public static ws.moor.gletscher.proto.Gletscher.PersistedBlock parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return PARSER.parseDelimitedFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.PersistedBlock parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseDelimitedFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
     public static ws.moor.gletscher.proto.Gletscher.PersistedBlock parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
-      return PARSER.parseFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.PersistedBlock parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
     public Builder newBuilderForType() { return newBuilder(); }
@@ -219,7 +265,7 @@ public final class Gletscher {
 
     @java.lang.Override
     protected Builder newBuilderForType(
-        com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       Builder builder = new Builder(parent);
       return builder;
     }
@@ -227,7 +273,7 @@ public final class Gletscher {
      * Protobuf type {@code ws.moor.gletscher.proto.PersistedBlock}
      */
     public static final class Builder extends
-        com.google.protobuf.GeneratedMessage.Builder<Builder> implements
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:ws.moor.gletscher.proto.PersistedBlock)
         ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
@@ -235,7 +281,7 @@ public final class Gletscher {
         return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_PersistedBlock_descriptor;
       }
 
-      protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
         return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_PersistedBlock_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
@@ -248,12 +294,13 @@ public final class Gletscher {
       }
 
       private Builder(
-          com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
         super(parent);
         maybeForceBuilderInitialization();
       }
       private void maybeForceBuilderInitialization() {
-        if (com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders) {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
         }
       }
       public Builder clear() {
@@ -290,6 +337,32 @@ public final class Gletscher {
         return result;
       }
 
+      public Builder clone() {
+        return (Builder) super.clone();
+      }
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          Object value) {
+        return (Builder) super.setField(field, value);
+      }
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return (Builder) super.clearField(field);
+      }
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return (Builder) super.clearOneof(oneof);
+      }
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, Object value) {
+        return (Builder) super.setRepeatedField(field, index, value);
+      }
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          Object value) {
+        return (Builder) super.addRepeatedField(field, value);
+      }
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof ws.moor.gletscher.proto.Gletscher.PersistedBlock) {
           return mergeFrom((ws.moor.gletscher.proto.Gletscher.PersistedBlock)other);
@@ -324,7 +397,7 @@ public final class Gletscher {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
           parsedMessage = (ws.moor.gletscher.proto.Gletscher.PersistedBlock) e.getUnfinishedMessage();
-          throw e;
+          throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
             mergeFrom(parsedMessage);
@@ -417,16 +490,7 @@ public final class Gletscher {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
-        try {
           return new PersistedBlock(input, extensionRegistry);
-        } catch (RuntimeException e) {
-          if (e.getCause() instanceof
-              com.google.protobuf.InvalidProtocolBufferException) {
-            throw (com.google.protobuf.InvalidProtocolBufferException)
-                e.getCause();
-          }
-          throw e;
-        }
       }
     };
 
@@ -492,11 +556,11 @@ public final class Gletscher {
    * Protobuf type {@code ws.moor.gletscher.proto.FileEntry}
    */
   public  static final class FileEntry extends
-      com.google.protobuf.GeneratedMessage implements
+      com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:ws.moor.gletscher.proto.FileEntry)
       FileEntryOrBuilder {
     // Use FileEntry.newBuilder() to construct.
-    private FileEntry(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
+    private FileEntry(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
     private FileEntry() {
@@ -512,7 +576,8 @@ public final class Gletscher {
     }
     private FileEntry(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry) {
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
       this();
       int mutable_bitField0_ = 0;
       try {
@@ -545,17 +610,17 @@ public final class Gletscher {
                 block_ = new java.util.ArrayList<ws.moor.gletscher.proto.Gletscher.PersistedBlock>();
                 mutable_bitField0_ |= 0x00000004;
               }
-              block_.add(input.readMessage(ws.moor.gletscher.proto.Gletscher.PersistedBlock.parser(), extensionRegistry));
+              block_.add(
+                  input.readMessage(ws.moor.gletscher.proto.Gletscher.PersistedBlock.parser(), extensionRegistry));
               break;
             }
           }
         }
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw new RuntimeException(e.setUnfinishedMessage(this));
+        throw e.setUnfinishedMessage(this);
       } catch (java.io.IOException e) {
-        throw new RuntimeException(
-            new com.google.protobuf.InvalidProtocolBufferException(
-                e.getMessage()).setUnfinishedMessage(this));
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
       } finally {
         if (((mutable_bitField0_ & 0x00000004) == 0x00000004)) {
           block_ = java.util.Collections.unmodifiableList(block_);
@@ -568,7 +633,7 @@ public final class Gletscher {
       return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_FileEntry_descriptor;
     }
 
-    protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_FileEntry_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
@@ -667,7 +732,7 @@ public final class Gletscher {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (!getNameBytes().isEmpty()) {
-        com.google.protobuf.GeneratedMessage.writeString(output, 1, name_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, name_);
       }
       if (lastModifiedMillis_ != 0L) {
         output.writeUInt64(2, lastModifiedMillis_);
@@ -683,7 +748,7 @@ public final class Gletscher {
 
       size = 0;
       if (!getNameBytes().isEmpty()) {
-        size += com.google.protobuf.GeneratedMessage.computeStringSize(1, name_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, name_);
       }
       if (lastModifiedMillis_ != 0L) {
         size += com.google.protobuf.CodedOutputStream
@@ -698,6 +763,47 @@ public final class Gletscher {
     }
 
     private static final long serialVersionUID = 0L;
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof ws.moor.gletscher.proto.Gletscher.FileEntry)) {
+        return super.equals(obj);
+      }
+      ws.moor.gletscher.proto.Gletscher.FileEntry other = (ws.moor.gletscher.proto.Gletscher.FileEntry) obj;
+
+      boolean result = true;
+      result = result && getName()
+          .equals(other.getName());
+      result = result && (getLastModifiedMillis()
+          == other.getLastModifiedMillis());
+      result = result && getBlockList()
+          .equals(other.getBlockList());
+      return result;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptorForType().hashCode();
+      hash = (37 * hash) + NAME_FIELD_NUMBER;
+      hash = (53 * hash) + getName().hashCode();
+      hash = (37 * hash) + LAST_MODIFIED_MILLIS_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          getLastModifiedMillis());
+      if (getBlockCount() > 0) {
+        hash = (37 * hash) + BLOCK_FIELD_NUMBER;
+        hash = (53 * hash) + getBlockList().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
     public static ws.moor.gletscher.proto.Gletscher.FileEntry parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -721,34 +827,40 @@ public final class Gletscher {
     }
     public static ws.moor.gletscher.proto.Gletscher.FileEntry parseFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return PARSER.parseFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.FileEntry parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
     public static ws.moor.gletscher.proto.Gletscher.FileEntry parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return PARSER.parseDelimitedFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.FileEntry parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseDelimitedFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
     public static ws.moor.gletscher.proto.Gletscher.FileEntry parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
-      return PARSER.parseFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.FileEntry parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
     public Builder newBuilderForType() { return newBuilder(); }
@@ -765,7 +877,7 @@ public final class Gletscher {
 
     @java.lang.Override
     protected Builder newBuilderForType(
-        com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       Builder builder = new Builder(parent);
       return builder;
     }
@@ -773,7 +885,7 @@ public final class Gletscher {
      * Protobuf type {@code ws.moor.gletscher.proto.FileEntry}
      */
     public static final class Builder extends
-        com.google.protobuf.GeneratedMessage.Builder<Builder> implements
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:ws.moor.gletscher.proto.FileEntry)
         ws.moor.gletscher.proto.Gletscher.FileEntryOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
@@ -781,7 +893,7 @@ public final class Gletscher {
         return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_FileEntry_descriptor;
       }
 
-      protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
         return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_FileEntry_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
@@ -794,12 +906,13 @@ public final class Gletscher {
       }
 
       private Builder(
-          com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
         super(parent);
         maybeForceBuilderInitialization();
       }
       private void maybeForceBuilderInitialization() {
-        if (com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders) {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
           getBlockFieldBuilder();
         }
       }
@@ -855,6 +968,32 @@ public final class Gletscher {
         return result;
       }
 
+      public Builder clone() {
+        return (Builder) super.clone();
+      }
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          Object value) {
+        return (Builder) super.setField(field, value);
+      }
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return (Builder) super.clearField(field);
+      }
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return (Builder) super.clearOneof(oneof);
+      }
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, Object value) {
+        return (Builder) super.setRepeatedField(field, index, value);
+      }
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          Object value) {
+        return (Builder) super.addRepeatedField(field, value);
+      }
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof ws.moor.gletscher.proto.Gletscher.FileEntry) {
           return mergeFrom((ws.moor.gletscher.proto.Gletscher.FileEntry)other);
@@ -892,7 +1031,7 @@ public final class Gletscher {
               block_ = other.block_;
               bitField0_ = (bitField0_ & ~0x00000004);
               blockBuilder_ = 
-                com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
                    getBlockFieldBuilder() : null;
             } else {
               blockBuilder_.addAllMessages(other.block_);
@@ -916,7 +1055,7 @@ public final class Gletscher {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
           parsedMessage = (ws.moor.gletscher.proto.Gletscher.FileEntry) e.getUnfinishedMessage();
-          throw e;
+          throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
             mergeFrom(parsedMessage);
@@ -1030,7 +1169,7 @@ public final class Gletscher {
          }
       }
 
-      private com.google.protobuf.RepeatedFieldBuilder<
+      private com.google.protobuf.RepeatedFieldBuilderV3<
           ws.moor.gletscher.proto.Gletscher.PersistedBlock, ws.moor.gletscher.proto.Gletscher.PersistedBlock.Builder, ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder> blockBuilder_;
 
       /**
@@ -1246,11 +1385,11 @@ public final class Gletscher {
            getBlockBuilderList() {
         return getBlockFieldBuilder().getBuilderList();
       }
-      private com.google.protobuf.RepeatedFieldBuilder<
+      private com.google.protobuf.RepeatedFieldBuilderV3<
           ws.moor.gletscher.proto.Gletscher.PersistedBlock, ws.moor.gletscher.proto.Gletscher.PersistedBlock.Builder, ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder> 
           getBlockFieldBuilder() {
         if (blockBuilder_ == null) {
-          blockBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+          blockBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
               ws.moor.gletscher.proto.Gletscher.PersistedBlock, ws.moor.gletscher.proto.Gletscher.PersistedBlock.Builder, ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder>(
                   block_,
                   ((bitField0_ & 0x00000004) == 0x00000004),
@@ -1290,16 +1429,7 @@ public final class Gletscher {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
-        try {
           return new FileEntry(input, extensionRegistry);
-        } catch (RuntimeException e) {
-          if (e.getCause() instanceof
-              com.google.protobuf.InvalidProtocolBufferException) {
-            throw (com.google.protobuf.InvalidProtocolBufferException)
-                e.getCause();
-          }
-          throw e;
-        }
       }
     };
 
@@ -1349,11 +1479,11 @@ public final class Gletscher {
    * Protobuf type {@code ws.moor.gletscher.proto.ChildDirectoryEntry}
    */
   public  static final class ChildDirectoryEntry extends
-      com.google.protobuf.GeneratedMessage implements
+      com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:ws.moor.gletscher.proto.ChildDirectoryEntry)
       ChildDirectoryEntryOrBuilder {
     // Use ChildDirectoryEntry.newBuilder() to construct.
-    private ChildDirectoryEntry(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
+    private ChildDirectoryEntry(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
     private ChildDirectoryEntry() {
@@ -1367,7 +1497,8 @@ public final class Gletscher {
     }
     private ChildDirectoryEntry(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry) {
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
       this();
       int mutable_bitField0_ = 0;
       try {
@@ -1406,11 +1537,10 @@ public final class Gletscher {
           }
         }
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw new RuntimeException(e.setUnfinishedMessage(this));
+        throw e.setUnfinishedMessage(this);
       } catch (java.io.IOException e) {
-        throw new RuntimeException(
-            new com.google.protobuf.InvalidProtocolBufferException(
-                e.getMessage()).setUnfinishedMessage(this));
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
       } finally {
         makeExtensionsImmutable();
       }
@@ -1420,7 +1550,7 @@ public final class Gletscher {
       return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_ChildDirectoryEntry_descriptor;
     }
 
-    protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_ChildDirectoryEntry_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
@@ -1495,7 +1625,7 @@ public final class Gletscher {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (!getNameBytes().isEmpty()) {
-        com.google.protobuf.GeneratedMessage.writeString(output, 1, name_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, name_);
       }
       if (block_ != null) {
         output.writeMessage(2, getBlock());
@@ -1508,7 +1638,7 @@ public final class Gletscher {
 
       size = 0;
       if (!getNameBytes().isEmpty()) {
-        size += com.google.protobuf.GeneratedMessage.computeStringSize(1, name_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, name_);
       }
       if (block_ != null) {
         size += com.google.protobuf.CodedOutputStream
@@ -1519,6 +1649,45 @@ public final class Gletscher {
     }
 
     private static final long serialVersionUID = 0L;
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry)) {
+        return super.equals(obj);
+      }
+      ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry other = (ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry) obj;
+
+      boolean result = true;
+      result = result && getName()
+          .equals(other.getName());
+      result = result && (hasBlock() == other.hasBlock());
+      if (hasBlock()) {
+        result = result && getBlock()
+            .equals(other.getBlock());
+      }
+      return result;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptorForType().hashCode();
+      hash = (37 * hash) + NAME_FIELD_NUMBER;
+      hash = (53 * hash) + getName().hashCode();
+      if (hasBlock()) {
+        hash = (37 * hash) + BLOCK_FIELD_NUMBER;
+        hash = (53 * hash) + getBlock().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
     public static ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -1542,34 +1711,40 @@ public final class Gletscher {
     }
     public static ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry parseFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return PARSER.parseFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
     public static ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return PARSER.parseDelimitedFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseDelimitedFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
     public static ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
-      return PARSER.parseFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
     public Builder newBuilderForType() { return newBuilder(); }
@@ -1586,7 +1761,7 @@ public final class Gletscher {
 
     @java.lang.Override
     protected Builder newBuilderForType(
-        com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       Builder builder = new Builder(parent);
       return builder;
     }
@@ -1594,7 +1769,7 @@ public final class Gletscher {
      * Protobuf type {@code ws.moor.gletscher.proto.ChildDirectoryEntry}
      */
     public static final class Builder extends
-        com.google.protobuf.GeneratedMessage.Builder<Builder> implements
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:ws.moor.gletscher.proto.ChildDirectoryEntry)
         ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntryOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
@@ -1602,7 +1777,7 @@ public final class Gletscher {
         return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_ChildDirectoryEntry_descriptor;
       }
 
-      protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
         return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_ChildDirectoryEntry_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
@@ -1615,12 +1790,13 @@ public final class Gletscher {
       }
 
       private Builder(
-          com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
         super(parent);
         maybeForceBuilderInitialization();
       }
       private void maybeForceBuilderInitialization() {
-        if (com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders) {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
         }
       }
       public Builder clear() {
@@ -1665,6 +1841,32 @@ public final class Gletscher {
         return result;
       }
 
+      public Builder clone() {
+        return (Builder) super.clone();
+      }
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          Object value) {
+        return (Builder) super.setField(field, value);
+      }
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return (Builder) super.clearField(field);
+      }
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return (Builder) super.clearOneof(oneof);
+      }
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, Object value) {
+        return (Builder) super.setRepeatedField(field, index, value);
+      }
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          Object value) {
+        return (Builder) super.addRepeatedField(field, value);
+      }
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry) {
           return mergeFrom((ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry)other);
@@ -1700,7 +1902,7 @@ public final class Gletscher {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
           parsedMessage = (ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry) e.getUnfinishedMessage();
-          throw e;
+          throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
             mergeFrom(parsedMessage);
@@ -1779,7 +1981,7 @@ public final class Gletscher {
       }
 
       private ws.moor.gletscher.proto.Gletscher.PersistedBlock block_ = null;
-      private com.google.protobuf.SingleFieldBuilder<
+      private com.google.protobuf.SingleFieldBuilderV3<
           ws.moor.gletscher.proto.Gletscher.PersistedBlock, ws.moor.gletscher.proto.Gletscher.PersistedBlock.Builder, ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder> blockBuilder_;
       /**
        * <code>optional .ws.moor.gletscher.proto.PersistedBlock block = 2;</code>
@@ -1881,11 +2083,11 @@ public final class Gletscher {
       /**
        * <code>optional .ws.moor.gletscher.proto.PersistedBlock block = 2;</code>
        */
-      private com.google.protobuf.SingleFieldBuilder<
+      private com.google.protobuf.SingleFieldBuilderV3<
           ws.moor.gletscher.proto.Gletscher.PersistedBlock, ws.moor.gletscher.proto.Gletscher.PersistedBlock.Builder, ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder> 
           getBlockFieldBuilder() {
         if (blockBuilder_ == null) {
-          blockBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+          blockBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
               ws.moor.gletscher.proto.Gletscher.PersistedBlock, ws.moor.gletscher.proto.Gletscher.PersistedBlock.Builder, ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder>(
                   getBlock(),
                   getParentForChildren(),
@@ -1924,16 +2126,7 @@ public final class Gletscher {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
-        try {
           return new ChildDirectoryEntry(input, extensionRegistry);
-        } catch (RuntimeException e) {
-          if (e.getCause() instanceof
-              com.google.protobuf.InvalidProtocolBufferException) {
-            throw (com.google.protobuf.InvalidProtocolBufferException)
-                e.getCause();
-          }
-          throw e;
-        }
       }
     };
 
@@ -1980,11 +2173,11 @@ public final class Gletscher {
    * Protobuf type {@code ws.moor.gletscher.proto.SymLinkEntry}
    */
   public  static final class SymLinkEntry extends
-      com.google.protobuf.GeneratedMessage implements
+      com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:ws.moor.gletscher.proto.SymLinkEntry)
       SymLinkEntryOrBuilder {
     // Use SymLinkEntry.newBuilder() to construct.
-    private SymLinkEntry(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
+    private SymLinkEntry(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
     private SymLinkEntry() {
@@ -1999,7 +2192,8 @@ public final class Gletscher {
     }
     private SymLinkEntry(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry) {
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
       this();
       int mutable_bitField0_ = 0;
       try {
@@ -2031,11 +2225,10 @@ public final class Gletscher {
           }
         }
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw new RuntimeException(e.setUnfinishedMessage(this));
+        throw e.setUnfinishedMessage(this);
       } catch (java.io.IOException e) {
-        throw new RuntimeException(
-            new com.google.protobuf.InvalidProtocolBufferException(
-                e.getMessage()).setUnfinishedMessage(this));
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
       } finally {
         makeExtensionsImmutable();
       }
@@ -2045,7 +2238,7 @@ public final class Gletscher {
       return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_SymLinkEntry_descriptor;
     }
 
-    protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_SymLinkEntry_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
@@ -2133,10 +2326,10 @@ public final class Gletscher {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (!getNameBytes().isEmpty()) {
-        com.google.protobuf.GeneratedMessage.writeString(output, 1, name_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, name_);
       }
       if (!getTargetBytes().isEmpty()) {
-        com.google.protobuf.GeneratedMessage.writeString(output, 2, target_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, target_);
       }
     }
 
@@ -2146,16 +2339,50 @@ public final class Gletscher {
 
       size = 0;
       if (!getNameBytes().isEmpty()) {
-        size += com.google.protobuf.GeneratedMessage.computeStringSize(1, name_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, name_);
       }
       if (!getTargetBytes().isEmpty()) {
-        size += com.google.protobuf.GeneratedMessage.computeStringSize(2, target_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, target_);
       }
       memoizedSize = size;
       return size;
     }
 
     private static final long serialVersionUID = 0L;
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof ws.moor.gletscher.proto.Gletscher.SymLinkEntry)) {
+        return super.equals(obj);
+      }
+      ws.moor.gletscher.proto.Gletscher.SymLinkEntry other = (ws.moor.gletscher.proto.Gletscher.SymLinkEntry) obj;
+
+      boolean result = true;
+      result = result && getName()
+          .equals(other.getName());
+      result = result && getTarget()
+          .equals(other.getTarget());
+      return result;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptorForType().hashCode();
+      hash = (37 * hash) + NAME_FIELD_NUMBER;
+      hash = (53 * hash) + getName().hashCode();
+      hash = (37 * hash) + TARGET_FIELD_NUMBER;
+      hash = (53 * hash) + getTarget().hashCode();
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
     public static ws.moor.gletscher.proto.Gletscher.SymLinkEntry parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -2179,34 +2406,40 @@ public final class Gletscher {
     }
     public static ws.moor.gletscher.proto.Gletscher.SymLinkEntry parseFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return PARSER.parseFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.SymLinkEntry parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
     public static ws.moor.gletscher.proto.Gletscher.SymLinkEntry parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return PARSER.parseDelimitedFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.SymLinkEntry parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseDelimitedFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
     public static ws.moor.gletscher.proto.Gletscher.SymLinkEntry parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
-      return PARSER.parseFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.SymLinkEntry parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
     public Builder newBuilderForType() { return newBuilder(); }
@@ -2223,7 +2456,7 @@ public final class Gletscher {
 
     @java.lang.Override
     protected Builder newBuilderForType(
-        com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       Builder builder = new Builder(parent);
       return builder;
     }
@@ -2231,7 +2464,7 @@ public final class Gletscher {
      * Protobuf type {@code ws.moor.gletscher.proto.SymLinkEntry}
      */
     public static final class Builder extends
-        com.google.protobuf.GeneratedMessage.Builder<Builder> implements
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:ws.moor.gletscher.proto.SymLinkEntry)
         ws.moor.gletscher.proto.Gletscher.SymLinkEntryOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
@@ -2239,7 +2472,7 @@ public final class Gletscher {
         return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_SymLinkEntry_descriptor;
       }
 
-      protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
         return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_SymLinkEntry_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
@@ -2252,12 +2485,13 @@ public final class Gletscher {
       }
 
       private Builder(
-          com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
         super(parent);
         maybeForceBuilderInitialization();
       }
       private void maybeForceBuilderInitialization() {
-        if (com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders) {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
         }
       }
       public Builder clear() {
@@ -2294,6 +2528,32 @@ public final class Gletscher {
         return result;
       }
 
+      public Builder clone() {
+        return (Builder) super.clone();
+      }
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          Object value) {
+        return (Builder) super.setField(field, value);
+      }
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return (Builder) super.clearField(field);
+      }
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return (Builder) super.clearOneof(oneof);
+      }
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, Object value) {
+        return (Builder) super.setRepeatedField(field, index, value);
+      }
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          Object value) {
+        return (Builder) super.addRepeatedField(field, value);
+      }
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof ws.moor.gletscher.proto.Gletscher.SymLinkEntry) {
           return mergeFrom((ws.moor.gletscher.proto.Gletscher.SymLinkEntry)other);
@@ -2330,7 +2590,7 @@ public final class Gletscher {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
           parsedMessage = (ws.moor.gletscher.proto.Gletscher.SymLinkEntry) e.getUnfinishedMessage();
-          throw e;
+          throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
             mergeFrom(parsedMessage);
@@ -2506,16 +2766,7 @@ public final class Gletscher {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
-        try {
           return new SymLinkEntry(input, extensionRegistry);
-        } catch (RuntimeException e) {
-          if (e.getCause() instanceof
-              com.google.protobuf.InvalidProtocolBufferException) {
-            throw (com.google.protobuf.InvalidProtocolBufferException)
-                e.getCause();
-          }
-          throw e;
-        }
       }
     };
 
@@ -2571,11 +2822,11 @@ public final class Gletscher {
    * Protobuf type {@code ws.moor.gletscher.proto.DirectoryEntry}
    */
   public  static final class DirectoryEntry extends
-      com.google.protobuf.GeneratedMessage implements
+      com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:ws.moor.gletscher.proto.DirectoryEntry)
       DirectoryEntryOrBuilder {
     // Use DirectoryEntry.newBuilder() to construct.
-    private DirectoryEntry(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
+    private DirectoryEntry(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
     private DirectoryEntry() {
@@ -2588,7 +2839,8 @@ public final class Gletscher {
     }
     private DirectoryEntry(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry) {
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
       this();
       int mutable_bitField0_ = 0;
       try {
@@ -2650,11 +2902,10 @@ public final class Gletscher {
           }
         }
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw new RuntimeException(e.setUnfinishedMessage(this));
+        throw e.setUnfinishedMessage(this);
       } catch (java.io.IOException e) {
-        throw new RuntimeException(
-            new com.google.protobuf.InvalidProtocolBufferException(
-                e.getMessage()).setUnfinishedMessage(this));
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
       } finally {
         makeExtensionsImmutable();
       }
@@ -2664,7 +2915,7 @@ public final class Gletscher {
       return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_DirectoryEntry_descriptor;
     }
 
-    protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_DirectoryEntry_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
@@ -2679,18 +2930,25 @@ public final class Gletscher {
       DIRECTORY(2),
       SYMLINK(3),
       TYPE_NOT_SET(0);
-      private int value = 0;
+      private final int value;
       private TypeCase(int value) {
         this.value = value;
       }
+      /**
+       * @deprecated Use {@link #forNumber(int)} instead.
+       */
+      @java.lang.Deprecated
       public static TypeCase valueOf(int value) {
+        return forNumber(value);
+      }
+
+      public static TypeCase forNumber(int value) {
         switch (value) {
           case 1: return FILE;
           case 2: return DIRECTORY;
           case 3: return SYMLINK;
           case 0: return TYPE_NOT_SET;
-          default: throw new java.lang.IllegalArgumentException(
-            "Value is undefined for this oneof enum.");
+          default: return null;
         }
       }
       public int getNumber() {
@@ -2700,7 +2958,7 @@ public final class Gletscher {
 
     public TypeCase
     getTypeCase() {
-      return TypeCase.valueOf(
+      return TypeCase.forNumber(
           typeCase_);
     }
 
@@ -2809,6 +3067,67 @@ public final class Gletscher {
     }
 
     private static final long serialVersionUID = 0L;
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof ws.moor.gletscher.proto.Gletscher.DirectoryEntry)) {
+        return super.equals(obj);
+      }
+      ws.moor.gletscher.proto.Gletscher.DirectoryEntry other = (ws.moor.gletscher.proto.Gletscher.DirectoryEntry) obj;
+
+      boolean result = true;
+      result = result && getTypeCase().equals(
+          other.getTypeCase());
+      if (!result) return false;
+      switch (typeCase_) {
+        case 1:
+          result = result && getFile()
+              .equals(other.getFile());
+          break;
+        case 2:
+          result = result && getDirectory()
+              .equals(other.getDirectory());
+          break;
+        case 3:
+          result = result && getSymlink()
+              .equals(other.getSymlink());
+          break;
+        case 0:
+        default:
+      }
+      return result;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptorForType().hashCode();
+      switch (typeCase_) {
+        case 1:
+          hash = (37 * hash) + FILE_FIELD_NUMBER;
+          hash = (53 * hash) + getFile().hashCode();
+          break;
+        case 2:
+          hash = (37 * hash) + DIRECTORY_FIELD_NUMBER;
+          hash = (53 * hash) + getDirectory().hashCode();
+          break;
+        case 3:
+          hash = (37 * hash) + SYMLINK_FIELD_NUMBER;
+          hash = (53 * hash) + getSymlink().hashCode();
+          break;
+        case 0:
+        default:
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
     public static ws.moor.gletscher.proto.Gletscher.DirectoryEntry parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -2832,34 +3151,40 @@ public final class Gletscher {
     }
     public static ws.moor.gletscher.proto.Gletscher.DirectoryEntry parseFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return PARSER.parseFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.DirectoryEntry parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
     public static ws.moor.gletscher.proto.Gletscher.DirectoryEntry parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return PARSER.parseDelimitedFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.DirectoryEntry parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseDelimitedFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
     public static ws.moor.gletscher.proto.Gletscher.DirectoryEntry parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
-      return PARSER.parseFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.DirectoryEntry parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
     public Builder newBuilderForType() { return newBuilder(); }
@@ -2876,7 +3201,7 @@ public final class Gletscher {
 
     @java.lang.Override
     protected Builder newBuilderForType(
-        com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       Builder builder = new Builder(parent);
       return builder;
     }
@@ -2884,7 +3209,7 @@ public final class Gletscher {
      * Protobuf type {@code ws.moor.gletscher.proto.DirectoryEntry}
      */
     public static final class Builder extends
-        com.google.protobuf.GeneratedMessage.Builder<Builder> implements
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:ws.moor.gletscher.proto.DirectoryEntry)
         ws.moor.gletscher.proto.Gletscher.DirectoryEntryOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
@@ -2892,7 +3217,7 @@ public final class Gletscher {
         return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_DirectoryEntry_descriptor;
       }
 
-      protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
         return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_DirectoryEntry_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
@@ -2905,12 +3230,13 @@ public final class Gletscher {
       }
 
       private Builder(
-          com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
         super(parent);
         maybeForceBuilderInitialization();
       }
       private void maybeForceBuilderInitialization() {
-        if (com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders) {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
         }
       }
       public Builder clear() {
@@ -2965,6 +3291,32 @@ public final class Gletscher {
         return result;
       }
 
+      public Builder clone() {
+        return (Builder) super.clone();
+      }
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          Object value) {
+        return (Builder) super.setField(field, value);
+      }
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return (Builder) super.clearField(field);
+      }
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return (Builder) super.clearOneof(oneof);
+      }
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, Object value) {
+        return (Builder) super.setRepeatedField(field, index, value);
+      }
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          Object value) {
+        return (Builder) super.addRepeatedField(field, value);
+      }
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof ws.moor.gletscher.proto.Gletscher.DirectoryEntry) {
           return mergeFrom((ws.moor.gletscher.proto.Gletscher.DirectoryEntry)other);
@@ -3010,7 +3362,7 @@ public final class Gletscher {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
           parsedMessage = (ws.moor.gletscher.proto.Gletscher.DirectoryEntry) e.getUnfinishedMessage();
-          throw e;
+          throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
             mergeFrom(parsedMessage);
@@ -3022,7 +3374,7 @@ public final class Gletscher {
       private java.lang.Object type_;
       public TypeCase
           getTypeCase() {
-        return TypeCase.valueOf(
+        return TypeCase.forNumber(
             typeCase_);
       }
 
@@ -3034,7 +3386,7 @@ public final class Gletscher {
       }
 
 
-      private com.google.protobuf.SingleFieldBuilder<
+      private com.google.protobuf.SingleFieldBuilderV3<
           ws.moor.gletscher.proto.Gletscher.FileEntry, ws.moor.gletscher.proto.Gletscher.FileEntry.Builder, ws.moor.gletscher.proto.Gletscher.FileEntryOrBuilder> fileBuilder_;
       /**
        * <code>optional .ws.moor.gletscher.proto.FileEntry file = 1;</code>
@@ -3145,14 +3497,14 @@ public final class Gletscher {
       /**
        * <code>optional .ws.moor.gletscher.proto.FileEntry file = 1;</code>
        */
-      private com.google.protobuf.SingleFieldBuilder<
+      private com.google.protobuf.SingleFieldBuilderV3<
           ws.moor.gletscher.proto.Gletscher.FileEntry, ws.moor.gletscher.proto.Gletscher.FileEntry.Builder, ws.moor.gletscher.proto.Gletscher.FileEntryOrBuilder> 
           getFileFieldBuilder() {
         if (fileBuilder_ == null) {
           if (!(typeCase_ == 1)) {
             type_ = ws.moor.gletscher.proto.Gletscher.FileEntry.getDefaultInstance();
           }
-          fileBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+          fileBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
               ws.moor.gletscher.proto.Gletscher.FileEntry, ws.moor.gletscher.proto.Gletscher.FileEntry.Builder, ws.moor.gletscher.proto.Gletscher.FileEntryOrBuilder>(
                   (ws.moor.gletscher.proto.Gletscher.FileEntry) type_,
                   getParentForChildren(),
@@ -3164,7 +3516,7 @@ public final class Gletscher {
         return fileBuilder_;
       }
 
-      private com.google.protobuf.SingleFieldBuilder<
+      private com.google.protobuf.SingleFieldBuilderV3<
           ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry, ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry.Builder, ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntryOrBuilder> directoryBuilder_;
       /**
        * <code>optional .ws.moor.gletscher.proto.ChildDirectoryEntry directory = 2;</code>
@@ -3275,14 +3627,14 @@ public final class Gletscher {
       /**
        * <code>optional .ws.moor.gletscher.proto.ChildDirectoryEntry directory = 2;</code>
        */
-      private com.google.protobuf.SingleFieldBuilder<
+      private com.google.protobuf.SingleFieldBuilderV3<
           ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry, ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry.Builder, ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntryOrBuilder> 
           getDirectoryFieldBuilder() {
         if (directoryBuilder_ == null) {
           if (!(typeCase_ == 2)) {
             type_ = ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry.getDefaultInstance();
           }
-          directoryBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+          directoryBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
               ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry, ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry.Builder, ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntryOrBuilder>(
                   (ws.moor.gletscher.proto.Gletscher.ChildDirectoryEntry) type_,
                   getParentForChildren(),
@@ -3294,7 +3646,7 @@ public final class Gletscher {
         return directoryBuilder_;
       }
 
-      private com.google.protobuf.SingleFieldBuilder<
+      private com.google.protobuf.SingleFieldBuilderV3<
           ws.moor.gletscher.proto.Gletscher.SymLinkEntry, ws.moor.gletscher.proto.Gletscher.SymLinkEntry.Builder, ws.moor.gletscher.proto.Gletscher.SymLinkEntryOrBuilder> symlinkBuilder_;
       /**
        * <code>optional .ws.moor.gletscher.proto.SymLinkEntry symlink = 3;</code>
@@ -3405,14 +3757,14 @@ public final class Gletscher {
       /**
        * <code>optional .ws.moor.gletscher.proto.SymLinkEntry symlink = 3;</code>
        */
-      private com.google.protobuf.SingleFieldBuilder<
+      private com.google.protobuf.SingleFieldBuilderV3<
           ws.moor.gletscher.proto.Gletscher.SymLinkEntry, ws.moor.gletscher.proto.Gletscher.SymLinkEntry.Builder, ws.moor.gletscher.proto.Gletscher.SymLinkEntryOrBuilder> 
           getSymlinkFieldBuilder() {
         if (symlinkBuilder_ == null) {
           if (!(typeCase_ == 3)) {
             type_ = ws.moor.gletscher.proto.Gletscher.SymLinkEntry.getDefaultInstance();
           }
-          symlinkBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+          symlinkBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
               ws.moor.gletscher.proto.Gletscher.SymLinkEntry, ws.moor.gletscher.proto.Gletscher.SymLinkEntry.Builder, ws.moor.gletscher.proto.Gletscher.SymLinkEntryOrBuilder>(
                   (ws.moor.gletscher.proto.Gletscher.SymLinkEntry) type_,
                   getParentForChildren(),
@@ -3453,16 +3805,7 @@ public final class Gletscher {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
-        try {
           return new DirectoryEntry(input, extensionRegistry);
-        } catch (RuntimeException e) {
-          if (e.getCause() instanceof
-              com.google.protobuf.InvalidProtocolBufferException) {
-            throw (com.google.protobuf.InvalidProtocolBufferException)
-                e.getCause();
-          }
-          throw e;
-        }
       }
     };
 
@@ -3508,20 +3851,45 @@ public final class Gletscher {
      */
     ws.moor.gletscher.proto.Gletscher.DirectoryEntryOrBuilder getEntryOrBuilder(
         int index);
+
+    /**
+     * <code>optional .ws.moor.gletscher.proto.PersistedBlock previous_version = 2;</code>
+     */
+    boolean hasPreviousVersion();
+    /**
+     * <code>optional .ws.moor.gletscher.proto.PersistedBlock previous_version = 2;</code>
+     */
+    ws.moor.gletscher.proto.Gletscher.PersistedBlock getPreviousVersion();
+    /**
+     * <code>optional .ws.moor.gletscher.proto.PersistedBlock previous_version = 2;</code>
+     */
+    ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder getPreviousVersionOrBuilder();
+
+    /**
+     * <code>optional uint64 start_time_millis = 3;</code>
+     */
+    long getStartTimeMillis();
+
+    /**
+     * <code>optional uint64 end_time_millis = 4;</code>
+     */
+    long getEndTimeMillis();
   }
   /**
    * Protobuf type {@code ws.moor.gletscher.proto.Directory}
    */
   public  static final class Directory extends
-      com.google.protobuf.GeneratedMessage implements
+      com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:ws.moor.gletscher.proto.Directory)
       DirectoryOrBuilder {
     // Use Directory.newBuilder() to construct.
-    private Directory(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
+    private Directory(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
     private Directory() {
       entry_ = java.util.Collections.emptyList();
+      startTimeMillis_ = 0L;
+      endTimeMillis_ = 0L;
     }
 
     @java.lang.Override
@@ -3531,7 +3899,8 @@ public final class Gletscher {
     }
     private Directory(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry) {
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
       this();
       int mutable_bitField0_ = 0;
       try {
@@ -3553,17 +3922,40 @@ public final class Gletscher {
                 entry_ = new java.util.ArrayList<ws.moor.gletscher.proto.Gletscher.DirectoryEntry>();
                 mutable_bitField0_ |= 0x00000001;
               }
-              entry_.add(input.readMessage(ws.moor.gletscher.proto.Gletscher.DirectoryEntry.parser(), extensionRegistry));
+              entry_.add(
+                  input.readMessage(ws.moor.gletscher.proto.Gletscher.DirectoryEntry.parser(), extensionRegistry));
+              break;
+            }
+            case 18: {
+              ws.moor.gletscher.proto.Gletscher.PersistedBlock.Builder subBuilder = null;
+              if (previousVersion_ != null) {
+                subBuilder = previousVersion_.toBuilder();
+              }
+              previousVersion_ = input.readMessage(ws.moor.gletscher.proto.Gletscher.PersistedBlock.parser(), extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(previousVersion_);
+                previousVersion_ = subBuilder.buildPartial();
+              }
+
+              break;
+            }
+            case 24: {
+
+              startTimeMillis_ = input.readUInt64();
+              break;
+            }
+            case 32: {
+
+              endTimeMillis_ = input.readUInt64();
               break;
             }
           }
         }
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw new RuntimeException(e.setUnfinishedMessage(this));
+        throw e.setUnfinishedMessage(this);
       } catch (java.io.IOException e) {
-        throw new RuntimeException(
-            new com.google.protobuf.InvalidProtocolBufferException(
-                e.getMessage()).setUnfinishedMessage(this));
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
       } finally {
         if (((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
           entry_ = java.util.Collections.unmodifiableList(entry_);
@@ -3576,13 +3968,14 @@ public final class Gletscher {
       return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_Directory_descriptor;
     }
 
-    protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_Directory_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
               ws.moor.gletscher.proto.Gletscher.Directory.class, ws.moor.gletscher.proto.Gletscher.Directory.Builder.class);
     }
 
+    private int bitField0_;
     public static final int ENTRY_FIELD_NUMBER = 1;
     private java.util.List<ws.moor.gletscher.proto.Gletscher.DirectoryEntry> entry_;
     /**
@@ -3618,6 +4011,45 @@ public final class Gletscher {
       return entry_.get(index);
     }
 
+    public static final int PREVIOUS_VERSION_FIELD_NUMBER = 2;
+    private ws.moor.gletscher.proto.Gletscher.PersistedBlock previousVersion_;
+    /**
+     * <code>optional .ws.moor.gletscher.proto.PersistedBlock previous_version = 2;</code>
+     */
+    public boolean hasPreviousVersion() {
+      return previousVersion_ != null;
+    }
+    /**
+     * <code>optional .ws.moor.gletscher.proto.PersistedBlock previous_version = 2;</code>
+     */
+    public ws.moor.gletscher.proto.Gletscher.PersistedBlock getPreviousVersion() {
+      return previousVersion_ == null ? ws.moor.gletscher.proto.Gletscher.PersistedBlock.getDefaultInstance() : previousVersion_;
+    }
+    /**
+     * <code>optional .ws.moor.gletscher.proto.PersistedBlock previous_version = 2;</code>
+     */
+    public ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder getPreviousVersionOrBuilder() {
+      return getPreviousVersion();
+    }
+
+    public static final int START_TIME_MILLIS_FIELD_NUMBER = 3;
+    private long startTimeMillis_;
+    /**
+     * <code>optional uint64 start_time_millis = 3;</code>
+     */
+    public long getStartTimeMillis() {
+      return startTimeMillis_;
+    }
+
+    public static final int END_TIME_MILLIS_FIELD_NUMBER = 4;
+    private long endTimeMillis_;
+    /**
+     * <code>optional uint64 end_time_millis = 4;</code>
+     */
+    public long getEndTimeMillis() {
+      return endTimeMillis_;
+    }
+
     private byte memoizedIsInitialized = -1;
     public final boolean isInitialized() {
       byte isInitialized = memoizedIsInitialized;
@@ -3633,6 +4065,15 @@ public final class Gletscher {
       for (int i = 0; i < entry_.size(); i++) {
         output.writeMessage(1, entry_.get(i));
       }
+      if (previousVersion_ != null) {
+        output.writeMessage(2, getPreviousVersion());
+      }
+      if (startTimeMillis_ != 0L) {
+        output.writeUInt64(3, startTimeMillis_);
+      }
+      if (endTimeMillis_ != 0L) {
+        output.writeUInt64(4, endTimeMillis_);
+      }
     }
 
     public int getSerializedSize() {
@@ -3644,11 +4085,74 @@ public final class Gletscher {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(1, entry_.get(i));
       }
+      if (previousVersion_ != null) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(2, getPreviousVersion());
+      }
+      if (startTimeMillis_ != 0L) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeUInt64Size(3, startTimeMillis_);
+      }
+      if (endTimeMillis_ != 0L) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeUInt64Size(4, endTimeMillis_);
+      }
       memoizedSize = size;
       return size;
     }
 
     private static final long serialVersionUID = 0L;
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof ws.moor.gletscher.proto.Gletscher.Directory)) {
+        return super.equals(obj);
+      }
+      ws.moor.gletscher.proto.Gletscher.Directory other = (ws.moor.gletscher.proto.Gletscher.Directory) obj;
+
+      boolean result = true;
+      result = result && getEntryList()
+          .equals(other.getEntryList());
+      result = result && (hasPreviousVersion() == other.hasPreviousVersion());
+      if (hasPreviousVersion()) {
+        result = result && getPreviousVersion()
+            .equals(other.getPreviousVersion());
+      }
+      result = result && (getStartTimeMillis()
+          == other.getStartTimeMillis());
+      result = result && (getEndTimeMillis()
+          == other.getEndTimeMillis());
+      return result;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptorForType().hashCode();
+      if (getEntryCount() > 0) {
+        hash = (37 * hash) + ENTRY_FIELD_NUMBER;
+        hash = (53 * hash) + getEntryList().hashCode();
+      }
+      if (hasPreviousVersion()) {
+        hash = (37 * hash) + PREVIOUS_VERSION_FIELD_NUMBER;
+        hash = (53 * hash) + getPreviousVersion().hashCode();
+      }
+      hash = (37 * hash) + START_TIME_MILLIS_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          getStartTimeMillis());
+      hash = (37 * hash) + END_TIME_MILLIS_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          getEndTimeMillis());
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
     public static ws.moor.gletscher.proto.Gletscher.Directory parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -3672,34 +4176,40 @@ public final class Gletscher {
     }
     public static ws.moor.gletscher.proto.Gletscher.Directory parseFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return PARSER.parseFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.Directory parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
     public static ws.moor.gletscher.proto.Gletscher.Directory parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return PARSER.parseDelimitedFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.Directory parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseDelimitedFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
     public static ws.moor.gletscher.proto.Gletscher.Directory parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
-      return PARSER.parseFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.Directory parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
     public Builder newBuilderForType() { return newBuilder(); }
@@ -3716,7 +4226,7 @@ public final class Gletscher {
 
     @java.lang.Override
     protected Builder newBuilderForType(
-        com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       Builder builder = new Builder(parent);
       return builder;
     }
@@ -3724,7 +4234,7 @@ public final class Gletscher {
      * Protobuf type {@code ws.moor.gletscher.proto.Directory}
      */
     public static final class Builder extends
-        com.google.protobuf.GeneratedMessage.Builder<Builder> implements
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:ws.moor.gletscher.proto.Directory)
         ws.moor.gletscher.proto.Gletscher.DirectoryOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
@@ -3732,7 +4242,7 @@ public final class Gletscher {
         return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_Directory_descriptor;
       }
 
-      protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
         return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_Directory_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
@@ -3745,12 +4255,13 @@ public final class Gletscher {
       }
 
       private Builder(
-          com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
         super(parent);
         maybeForceBuilderInitialization();
       }
       private void maybeForceBuilderInitialization() {
-        if (com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders) {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
           getEntryFieldBuilder();
         }
       }
@@ -3762,6 +4273,16 @@ public final class Gletscher {
         } else {
           entryBuilder_.clear();
         }
+        if (previousVersionBuilder_ == null) {
+          previousVersion_ = null;
+        } else {
+          previousVersion_ = null;
+          previousVersionBuilder_ = null;
+        }
+        startTimeMillis_ = 0L;
+
+        endTimeMillis_ = 0L;
+
         return this;
       }
 
@@ -3785,6 +4306,7 @@ public final class Gletscher {
       public ws.moor.gletscher.proto.Gletscher.Directory buildPartial() {
         ws.moor.gletscher.proto.Gletscher.Directory result = new ws.moor.gletscher.proto.Gletscher.Directory(this);
         int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
         if (entryBuilder_ == null) {
           if (((bitField0_ & 0x00000001) == 0x00000001)) {
             entry_ = java.util.Collections.unmodifiableList(entry_);
@@ -3794,10 +4316,44 @@ public final class Gletscher {
         } else {
           result.entry_ = entryBuilder_.build();
         }
+        if (previousVersionBuilder_ == null) {
+          result.previousVersion_ = previousVersion_;
+        } else {
+          result.previousVersion_ = previousVersionBuilder_.build();
+        }
+        result.startTimeMillis_ = startTimeMillis_;
+        result.endTimeMillis_ = endTimeMillis_;
+        result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
       }
 
+      public Builder clone() {
+        return (Builder) super.clone();
+      }
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          Object value) {
+        return (Builder) super.setField(field, value);
+      }
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return (Builder) super.clearField(field);
+      }
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return (Builder) super.clearOneof(oneof);
+      }
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, Object value) {
+        return (Builder) super.setRepeatedField(field, index, value);
+      }
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          Object value) {
+        return (Builder) super.addRepeatedField(field, value);
+      }
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof ws.moor.gletscher.proto.Gletscher.Directory) {
           return mergeFrom((ws.moor.gletscher.proto.Gletscher.Directory)other);
@@ -3828,12 +4384,21 @@ public final class Gletscher {
               entry_ = other.entry_;
               bitField0_ = (bitField0_ & ~0x00000001);
               entryBuilder_ = 
-                com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
                    getEntryFieldBuilder() : null;
             } else {
               entryBuilder_.addAllMessages(other.entry_);
             }
           }
+        }
+        if (other.hasPreviousVersion()) {
+          mergePreviousVersion(other.getPreviousVersion());
+        }
+        if (other.getStartTimeMillis() != 0L) {
+          setStartTimeMillis(other.getStartTimeMillis());
+        }
+        if (other.getEndTimeMillis() != 0L) {
+          setEndTimeMillis(other.getEndTimeMillis());
         }
         onChanged();
         return this;
@@ -3852,7 +4417,7 @@ public final class Gletscher {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
           parsedMessage = (ws.moor.gletscher.proto.Gletscher.Directory) e.getUnfinishedMessage();
-          throw e;
+          throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
             mergeFrom(parsedMessage);
@@ -3871,7 +4436,7 @@ public final class Gletscher {
          }
       }
 
-      private com.google.protobuf.RepeatedFieldBuilder<
+      private com.google.protobuf.RepeatedFieldBuilderV3<
           ws.moor.gletscher.proto.Gletscher.DirectoryEntry, ws.moor.gletscher.proto.Gletscher.DirectoryEntry.Builder, ws.moor.gletscher.proto.Gletscher.DirectoryEntryOrBuilder> entryBuilder_;
 
       /**
@@ -4087,11 +4652,11 @@ public final class Gletscher {
            getEntryBuilderList() {
         return getEntryFieldBuilder().getBuilderList();
       }
-      private com.google.protobuf.RepeatedFieldBuilder<
+      private com.google.protobuf.RepeatedFieldBuilderV3<
           ws.moor.gletscher.proto.Gletscher.DirectoryEntry, ws.moor.gletscher.proto.Gletscher.DirectoryEntry.Builder, ws.moor.gletscher.proto.Gletscher.DirectoryEntryOrBuilder> 
           getEntryFieldBuilder() {
         if (entryBuilder_ == null) {
-          entryBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+          entryBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
               ws.moor.gletscher.proto.Gletscher.DirectoryEntry, ws.moor.gletscher.proto.Gletscher.DirectoryEntry.Builder, ws.moor.gletscher.proto.Gletscher.DirectoryEntryOrBuilder>(
                   entry_,
                   ((bitField0_ & 0x00000001) == 0x00000001),
@@ -4100,6 +4665,175 @@ public final class Gletscher {
           entry_ = null;
         }
         return entryBuilder_;
+      }
+
+      private ws.moor.gletscher.proto.Gletscher.PersistedBlock previousVersion_ = null;
+      private com.google.protobuf.SingleFieldBuilderV3<
+          ws.moor.gletscher.proto.Gletscher.PersistedBlock, ws.moor.gletscher.proto.Gletscher.PersistedBlock.Builder, ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder> previousVersionBuilder_;
+      /**
+       * <code>optional .ws.moor.gletscher.proto.PersistedBlock previous_version = 2;</code>
+       */
+      public boolean hasPreviousVersion() {
+        return previousVersionBuilder_ != null || previousVersion_ != null;
+      }
+      /**
+       * <code>optional .ws.moor.gletscher.proto.PersistedBlock previous_version = 2;</code>
+       */
+      public ws.moor.gletscher.proto.Gletscher.PersistedBlock getPreviousVersion() {
+        if (previousVersionBuilder_ == null) {
+          return previousVersion_ == null ? ws.moor.gletscher.proto.Gletscher.PersistedBlock.getDefaultInstance() : previousVersion_;
+        } else {
+          return previousVersionBuilder_.getMessage();
+        }
+      }
+      /**
+       * <code>optional .ws.moor.gletscher.proto.PersistedBlock previous_version = 2;</code>
+       */
+      public Builder setPreviousVersion(ws.moor.gletscher.proto.Gletscher.PersistedBlock value) {
+        if (previousVersionBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          previousVersion_ = value;
+          onChanged();
+        } else {
+          previousVersionBuilder_.setMessage(value);
+        }
+
+        return this;
+      }
+      /**
+       * <code>optional .ws.moor.gletscher.proto.PersistedBlock previous_version = 2;</code>
+       */
+      public Builder setPreviousVersion(
+          ws.moor.gletscher.proto.Gletscher.PersistedBlock.Builder builderForValue) {
+        if (previousVersionBuilder_ == null) {
+          previousVersion_ = builderForValue.build();
+          onChanged();
+        } else {
+          previousVersionBuilder_.setMessage(builderForValue.build());
+        }
+
+        return this;
+      }
+      /**
+       * <code>optional .ws.moor.gletscher.proto.PersistedBlock previous_version = 2;</code>
+       */
+      public Builder mergePreviousVersion(ws.moor.gletscher.proto.Gletscher.PersistedBlock value) {
+        if (previousVersionBuilder_ == null) {
+          if (previousVersion_ != null) {
+            previousVersion_ =
+              ws.moor.gletscher.proto.Gletscher.PersistedBlock.newBuilder(previousVersion_).mergeFrom(value).buildPartial();
+          } else {
+            previousVersion_ = value;
+          }
+          onChanged();
+        } else {
+          previousVersionBuilder_.mergeFrom(value);
+        }
+
+        return this;
+      }
+      /**
+       * <code>optional .ws.moor.gletscher.proto.PersistedBlock previous_version = 2;</code>
+       */
+      public Builder clearPreviousVersion() {
+        if (previousVersionBuilder_ == null) {
+          previousVersion_ = null;
+          onChanged();
+        } else {
+          previousVersion_ = null;
+          previousVersionBuilder_ = null;
+        }
+
+        return this;
+      }
+      /**
+       * <code>optional .ws.moor.gletscher.proto.PersistedBlock previous_version = 2;</code>
+       */
+      public ws.moor.gletscher.proto.Gletscher.PersistedBlock.Builder getPreviousVersionBuilder() {
+        
+        onChanged();
+        return getPreviousVersionFieldBuilder().getBuilder();
+      }
+      /**
+       * <code>optional .ws.moor.gletscher.proto.PersistedBlock previous_version = 2;</code>
+       */
+      public ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder getPreviousVersionOrBuilder() {
+        if (previousVersionBuilder_ != null) {
+          return previousVersionBuilder_.getMessageOrBuilder();
+        } else {
+          return previousVersion_ == null ?
+              ws.moor.gletscher.proto.Gletscher.PersistedBlock.getDefaultInstance() : previousVersion_;
+        }
+      }
+      /**
+       * <code>optional .ws.moor.gletscher.proto.PersistedBlock previous_version = 2;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilderV3<
+          ws.moor.gletscher.proto.Gletscher.PersistedBlock, ws.moor.gletscher.proto.Gletscher.PersistedBlock.Builder, ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder> 
+          getPreviousVersionFieldBuilder() {
+        if (previousVersionBuilder_ == null) {
+          previousVersionBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              ws.moor.gletscher.proto.Gletscher.PersistedBlock, ws.moor.gletscher.proto.Gletscher.PersistedBlock.Builder, ws.moor.gletscher.proto.Gletscher.PersistedBlockOrBuilder>(
+                  getPreviousVersion(),
+                  getParentForChildren(),
+                  isClean());
+          previousVersion_ = null;
+        }
+        return previousVersionBuilder_;
+      }
+
+      private long startTimeMillis_ ;
+      /**
+       * <code>optional uint64 start_time_millis = 3;</code>
+       */
+      public long getStartTimeMillis() {
+        return startTimeMillis_;
+      }
+      /**
+       * <code>optional uint64 start_time_millis = 3;</code>
+       */
+      public Builder setStartTimeMillis(long value) {
+        
+        startTimeMillis_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional uint64 start_time_millis = 3;</code>
+       */
+      public Builder clearStartTimeMillis() {
+        
+        startTimeMillis_ = 0L;
+        onChanged();
+        return this;
+      }
+
+      private long endTimeMillis_ ;
+      /**
+       * <code>optional uint64 end_time_millis = 4;</code>
+       */
+      public long getEndTimeMillis() {
+        return endTimeMillis_;
+      }
+      /**
+       * <code>optional uint64 end_time_millis = 4;</code>
+       */
+      public Builder setEndTimeMillis(long value) {
+        
+        endTimeMillis_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional uint64 end_time_millis = 4;</code>
+       */
+      public Builder clearEndTimeMillis() {
+        
+        endTimeMillis_ = 0L;
+        onChanged();
+        return this;
       }
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -4131,16 +4865,7 @@ public final class Gletscher {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
-        try {
           return new Directory(input, extensionRegistry);
-        } catch (RuntimeException e) {
-          if (e.getCause() instanceof
-              com.google.protobuf.InvalidProtocolBufferException) {
-            throw (com.google.protobuf.InvalidProtocolBufferException)
-                e.getCause();
-          }
-          throw e;
-        }
       }
     };
 
@@ -4166,8 +4891,36 @@ public final class Gletscher {
     /**
      * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
      */
+    int getRootsCount();
+    /**
+     * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
+     */
+    boolean containsRoots(
+        java.lang.String key);
+    /**
+     * Use {@link #getRootsMap()} instead.
+     */
+    @java.lang.Deprecated
     java.util.Map<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock>
     getRoots();
+    /**
+     * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
+     */
+    java.util.Map<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock>
+    getRootsMap();
+    /**
+     * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
+     */
+
+    ws.moor.gletscher.proto.Gletscher.PersistedBlock getRootsOrDefault(
+        java.lang.String key,
+        ws.moor.gletscher.proto.Gletscher.PersistedBlock defaultValue);
+    /**
+     * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
+     */
+
+    ws.moor.gletscher.proto.Gletscher.PersistedBlock getRootsOrThrow(
+        java.lang.String key);
 
     /**
      * <code>optional uint64 start_time_millis = 2;</code>
@@ -4183,11 +4936,11 @@ public final class Gletscher {
    * Protobuf type {@code ws.moor.gletscher.proto.Catalog}
    */
   public  static final class Catalog extends
-      com.google.protobuf.GeneratedMessage implements
+      com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:ws.moor.gletscher.proto.Catalog)
       CatalogOrBuilder {
     // Use Catalog.newBuilder() to construct.
-    private Catalog(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
+    private Catalog(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
     private Catalog() {
@@ -4202,7 +4955,8 @@ public final class Gletscher {
     }
     private Catalog(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry) {
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
       this();
       int mutable_bitField0_ = 0;
       try {
@@ -4226,9 +4980,10 @@ public final class Gletscher {
                 mutable_bitField0_ |= 0x00000001;
               }
               com.google.protobuf.MapEntry<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock>
-              roots = input.readMessage(
+              roots__ = input.readMessage(
                   RootsDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
-              roots_.getMutableMap().put(roots.getKey(), roots.getValue());
+              roots_.getMutableMap().put(
+                  roots__.getKey(), roots__.getValue());
               break;
             }
             case 16: {
@@ -4244,11 +4999,10 @@ public final class Gletscher {
           }
         }
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw new RuntimeException(e.setUnfinishedMessage(this));
+        throw e.setUnfinishedMessage(this);
       } catch (java.io.IOException e) {
-        throw new RuntimeException(
-            new com.google.protobuf.InvalidProtocolBufferException(
-                e.getMessage()).setUnfinishedMessage(this));
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
       } finally {
         makeExtensionsImmutable();
       }
@@ -4269,7 +5023,7 @@ public final class Gletscher {
               "Invalid map field number: " + number);
       }
     }
-    protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_Catalog_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
@@ -4296,15 +5050,61 @@ public final class Gletscher {
       if (roots_ == null) {
         return com.google.protobuf.MapField.emptyMapField(
             RootsDefaultEntryHolder.defaultEntry);
-     }
+      }
       return roots_;
+    }
+
+    public int getRootsCount() {
+      return internalGetRoots().getMap().size();
     }
     /**
      * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
      */
 
+    public boolean containsRoots(
+        java.lang.String key) {
+      if (key == null) { throw new java.lang.NullPointerException(); }
+      return internalGetRoots().getMap().containsKey(key);
+    }
+    /**
+     * Use {@link #getRootsMap()} instead.
+     */
+    @java.lang.Deprecated
     public java.util.Map<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> getRoots() {
+      return getRootsMap();
+    }
+    /**
+     * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
+     */
+
+    public java.util.Map<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> getRootsMap() {
       return internalGetRoots().getMap();
+    }
+    /**
+     * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
+     */
+
+    public ws.moor.gletscher.proto.Gletscher.PersistedBlock getRootsOrDefault(
+        java.lang.String key,
+        ws.moor.gletscher.proto.Gletscher.PersistedBlock defaultValue) {
+      if (key == null) { throw new java.lang.NullPointerException(); }
+      java.util.Map<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> map =
+          internalGetRoots().getMap();
+      return map.containsKey(key) ? map.get(key) : defaultValue;
+    }
+    /**
+     * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
+     */
+
+    public ws.moor.gletscher.proto.Gletscher.PersistedBlock getRootsOrThrow(
+        java.lang.String key) {
+      if (key == null) { throw new java.lang.NullPointerException(); }
+      java.util.Map<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> map =
+          internalGetRoots().getMap();
+      if (!map.containsKey(key)) {
+        throw new java.lang.IllegalArgumentException();
+      }
+      return map.get(key);
     }
 
     public static final int START_TIME_MILLIS_FIELD_NUMBER = 2;
@@ -4337,15 +5137,12 @@ public final class Gletscher {
 
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      for (java.util.Map.Entry<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> entry
-           : internalGetRoots().getMap().entrySet()) {
-        com.google.protobuf.MapEntry<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock>
-        roots = RootsDefaultEntryHolder.defaultEntry.newBuilderForType()
-            .setKey(entry.getKey())
-            .setValue(entry.getValue())
-            .build();
-        output.writeMessage(1, roots);
-      }
+      com.google.protobuf.GeneratedMessageV3
+        .serializeStringMapTo(
+          output,
+          internalGetRoots(),
+          RootsDefaultEntryHolder.defaultEntry,
+          1);
       if (startTimeMillis_ != 0L) {
         output.writeUInt64(2, startTimeMillis_);
       }
@@ -4362,12 +5159,12 @@ public final class Gletscher {
       for (java.util.Map.Entry<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> entry
            : internalGetRoots().getMap().entrySet()) {
         com.google.protobuf.MapEntry<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock>
-        roots = RootsDefaultEntryHolder.defaultEntry.newBuilderForType()
+        roots__ = RootsDefaultEntryHolder.defaultEntry.newBuilderForType()
             .setKey(entry.getKey())
             .setValue(entry.getValue())
             .build();
         size += com.google.protobuf.CodedOutputStream
-            .computeMessageSize(1, roots);
+            .computeMessageSize(1, roots__);
       }
       if (startTimeMillis_ != 0L) {
         size += com.google.protobuf.CodedOutputStream
@@ -4382,6 +5179,48 @@ public final class Gletscher {
     }
 
     private static final long serialVersionUID = 0L;
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof ws.moor.gletscher.proto.Gletscher.Catalog)) {
+        return super.equals(obj);
+      }
+      ws.moor.gletscher.proto.Gletscher.Catalog other = (ws.moor.gletscher.proto.Gletscher.Catalog) obj;
+
+      boolean result = true;
+      result = result && internalGetRoots().equals(
+          other.internalGetRoots());
+      result = result && (getStartTimeMillis()
+          == other.getStartTimeMillis());
+      result = result && (getEndTimeMillis()
+          == other.getEndTimeMillis());
+      return result;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptorForType().hashCode();
+      if (!internalGetRoots().getMap().isEmpty()) {
+        hash = (37 * hash) + ROOTS_FIELD_NUMBER;
+        hash = (53 * hash) + internalGetRoots().hashCode();
+      }
+      hash = (37 * hash) + START_TIME_MILLIS_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          getStartTimeMillis());
+      hash = (37 * hash) + END_TIME_MILLIS_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          getEndTimeMillis());
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
     public static ws.moor.gletscher.proto.Gletscher.Catalog parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -4405,34 +5244,40 @@ public final class Gletscher {
     }
     public static ws.moor.gletscher.proto.Gletscher.Catalog parseFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return PARSER.parseFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.Catalog parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
     public static ws.moor.gletscher.proto.Gletscher.Catalog parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return PARSER.parseDelimitedFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.Catalog parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseDelimitedFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
     public static ws.moor.gletscher.proto.Gletscher.Catalog parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
-      return PARSER.parseFrom(input);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
     public static ws.moor.gletscher.proto.Gletscher.Catalog parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return PARSER.parseFrom(input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
     public Builder newBuilderForType() { return newBuilder(); }
@@ -4449,7 +5294,7 @@ public final class Gletscher {
 
     @java.lang.Override
     protected Builder newBuilderForType(
-        com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       Builder builder = new Builder(parent);
       return builder;
     }
@@ -4457,7 +5302,7 @@ public final class Gletscher {
      * Protobuf type {@code ws.moor.gletscher.proto.Catalog}
      */
     public static final class Builder extends
-        com.google.protobuf.GeneratedMessage.Builder<Builder> implements
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:ws.moor.gletscher.proto.Catalog)
         ws.moor.gletscher.proto.Gletscher.CatalogOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
@@ -4487,7 +5332,7 @@ public final class Gletscher {
                 "Invalid map field number: " + number);
         }
       }
-      protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
         return ws.moor.gletscher.proto.Gletscher.internal_static_ws_moor_gletscher_proto_Catalog_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
@@ -4500,12 +5345,13 @@ public final class Gletscher {
       }
 
       private Builder(
-          com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
         super(parent);
         maybeForceBuilderInitialization();
       }
       private void maybeForceBuilderInitialization() {
-        if (com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders) {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
         }
       }
       public Builder clear() {
@@ -4548,6 +5394,32 @@ public final class Gletscher {
         return result;
       }
 
+      public Builder clone() {
+        return (Builder) super.clone();
+      }
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          Object value) {
+        return (Builder) super.setField(field, value);
+      }
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return (Builder) super.clearField(field);
+      }
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return (Builder) super.clearOneof(oneof);
+      }
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, Object value) {
+        return (Builder) super.setRepeatedField(field, index, value);
+      }
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          Object value) {
+        return (Builder) super.addRepeatedField(field, value);
+      }
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof ws.moor.gletscher.proto.Gletscher.Catalog) {
           return mergeFrom((ws.moor.gletscher.proto.Gletscher.Catalog)other);
@@ -4584,7 +5456,7 @@ public final class Gletscher {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
           parsedMessage = (ws.moor.gletscher.proto.Gletscher.Catalog) e.getUnfinishedMessage();
-          throw e;
+          throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
             mergeFrom(parsedMessage);
@@ -4601,7 +5473,7 @@ public final class Gletscher {
         if (roots_ == null) {
           return com.google.protobuf.MapField.emptyMapField(
               RootsDefaultEntryHolder.defaultEntry);
-       }
+        }
         return roots_;
       }
       private com.google.protobuf.MapField<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock>
@@ -4616,15 +5488,78 @@ public final class Gletscher {
         }
         return roots_;
       }
+
+      public int getRootsCount() {
+        return internalGetRoots().getMap().size();
+      }
       /**
        * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
        */
+
+      public boolean containsRoots(
+          java.lang.String key) {
+        if (key == null) { throw new java.lang.NullPointerException(); }
+        return internalGetRoots().getMap().containsKey(key);
+      }
+      /**
+       * Use {@link #getRootsMap()} instead.
+       */
+      @java.lang.Deprecated
       public java.util.Map<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> getRoots() {
+        return getRootsMap();
+      }
+      /**
+       * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
+       */
+
+      public java.util.Map<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> getRootsMap() {
         return internalGetRoots().getMap();
       }
       /**
        * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
        */
+
+      public ws.moor.gletscher.proto.Gletscher.PersistedBlock getRootsOrDefault(
+          java.lang.String key,
+          ws.moor.gletscher.proto.Gletscher.PersistedBlock defaultValue) {
+        if (key == null) { throw new java.lang.NullPointerException(); }
+        java.util.Map<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> map =
+            internalGetRoots().getMap();
+        return map.containsKey(key) ? map.get(key) : defaultValue;
+      }
+      /**
+       * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
+       */
+
+      public ws.moor.gletscher.proto.Gletscher.PersistedBlock getRootsOrThrow(
+          java.lang.String key) {
+        if (key == null) { throw new java.lang.NullPointerException(); }
+        java.util.Map<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> map =
+            internalGetRoots().getMap();
+        if (!map.containsKey(key)) {
+          throw new java.lang.IllegalArgumentException();
+        }
+        return map.get(key);
+      }
+
+      public Builder clearRoots() {
+        getMutableRoots().clear();
+        return this;
+      }
+      /**
+       * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
+       */
+
+      public Builder removeRoots(
+          java.lang.String key) {
+        if (key == null) { throw new java.lang.NullPointerException(); }
+        getMutableRoots().remove(key);
+        return this;
+      }
+      /**
+       * Use alternate mutation accessors instead.
+       */
+      @java.lang.Deprecated
       public java.util.Map<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock>
       getMutableRoots() {
         return internalGetMutableRoots().getMutableMap();
@@ -4632,6 +5567,18 @@ public final class Gletscher {
       /**
        * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
        */
+      public Builder putRoots(
+          java.lang.String key,
+          ws.moor.gletscher.proto.Gletscher.PersistedBlock value) {
+        if (key == null) { throw new java.lang.NullPointerException(); }
+        if (value == null) { throw new java.lang.NullPointerException(); }
+        getMutableRoots().put(key, value);
+        return this;
+      }
+      /**
+       * <code>map&lt;string, .ws.moor.gletscher.proto.PersistedBlock&gt; roots = 1;</code>
+       */
+
       public Builder putAllRoots(
           java.util.Map<java.lang.String, ws.moor.gletscher.proto.Gletscher.PersistedBlock> values) {
         getMutableRoots().putAll(values);
@@ -4719,16 +5666,7 @@ public final class Gletscher {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
-        try {
           return new Catalog(input, extensionRegistry);
-        } catch (RuntimeException e) {
-          if (e.getCause() instanceof
-              com.google.protobuf.InvalidProtocolBufferException) {
-            throw (com.google.protobuf.InvalidProtocolBufferException)
-                e.getCause();
-          }
-          throw e;
-        }
       }
     };
 
@@ -4747,52 +5685,52 @@ public final class Gletscher {
 
   }
 
-  private static com.google.protobuf.Descriptors.Descriptor
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_ws_moor_gletscher_proto_PersistedBlock_descriptor;
-  private static
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_ws_moor_gletscher_proto_PersistedBlock_fieldAccessorTable;
-  private static com.google.protobuf.Descriptors.Descriptor
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_ws_moor_gletscher_proto_FileEntry_descriptor;
-  private static
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_ws_moor_gletscher_proto_FileEntry_fieldAccessorTable;
-  private static com.google.protobuf.Descriptors.Descriptor
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_ws_moor_gletscher_proto_ChildDirectoryEntry_descriptor;
-  private static
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_ws_moor_gletscher_proto_ChildDirectoryEntry_fieldAccessorTable;
-  private static com.google.protobuf.Descriptors.Descriptor
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_ws_moor_gletscher_proto_SymLinkEntry_descriptor;
-  private static
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_ws_moor_gletscher_proto_SymLinkEntry_fieldAccessorTable;
-  private static com.google.protobuf.Descriptors.Descriptor
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_ws_moor_gletscher_proto_DirectoryEntry_descriptor;
-  private static
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_ws_moor_gletscher_proto_DirectoryEntry_fieldAccessorTable;
-  private static com.google.protobuf.Descriptors.Descriptor
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_ws_moor_gletscher_proto_Directory_descriptor;
-  private static
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_ws_moor_gletscher_proto_Directory_fieldAccessorTable;
-  private static com.google.protobuf.Descriptors.Descriptor
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_ws_moor_gletscher_proto_Catalog_descriptor;
-  private static
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_ws_moor_gletscher_proto_Catalog_fieldAccessorTable;
-  private static com.google.protobuf.Descriptors.Descriptor
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_ws_moor_gletscher_proto_Catalog_RootsEntry_descriptor;
-  private static
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_ws_moor_gletscher_proto_Catalog_RootsEntry_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
     return descriptor;
   }
-  private static com.google.protobuf.Descriptors.FileDescriptor
+  private static  com.google.protobuf.Descriptors.FileDescriptor
       descriptor;
   static {
     java.lang.String[] descriptorData = {
@@ -4810,12 +5748,15 @@ public final class Gletscher {
       "rectory\030\002 \001(\0132,.ws.moor.gletscher.proto." +
       "ChildDirectoryEntryH\000\0228\n\007symlink\030\003 \001(\0132%" +
       ".ws.moor.gletscher.proto.SymLinkEntryH\000B" +
-      "\006\n\004type\"C\n\tDirectory\0226\n\005entry\030\001 \003(\0132\'.ws" +
-      ".moor.gletscher.proto.DirectoryEntry\"\320\001\n" +
-      "\007Catalog\022:\n\005roots\030\001 \003(\0132+.ws.moor.gletsc" +
+      "\006\n\004type\"\272\001\n\tDirectory\0226\n\005entry\030\001 \003(\0132\'.w" +
+      "s.moor.gletscher.proto.DirectoryEntry\022A\n" +
+      "\020previous_version\030\002 \001(\0132\'.ws.moor.gletsc" +
+      "her.proto.PersistedBlock\022\031\n\021start_time_m" +
+      "illis\030\003 \001(\004\022\027\n\017end_time_millis\030\004 \001(\004\"\320\001\n" +
+      "\007Catalog\022:\n\005roots\030\001 \003(\0132+.ws.moor.gletsc",
       "her.proto.Catalog.RootsEntry\022\031\n\021start_ti" +
       "me_millis\030\002 \001(\004\022\027\n\017end_time_millis\030\003 \001(\004" +
-      "\032U\n\nRootsEntry\022\013\n\003key\030\001 \001(\t\0226\n\005value\030\002 \001",
+      "\032U\n\nRootsEntry\022\013\n\003key\030\001 \001(\t\0226\n\005value\030\002 \001" +
       "(\0132\'.ws.moor.gletscher.proto.PersistedBl" +
       "ock:\0028\001b\006proto3"
     };
@@ -4834,49 +5775,49 @@ public final class Gletscher {
     internal_static_ws_moor_gletscher_proto_PersistedBlock_descriptor =
       getDescriptor().getMessageTypes().get(0);
     internal_static_ws_moor_gletscher_proto_PersistedBlock_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_ws_moor_gletscher_proto_PersistedBlock_descriptor,
         new java.lang.String[] { "Signature", "OriginalSize", });
     internal_static_ws_moor_gletscher_proto_FileEntry_descriptor =
       getDescriptor().getMessageTypes().get(1);
     internal_static_ws_moor_gletscher_proto_FileEntry_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_ws_moor_gletscher_proto_FileEntry_descriptor,
         new java.lang.String[] { "Name", "LastModifiedMillis", "Block", });
     internal_static_ws_moor_gletscher_proto_ChildDirectoryEntry_descriptor =
       getDescriptor().getMessageTypes().get(2);
     internal_static_ws_moor_gletscher_proto_ChildDirectoryEntry_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_ws_moor_gletscher_proto_ChildDirectoryEntry_descriptor,
         new java.lang.String[] { "Name", "Block", });
     internal_static_ws_moor_gletscher_proto_SymLinkEntry_descriptor =
       getDescriptor().getMessageTypes().get(3);
     internal_static_ws_moor_gletscher_proto_SymLinkEntry_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_ws_moor_gletscher_proto_SymLinkEntry_descriptor,
         new java.lang.String[] { "Name", "Target", });
     internal_static_ws_moor_gletscher_proto_DirectoryEntry_descriptor =
       getDescriptor().getMessageTypes().get(4);
     internal_static_ws_moor_gletscher_proto_DirectoryEntry_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_ws_moor_gletscher_proto_DirectoryEntry_descriptor,
         new java.lang.String[] { "File", "Directory", "Symlink", "Type", });
     internal_static_ws_moor_gletscher_proto_Directory_descriptor =
       getDescriptor().getMessageTypes().get(5);
     internal_static_ws_moor_gletscher_proto_Directory_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_ws_moor_gletscher_proto_Directory_descriptor,
-        new java.lang.String[] { "Entry", });
+        new java.lang.String[] { "Entry", "PreviousVersion", "StartTimeMillis", "EndTimeMillis", });
     internal_static_ws_moor_gletscher_proto_Catalog_descriptor =
       getDescriptor().getMessageTypes().get(6);
     internal_static_ws_moor_gletscher_proto_Catalog_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_ws_moor_gletscher_proto_Catalog_descriptor,
         new java.lang.String[] { "Roots", "StartTimeMillis", "EndTimeMillis", });
     internal_static_ws_moor_gletscher_proto_Catalog_RootsEntry_descriptor =
       internal_static_ws_moor_gletscher_proto_Catalog_descriptor.getNestedTypes().get(0);
     internal_static_ws_moor_gletscher_proto_Catalog_RootsEntry_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_ws_moor_gletscher_proto_Catalog_RootsEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
   }

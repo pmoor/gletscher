@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 public class CatalogStore {
 
@@ -58,8 +59,9 @@ public class CatalogStore {
     return String.format("backups/%016x-%s", orderKey, dateTimeFormatter.format(now));
   }
 
-  public Catalog getLatestCatalog() {
-    return Iterables.getOnlyElement(findLastCatalogs(1));
+  public Optional<Catalog> getLatestCatalog() {
+    List<Catalog> catalogs = findLastCatalogs(1);
+    return Optional.ofNullable(Iterables.getOnlyElement(catalogs, null));
   }
 
   public List<Catalog> findLastCatalogs(int count) {

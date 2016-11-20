@@ -22,7 +22,6 @@ import org.apache.commons.cli.Options;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogReader;
-import ws.moor.gletscher.catalog.RootCatalogReader;
 import ws.moor.gletscher.util.Signer;
 import ws.moor.gletscher.util.StreamSplitter;
 
@@ -77,7 +76,7 @@ class ContainsCommand extends AbstractCommand {
     }
 
     for (Catalog catalog : catalogStore.findLastCatalogs(16)) {
-      RootCatalogReader catalogReader = new RootCatalogReader(blockStore, catalog);
+      CatalogReader catalogReader = new CatalogReader(blockStore, catalog);
       Iterator<CatalogReader.FileInformation> it = catalogReader.walk();
       while (it.hasNext()) {
         CatalogReader.FileInformation file = it.next();

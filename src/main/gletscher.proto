@@ -49,6 +49,10 @@ message DirectoryEntry {
 
 message Directory {
   repeated DirectoryEntry entry = 1;
+
+  PersistedBlock previous_version = 2;
+  uint64 start_time_millis = 3;
+  uint64 end_time_millis = 4;
 }
 
 message Catalog {

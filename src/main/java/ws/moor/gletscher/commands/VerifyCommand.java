@@ -21,10 +21,10 @@ import org.apache.commons.cli.Options;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogReader;
-import ws.moor.gletscher.catalog.RootCatalogReader;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 @Command(name = "verify", description = "Verifies that a catalog has all its data stored in the cloud.")
@@ -44,8 +44,12 @@ class VerifyCommand extends AbstractCommand {
       throw new InvalidUsageException(this, "Command does not accept arguments.");
     }
 
-    Catalog catalog = catalogStore.getLatestCatalog();
-    RootCatalogReader reader = new RootCatalogReader(blockStore, catalog);
+    Optional<Catalog> catalog = catalogStore.getLatestCatalog();
+    if (!catalog.isPresent()) {
+      context.getStdErr().printf("No existing backups found - nothing to verify.");
+      return -1;
+    }
+    CatalogReader reader = new CatalogReader(blockStore, catalog.get());
 
     boolean allFound = true;
     Set<PersistedBlock> allBlocks = blockStore.listAllBlocks();

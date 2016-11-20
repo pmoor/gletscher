@@ -21,15 +21,16 @@ import com.google.common.util.concurrent.ListenableFuture;
 import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.catalog.CatalogReader;
-import ws.moor.gletscher.catalog.RootCatalogReader;
 import ws.moor.gletscher.files.FileSystemReader;
 import ws.moor.gletscher.proto.Gletscher;
 import ws.moor.gletscher.util.StreamSplitter;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
@@ -38,26 +39,32 @@ import java.util.regex.Pattern;
 
 public class BackUpper implements FileSystemReader.Visitor<PersistedBlock> {
 
-  private final CatalogReader catalogReader;
+  @Nullable private final CatalogReader catalogReader;
   private final StreamSplitter splitter;
   private final BlockStore blockStore;
   private final Set<Pattern> skipPatterns;
   private final PrintStream stdout;
   private final PrintStream stderr;
+  private final Clock clock;
 
-  public BackUpper(CatalogReader catalogReader, StreamSplitter splitter, BlockStore blockStore,
-                   Set<Pattern> skipPatterns, PrintStream stdout, PrintStream stderr) {
+  public BackUpper(@Nullable CatalogReader catalogReader, StreamSplitter splitter, BlockStore blockStore,
+                   Set<Pattern> skipPatterns, PrintStream stdout, PrintStream stderr, Clock clock) {
     this.catalogReader = catalogReader;
     this.splitter = splitter;
     this.blockStore = blockStore;
     this.skipPatterns = skipPatterns;
     this.stdout = stdout;
     this.stderr = stderr;
+    this.clock = clock;
   }
 
   @Override
   public PersistedBlock visit(Path directory, List<FileSystemReader.Entry> entries, FileSystemReader.Recursor<PersistedBlock> recursor) {
+    @Nullable CatalogReader.DirectoryInformation existingDirectory =
+        catalogReader != null ? catalogReader.findDirectory(directory) : null;
+
     Gletscher.Directory.Builder dirProtoBuilder = Gletscher.Directory.newBuilder();
+    dirProtoBuilder.setStartTimeMillis(clock.millis());
 
     for (FileSystemReader.Entry entry : entries) {
       if (isSkippedPath(entry.path)) {
@@ -68,7 +75,8 @@ public class BackUpper implements FileSystemReader.Visitor<PersistedBlock> {
       if (entry.isRegularFile()) {
         Instant currentLastModifiedTime = entry.attributes.lastModifiedTime().toInstant();
 
-        RootCatalogReader.FileInformation existingFile = catalogReader.findFile(entry.path);
+        @Nullable CatalogReader.FileInformation existingFile =
+            existingDirectory != null ? existingDirectory.findFileInformation(entry.path) : null;
         if (existingFile == null || !existingFile.lastModifiedTime.equals(currentLastModifiedTime)) {
           if (existingFile == null) {
             stdout.println("new file: " + entry.path);
@@ -119,7 +127,15 @@ public class BackUpper implements FileSystemReader.Visitor<PersistedBlock> {
       }
     }
 
+    if (existingDirectory != null) {
+      dirProtoBuilder.setPreviousVersion(existingDirectory.getAddress().toProto());
+    }
+    dirProtoBuilder.setEndTimeMillis(clock.millis());
     Gletscher.Directory dirProto = dirProtoBuilder.build();
+
+    if (existingDirectory != null && !existingDirectory.hasChanged(dirProto)) {
+      return existingDirectory.getAddress();
+    }
     return Futures.getUnchecked(blockStore.store(dirProto.toByteArray()));
   }
 

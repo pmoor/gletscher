@@ -22,17 +22,16 @@ import ws.moor.gletscher.BackUpper;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogReader;
-import ws.moor.gletscher.catalog.CompositeCatalogReader;
-import ws.moor.gletscher.catalog.RootCatalogReader;
 import ws.moor.gletscher.files.FileSystemReader;
 import ws.moor.gletscher.util.StreamSplitter;
 
+import javax.annotation.Nullable;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Command(name = "backup", description = "Backup local files remotely.")
 class BackupCommand extends AbstractCommand {
@@ -63,15 +62,14 @@ class BackupCommand extends AbstractCommand {
     }
 
     StreamSplitter splitter = config.getStreamSplitter();
-    List<CatalogReader> readers = new ArrayList<>();
-    for (Catalog catalog : catalogStore.findLastCatalogs(10)) {
-      readers.add(new RootCatalogReader(blockStore, catalog));
-    }
-    CatalogReader catalogReader = new CompositeCatalogReader(readers);
+    Optional<Catalog> latestCatalog = catalogStore.getLatestCatalog();
+    @Nullable CatalogReader catalogReader =
+        latestCatalog.isPresent() ? new CatalogReader(blockStore, latestCatalog.get()) : null;
 
     Instant startTime = context.getClock().instant();
     FileSystemReader<PersistedBlock> fileSystemReader = new FileSystemReader<>(config.getIncludes(), context.getStdErr());
-    BackUpper backUpper = new BackUpper(catalogReader, splitter, blockStore, config.getExcludes(), context.getStdOut(), context.getStdErr());
+    BackUpper backUpper = new BackUpper(
+        catalogReader, splitter, blockStore, config.getExcludes(), context.getStdOut(), context.getStdErr(), context.getClock());
     Map<Path, PersistedBlock> roots = fileSystemReader.start(backUpper);
 
     Instant endTime = context.getClock().instant();
