@@ -166,7 +166,6 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
         if (batch.size() < 1000 || remaining <= 0) {
           done = true;
           nextPageToken = null;
-          Preconditions.checkState(result.getNextPageToken() == null);
         } else {
           nextPageToken = Preconditions.checkNotNull(result.getNextPageToken());
         }
