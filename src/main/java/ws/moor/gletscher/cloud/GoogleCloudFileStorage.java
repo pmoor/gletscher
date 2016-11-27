@@ -89,7 +89,7 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
-  public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata) {
+  public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
     return executor.submit(() -> retry(() -> {
       try {
         StorageObject sob = new StorageObject()

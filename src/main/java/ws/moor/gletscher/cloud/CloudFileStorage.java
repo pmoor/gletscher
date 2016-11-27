@@ -24,6 +24,16 @@ import java.util.Map;
 
 public interface CloudFileStorage extends AutoCloseable {
 
+  ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options);
+
+  Iterator<FileHeader> listFiles(String prefix, int limit);
+
+  ListenableFuture<Boolean> exists(String name);
+
+  ListenableFuture<byte[]> get(String name);
+
+  void close();
+
   class FileAlreadyExistsException extends Exception {
     public FileAlreadyExistsException(String name) {
       super("file already exists: " + name);
@@ -44,13 +54,13 @@ public interface CloudFileStorage extends AutoCloseable {
     }
   }
 
-  ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata);
+  class StoreOptions {
+    public static StoreOptions DEFAULT = new StoreOptions(false);
 
-  Iterator<FileHeader> listFiles(String prefix, int limit);
+    public final boolean cacheContentsOnUpload;
 
-  ListenableFuture<Boolean> exists(String name);
-
-  ListenableFuture<byte[]> get(String name);
-
-  void close();
+    public StoreOptions(boolean cacheContentsOnUpload) {
+      this.cacheContentsOnUpload = cacheContentsOnUpload;
+    }
+  }
 }

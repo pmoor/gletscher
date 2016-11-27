@@ -142,7 +142,7 @@ class BackupCommand extends AbstractCommand {
               Iterator<byte[]> parts = splitter.split(Files.newInputStream(entry.path));
               while (parts.hasNext()) {
                 byte[] part = parts.next();
-                ListenableFuture<PersistedBlock> persistedBlock = blockStore.store(part);
+                ListenableFuture<PersistedBlock> persistedBlock = blockStore.store(part, false);
                 fileBuilder.addBlock(Futures.getUnchecked(persistedBlock).toProto());
               }
               dirProtoBuilder.addEntryBuilder().setFile(fileBuilder);
@@ -187,7 +187,7 @@ class BackupCommand extends AbstractCommand {
       if (existingDirectory != null && !existingDirectory.hasChanged(dirProto)) {
         return existingDirectory.getAddress();
       }
-      return Futures.getUnchecked(blockStore.store(dirProto.toByteArray()));
+      return Futures.getUnchecked(blockStore.store(dirProto.toByteArray(), true));
     }
 
     private boolean isSkippedPath(Path path) {

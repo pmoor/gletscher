@@ -80,7 +80,7 @@ public class InMemoryCloudFileStorage implements CloudFileStorage {
     // no-op
   }
 
-  @Override public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata) {
+  @Override public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
     return executor.submit(() -> {
       synchronized (lock) {
         if (files.containsKey(name)) {

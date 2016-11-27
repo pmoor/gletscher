@@ -50,7 +50,7 @@ public class BlockStore {
     this.signer = signer;
   }
 
-  public ListenableFuture<PersistedBlock> store(byte[] block) {
+  public ListenableFuture<PersistedBlock> store(byte[] block, boolean cache) {
     HashCode md5 = Hashing.md5().hashBytes(block);
 
     int length = block.length;
@@ -70,7 +70,8 @@ public class BlockStore {
       }
     }
 
-    ListenableFuture<?> storeFuture = cloudFileStorage.store(fileName, block, md5, ImmutableMap.of());
+    ListenableFuture<?> storeFuture = cloudFileStorage.store(
+        fileName, block, md5, ImmutableMap.of(), new CloudFileStorage.StoreOptions(cache));
     Futures.addCallback(storeFuture, new FutureCallback<Object>() {
       @Override public void onSuccess(Object result) {
         synchronized (lock) {

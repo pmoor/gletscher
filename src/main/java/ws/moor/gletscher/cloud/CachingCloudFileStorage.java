@@ -65,8 +65,17 @@ public class CachingCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
-  public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata) {
-    return delegate.store(name, data, md5, metadata);
+  public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
+    ListenableFuture<?> future = delegate.store(name, data, md5, metadata, options);
+    if (options.cacheContentsOnUpload) {
+      Futures.addCallback(future, new FutureCallback<Object>() {
+        @Override public void onSuccess(@Nullable Object unused) {
+          storeData(name, data);
+        }
+        @Override public void onFailure(Throwable throwable) { }
+      }, executor);
+    }
+    return future;
   }
 
   @Override

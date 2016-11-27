@@ -42,12 +42,12 @@ public class SigningCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
-  public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata) {
+  public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
     Preconditions.checkArgument(!metadata.containsKey(PROPERTY_NAME));
 
     Map<String, String> attributes = new HashMap<>(metadata);
     attributes.put(PROPERTY_NAME, sign(md5, name).toString());
-    return delegate.store(name, data, md5, attributes);
+    return delegate.store(name, data, md5, attributes, options);
   }
 
   @Override

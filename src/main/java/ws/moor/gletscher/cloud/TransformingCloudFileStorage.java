@@ -41,7 +41,7 @@ abstract class TransformingCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
-  public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata) {
+  public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
     byte[] encoded = encode(data);
     HashCode encodedMd5 = Hashing.md5().hashBytes(encoded);
 
@@ -52,7 +52,7 @@ abstract class TransformingCloudFileStorage implements CloudFileStorage {
     if (!Arrays.equals(data, restoredData)) {
       throw new IllegalStateException("oops, even more unlikely!");
     }
-    return delegate.store(name, encoded, encodedMd5, metadata);
+    return delegate.store(name, encoded, encodedMd5, metadata, options);
   }
 
   @Override

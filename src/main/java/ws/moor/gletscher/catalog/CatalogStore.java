@@ -51,7 +51,10 @@ public class CatalogStore {
   public void store(Catalog catalog) {
     String fileName = createFileName(catalog.getStartTime());
     byte[] data = catalog.toProto().toByteArray();
-    Futures.getUnchecked(storage.store(fileName, data, Hashing.md5().hashBytes(data), ImmutableMap.of()));
+    Futures.getUnchecked(
+        storage.store(
+            fileName, data, Hashing.md5().hashBytes(data), ImmutableMap.of(),
+            new CloudFileStorage.StoreOptions(true)));
   }
 
   private String createFileName(Instant now) {

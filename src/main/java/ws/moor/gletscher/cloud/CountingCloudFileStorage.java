@@ -40,10 +40,10 @@ public class CountingCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
-  public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata) {
+  public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
     storeCount.incrementAndGet();
     storeSize.getAndAdd(data.length);
-    return delegate.store(name, data, md5, metadata);
+    return delegate.store(name, data, md5, metadata, options);
   }
 
   @Override
