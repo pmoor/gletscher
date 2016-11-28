@@ -47,9 +47,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 @Command(name = "backup", description = "Backup local files remotely.")
@@ -116,7 +118,7 @@ class BackupCommand extends AbstractCommand {
     private final PrintStream stderr;
     private final Clock clock;
     private final ListeningExecutorService mainWorkerPool;
-    private final Semaphore outstandingStoreRequests;
+    private final Semaphore pendingStoreRequests;
 
     BackUpper(@Nullable CatalogReader catalogReader, StreamSplitter splitter, BlockStore blockStore,
               Set<Pattern> skipPatterns, PrintStream stdout, PrintStream stderr, Clock clock) {
@@ -127,8 +129,9 @@ class BackupCommand extends AbstractCommand {
       this.stdout = stdout;
       this.stderr = stderr;
       this.clock = clock;
-      this.mainWorkerPool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(1));
-      this.outstandingStoreRequests = new Semaphore(8);
+      this.mainWorkerPool = MoreExecutors.listeningDecorator(
+          new ThreadPoolExecutor(1, 1, 0, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<Runnable>(10)));
+      this.pendingStoreRequests = new Semaphore(6);
     }
 
     @Override
@@ -196,12 +199,8 @@ class BackupCommand extends AbstractCommand {
       if (existingFile == null
           || !existingFile.lastModifiedTime.equals(currentLastModifiedTime)
           || existingFile.getOriginalSize() != entry.attributes.size()) {
-        if (existingFile == null) {
-          stdout.println("new file: " + entry.path);
-        } else {
-          stdout.println("changed file: " + entry.path);
-        }
-        ListenableFuture<List<PersistedBlock>> contentsFuture = uploadFileContents(entry.path);
+        ListenableFuture<List<PersistedBlock>> contentsFuture = uploadFileContents(
+            entry.path, existingFile == null ? "new" : "changed");
         return Futures.transform(contentsFuture, new Function<List<PersistedBlock>, Gletscher.DirectoryEntry>() {
           @Override public Gletscher.DirectoryEntry apply(List<PersistedBlock> input) {
             Gletscher.FileEntry.Builder fileBuilder = Gletscher.FileEntry.newBuilder()
@@ -225,8 +224,9 @@ class BackupCommand extends AbstractCommand {
       }
     }
 
-    private ListenableFuture<List<PersistedBlock>> uploadFileContents(Path path) {
+    private ListenableFuture<List<PersistedBlock>> uploadFileContents(Path path, String message) {
       ListenableFuture<List<ListenableFuture<PersistedBlock>>> future = mainWorkerPool.submit(() -> {
+        stdout.println(message + " file: " + path);
         List<ListenableFuture<PersistedBlock>> futures = new ArrayList<>();
         Iterator<byte[]> parts = splitter.split(Files.newInputStream(path));
         while (parts.hasNext()) {
@@ -239,26 +239,31 @@ class BackupCommand extends AbstractCommand {
     }
 
     private ListenableFuture<Gletscher.DirectoryEntry> handleSymbolicLink(FileSystemReader.Entry entry) {
-      return mainWorkerPool.submit(() -> {
+      ListenableFuture<Gletscher.DirectoryEntry> future = mainWorkerPool.submit(() -> {
         Gletscher.SymLinkEntry.Builder symlinkBuilder = Gletscher.SymLinkEntry.newBuilder()
             .setName(entry.path.getFileName().toString())
             .setTarget(Files.readSymbolicLink(entry.path).toString());
         return Gletscher.DirectoryEntry.newBuilder().setSymlink(symlinkBuilder).build();
       });
+      return future;
     }
 
     private ListenableFuture<PersistedBlock> storeThrottled(byte[] part, boolean cache) {
-      outstandingStoreRequests.acquireUninterruptibly();
+      pendingStoreRequests.acquireUninterruptibly();
       ListenableFuture<PersistedBlock> future = blockStore.store(part, cache);
-      Futures.addCallback(future, new FutureCallback<PersistedBlock>() {
-        @Override public void onSuccess(@Nullable PersistedBlock result) {
-          outstandingStoreRequests.release();
+      releaseWhenDone(future, pendingStoreRequests);
+      return future;
+    }
+
+    private static void releaseWhenDone(ListenableFuture<?> future, Semaphore semaphore) {
+      Futures.addCallback(future, new FutureCallback<Object>() {
+        @Override public void onSuccess(@Nullable Object unused) {
+          semaphore.release();
         }
         @Override public void onFailure(Throwable t) {
-          outstandingStoreRequests.release();
+          semaphore.release();
         }
       });
-      return future;
     }
 
     private boolean isSkippedPath(Path path) {
