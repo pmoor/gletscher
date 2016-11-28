@@ -20,7 +20,7 @@
 
     <groupId>ws.moor.gletscher</groupId>
     <artifactId>gletscher</artifactId>
-    <version>0.1-SNAPSHOT</version>
+    <version>0.2-SNAPSHOT</version>
 
     <name>Gletscher</name>
     <description>Google Cloud Storage Backup Tool.</description>
@@ -51,6 +51,7 @@
         <connection>https://github.com/pmoor/gletscher.git</connection>
         <developerConnection>scm:git:git@github.com:pmoor/gletscher.git</developerConnection>
         <url>https://github.com/pmoor/gletscher</url>
+        <tag>HEAD</tag>
     </scm>
 
     <build>
