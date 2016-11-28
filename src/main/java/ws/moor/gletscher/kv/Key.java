@@ -129,7 +129,7 @@ public final class Key implements Comparable<Key> {
   }
 
   /**
-   * @return lo < x <= hi
+   * @return lo &lt; x &lt;= hi
    */
   public Key findBetween(Key next) {
     Preconditions.checkArgument(isNormal());
