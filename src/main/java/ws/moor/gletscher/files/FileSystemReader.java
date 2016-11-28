@@ -36,7 +36,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Stream;
 
-public class FileSystemReader<T> {
+public class FileSystemReader {
 
   public interface Visitor<T> {
     T visit(Path directory, List<Entry> entries, Recursor<T> recursor);
@@ -57,7 +57,7 @@ public class FileSystemReader<T> {
     this.stderr = stderr;
   }
 
-  public Map<Path, T> start(Visitor<T> visitor) {
+  public <T> Map<Path, T> start(Visitor<T> visitor) {
     Multimap<Path, Path> pathToRoots = TreeMultimap.create();
     Set<Path> roots = new TreeSet<>();
     for (Path root : paths) {

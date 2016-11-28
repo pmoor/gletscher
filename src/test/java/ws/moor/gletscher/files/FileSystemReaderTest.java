@@ -55,7 +55,7 @@ public class FileSystemReaderTest {
 
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
-    FileSystemReader<Integer> reader = new FileSystemReader<>(paths, new PrintStream(baos));
+    FileSystemReader reader = new FileSystemReader(paths, new PrintStream(baos));
 
     StringBuilder output = new StringBuilder();
     AtomicInteger level = new AtomicInteger(0);

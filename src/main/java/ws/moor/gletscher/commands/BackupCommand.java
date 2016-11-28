@@ -16,8 +16,13 @@
 
 package ws.moor.gletscher.commands;
 
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.AsyncCallable;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import ws.moor.gletscher.blocks.BlockStore;
@@ -29,17 +34,22 @@ import ws.moor.gletscher.proto.Gletscher;
 import ws.moor.gletscher.util.StreamSplitter;
 
 import javax.annotation.Nullable;
-import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import java.util.regex.Pattern;
 
 @Command(name = "backup", description = "Backup local files remotely.")
@@ -76,10 +86,10 @@ class BackupCommand extends AbstractCommand {
         latestCatalog.isPresent() ? new CatalogReader(blockStore, latestCatalog.get()) : null;
 
     Instant startTime = context.getClock().instant();
-    FileSystemReader<PersistedBlock> fileSystemReader = new FileSystemReader<>(config.getIncludes(), context.getStdErr());
+    FileSystemReader fileSystemReader = new FileSystemReader(config.getIncludes(), context.getStdErr());
     BackUpper backUpper = new BackUpper(
         catalogReader, splitter, blockStore, config.getExcludes(), context.getStdOut(), context.getStdErr(), context.getClock());
-    Map<Path, PersistedBlock> roots = fileSystemReader.start(backUpper);
+    Map<Path, PersistedBlock> roots = getUnchecked(fileSystemReader.start(backUpper));
 
     Instant endTime = context.getClock().instant();
     Catalog catalog = Catalog.fromNewBackup(startTime, endTime, roots);
@@ -88,7 +98,15 @@ class BackupCommand extends AbstractCommand {
     return 0;
   }
 
-  private static class BackUpper implements FileSystemReader.Visitor<PersistedBlock> {
+  private Map<Path, PersistedBlock> getUnchecked(Map<Path, ListenableFuture<PersistedBlock>> rootFutures) {
+    Map<Path, PersistedBlock> roots = new TreeMap<>();
+    for (Map.Entry<Path, ListenableFuture<PersistedBlock>> entry : rootFutures.entrySet()) {
+      roots.put(entry.getKey(), Futures.getUnchecked(entry.getValue()));
+    }
+    return roots;
+  }
+
+  private static class BackUpper implements FileSystemReader.Visitor<ListenableFuture<PersistedBlock>> {
 
     @Nullable private final CatalogReader catalogReader;
     private final StreamSplitter splitter;
@@ -97,6 +115,8 @@ class BackupCommand extends AbstractCommand {
     private final PrintStream stdout;
     private final PrintStream stderr;
     private final Clock clock;
+    private final ListeningExecutorService mainWorkerPool;
+    private final Semaphore outstandingStoreRequests;
 
     BackUpper(@Nullable CatalogReader catalogReader, StreamSplitter splitter, BlockStore blockStore,
               Set<Pattern> skipPatterns, PrintStream stdout, PrintStream stderr, Clock clock) {
@@ -107,16 +127,23 @@ class BackupCommand extends AbstractCommand {
       this.stdout = stdout;
       this.stderr = stderr;
       this.clock = clock;
+      this.mainWorkerPool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(1));
+      this.outstandingStoreRequests = new Semaphore(8);
     }
 
     @Override
-    public PersistedBlock visit(Path directory, List<FileSystemReader.Entry> entries, FileSystemReader.Recursor<PersistedBlock> recursor) {
+    public ListenableFuture<PersistedBlock> visit(
+        Path directory, List<FileSystemReader.Entry> entries, FileSystemReader.Recursor<ListenableFuture<PersistedBlock>> recursor) {
       @Nullable CatalogReader.DirectoryInformation existingDirectory =
           catalogReader != null ? catalogReader.findDirectory(directory) : null;
 
       Gletscher.Directory.Builder dirProtoBuilder = Gletscher.Directory.newBuilder();
       dirProtoBuilder.setStartTimeMillis(clock.millis());
+      if (existingDirectory != null) {
+        dirProtoBuilder.setPreviousVersion(existingDirectory.getAddress().toProto());
+      }
 
+      SortedMap<Path, ListenableFuture<Gletscher.DirectoryEntry>> entryMap = new TreeMap<>();
       for (FileSystemReader.Entry entry : entries) {
         if (isSkippedPath(entry.path)) {
           stdout.println("skipping: " + entry.path);
@@ -124,70 +151,114 @@ class BackupCommand extends AbstractCommand {
         }
 
         if (entry.isRegularFile()) {
-          Instant currentLastModifiedTime = entry.attributes.lastModifiedTime().toInstant();
-
           @Nullable CatalogReader.FileInformation existingFile =
               existingDirectory != null ? existingDirectory.findFileInformation(entry.path) : null;
-          if (existingFile == null || !existingFile.lastModifiedTime.equals(currentLastModifiedTime)) {
-            if (existingFile == null) {
-              stdout.println("new file: " + entry.path);
-            } else {
-              stdout.println("changed file: " + entry.path);
-            }
-
-            Gletscher.FileEntry.Builder fileBuilder = Gletscher.FileEntry.newBuilder()
-                .setName(entry.path.getFileName().toString())
-                .setLastModifiedMillis(currentLastModifiedTime.toEpochMilli());
-            try {
-              Iterator<byte[]> parts = splitter.split(Files.newInputStream(entry.path));
-              while (parts.hasNext()) {
-                byte[] part = parts.next();
-                ListenableFuture<PersistedBlock> persistedBlock = blockStore.store(part, false);
-                fileBuilder.addBlock(Futures.getUnchecked(persistedBlock).toProto());
-              }
-              dirProtoBuilder.addEntryBuilder().setFile(fileBuilder);
-            } catch (IOException e) {
-              stderr.println("failed to read file: " + entry.path);
-            }
-          } else {
-            // matching
-            Gletscher.FileEntry.Builder fileBuilder = Gletscher.FileEntry.newBuilder()
-                .setName(entry.path.getFileName().toString())
-                .setLastModifiedMillis(existingFile.lastModifiedTime.toEpochMilli());
-            for (PersistedBlock block : existingFile.blockList) {
-              fileBuilder.addBlock(block.toProto());
-            }
-            dirProtoBuilder.addEntryBuilder().setFile(fileBuilder);
-          }
+          entryMap.put(entry.path, handleRegularFile(entry, existingFile));
         } else if (entry.isSymbolicLink()) {
-          try {
-            Gletscher.SymLinkEntry.Builder symlinkBuilder = Gletscher.SymLinkEntry.newBuilder()
-                .setName(entry.path.getFileName().toString())
-                .setTarget(Files.readSymbolicLink(entry.path).toString());
-            dirProtoBuilder.addEntryBuilder().setSymlink(symlinkBuilder);
-          } catch (IOException e) {
-            stderr.println("couldn't resolve symlink: " + entry.path);
-          }
+          entryMap.put(entry.path, handleSymbolicLink(entry));
         } else if (entry.isDirectory()) {
-          Gletscher.ChildDirectoryEntry.Builder childDirBuilder = Gletscher.ChildDirectoryEntry.newBuilder()
-              .setName(entry.path.getFileName().toString())
-              .setBlock(recursor.recurse(entry.path).toProto());
-          dirProtoBuilder.addEntryBuilder().setDirectory(childDirBuilder);
+          ListenableFuture<PersistedBlock> childDirectory = recursor.recurse(entry.path);
+          entryMap.put(entry.path, Futures.transform(childDirectory, childBlock -> {
+            Gletscher.ChildDirectoryEntry.Builder childDirBuilder = Gletscher.ChildDirectoryEntry.newBuilder()
+                .setName(entry.path.getFileName().toString())
+                .setBlock(childBlock.toProto());
+            return Gletscher.DirectoryEntry.newBuilder().setDirectory(childDirBuilder).build();
+          }));
         } else {
           stderr.printf("skipping unknown file type: %s\n", entry.path);
         }
       }
 
-      if (existingDirectory != null) {
-        dirProtoBuilder.setPreviousVersion(existingDirectory.getAddress().toProto());
-      }
-      dirProtoBuilder.setEndTimeMillis(clock.millis());
-      Gletscher.Directory dirProto = dirProtoBuilder.build();
+      return Futures.whenAllComplete(entryMap.values()).callAsync(new AsyncCallable<PersistedBlock>() {
+        @Override public ListenableFuture<PersistedBlock> call() throws Exception {
+          for (Map.Entry<Path, ListenableFuture<Gletscher.DirectoryEntry>> entry : entryMap.entrySet()) {
+            try {
+              dirProtoBuilder.addEntry(Futures.getDone(entry.getValue()));
+            } catch (ExecutionException e) {
+              stderr.printf("failed to read path: %s\n", entry.getKey());
+            }
+          }
 
-      if (existingDirectory != null && !existingDirectory.hasChanged(dirProto)) {
-        return existingDirectory.getAddress();
+          dirProtoBuilder.setEndTimeMillis(clock.millis());
+          Gletscher.Directory dirProto = dirProtoBuilder.build();
+
+          if (existingDirectory != null && !existingDirectory.hasChanged(dirProto)) {
+            return Futures.immediateFuture(existingDirectory.getAddress());
+          }
+          return storeThrottled(dirProto.toByteArray(), true);
+        }
+      }, mainWorkerPool);
+    }
+
+    private ListenableFuture<Gletscher.DirectoryEntry> handleRegularFile(
+        FileSystemReader.Entry entry, CatalogReader.FileInformation existingFile) {
+      Instant currentLastModifiedTime = entry.attributes.lastModifiedTime().toInstant();
+      if (existingFile == null
+          || !existingFile.lastModifiedTime.equals(currentLastModifiedTime)
+          || existingFile.getOriginalSize() != entry.attributes.size()) {
+        if (existingFile == null) {
+          stdout.println("new file: " + entry.path);
+        } else {
+          stdout.println("changed file: " + entry.path);
+        }
+        ListenableFuture<List<PersistedBlock>> contentsFuture = uploadFileContents(entry.path);
+        return Futures.transform(contentsFuture, new Function<List<PersistedBlock>, Gletscher.DirectoryEntry>() {
+          @Override public Gletscher.DirectoryEntry apply(List<PersistedBlock> input) {
+            Gletscher.FileEntry.Builder fileBuilder = Gletscher.FileEntry.newBuilder()
+                .setName(entry.path.getFileName().toString())
+                .setLastModifiedMillis(currentLastModifiedTime.toEpochMilli());
+            for (PersistedBlock block : input) {
+              fileBuilder.addBlock(block.toProto());
+            }
+            return Gletscher.DirectoryEntry.newBuilder().setFile(fileBuilder).build();
+          }
+        });
+      } else {
+        // matching
+        Gletscher.FileEntry.Builder fileBuilder = Gletscher.FileEntry.newBuilder()
+            .setName(entry.path.getFileName().toString())
+            .setLastModifiedMillis(existingFile.lastModifiedTime.toEpochMilli());
+        for (PersistedBlock block : existingFile.blockList) {
+          fileBuilder.addBlock(block.toProto());
+        }
+        return Futures.immediateFuture(Gletscher.DirectoryEntry.newBuilder().setFile(fileBuilder).build());
       }
-      return Futures.getUnchecked(blockStore.store(dirProto.toByteArray(), true));
+    }
+
+    private ListenableFuture<List<PersistedBlock>> uploadFileContents(Path path) {
+      ListenableFuture<List<ListenableFuture<PersistedBlock>>> future = mainWorkerPool.submit(() -> {
+        List<ListenableFuture<PersistedBlock>> futures = new ArrayList<>();
+        Iterator<byte[]> parts = splitter.split(Files.newInputStream(path));
+        while (parts.hasNext()) {
+          byte[] part = parts.next();
+          futures.add(storeThrottled(part, false));
+        }
+        return futures;
+      });
+      return Futures.transformAsync(future, Futures::allAsList);
+    }
+
+    private ListenableFuture<Gletscher.DirectoryEntry> handleSymbolicLink(FileSystemReader.Entry entry) {
+      return mainWorkerPool.submit(() -> {
+        Gletscher.SymLinkEntry.Builder symlinkBuilder = Gletscher.SymLinkEntry.newBuilder()
+            .setName(entry.path.getFileName().toString())
+            .setTarget(Files.readSymbolicLink(entry.path).toString());
+        return Gletscher.DirectoryEntry.newBuilder().setSymlink(symlinkBuilder).build();
+      });
+    }
+
+    private ListenableFuture<PersistedBlock> storeThrottled(byte[] part, boolean cache) {
+      outstandingStoreRequests.acquireUninterruptibly();
+      ListenableFuture<PersistedBlock> future = blockStore.store(part, cache);
+      Futures.addCallback(future, new FutureCallback<PersistedBlock>() {
+        @Override public void onSuccess(@Nullable PersistedBlock result) {
+          outstandingStoreRequests.release();
+        }
+        @Override public void onFailure(Throwable t) {
+          outstandingStoreRequests.release();
+        }
+      });
+      return future;
     }
 
     private boolean isSkippedPath(Path path) {
