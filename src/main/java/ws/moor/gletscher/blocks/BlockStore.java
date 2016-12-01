@@ -20,17 +20,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.SettableFuture;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.util.Signer;
 
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
@@ -41,7 +37,6 @@ public class BlockStore {
 
   private final CloudFileStorage cloudFileStorage;
   private final Signer signer;
-  private final Map<Signature, ListenableFuture<PersistedBlock>> pendingWrites = new HashMap<>();
 
   private final Object lock = new Object();
 
@@ -58,40 +53,10 @@ public class BlockStore {
     PersistedBlock persisted = new PersistedBlock(signature, length);
     String fileName = toFileName(persisted);
 
-    final SettableFuture<PersistedBlock> future;
-    synchronized (lock) {
-      if (Futures.getUnchecked(cloudFileStorage.exists(fileName))) {
-        return Futures.immediateFuture(persisted);
-      } else if (pendingWrites.containsKey(signature)) {
-        return pendingWrites.get(signature);
-      } else {
-        future = SettableFuture.create();
-        pendingWrites.put(signature, future);
-      }
-    }
-
-    ListenableFuture<?> storeFuture = cloudFileStorage.store(
+    ListenableFuture<?> future = cloudFileStorage.store(
         fileName, block, md5, ImmutableMap.of(), new CloudFileStorage.StoreOptions(cache));
-    Futures.addCallback(storeFuture, new FutureCallback<Object>() {
-      @Override public void onSuccess(Object result) {
-        synchronized (lock) {
-          pendingWrites.remove(signature);
-        }
-        future.set(persisted);
-      }
-
-      @Override public void onFailure(Throwable t) {
-        synchronized (lock) {
-          pendingWrites.remove(signature);
-        }
-        if (t instanceof CloudFileStorage.FileAlreadyExistsException) {
-          future.set(persisted);
-        } else {
-          future.setException(t);
-        }
-      }
-    });
-    return future;
+    ListenableFuture<PersistedBlock> transformed = Futures.transform(future, (unused) -> persisted);
+    return Futures.catching(transformed, CloudFileStorage.FileAlreadyExistsException.class, (unused) -> persisted);
   }
 
   public ListenableFuture<byte[]> retrieve(PersistedBlock block) {
