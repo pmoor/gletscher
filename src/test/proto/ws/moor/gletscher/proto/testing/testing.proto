@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// To update: $ protoc --java_out=src/main/java src/test/testing.proto
-
 syntax = "proto3";
 
 package ws.moor.gletscher.proto.testing;
