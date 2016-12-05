@@ -21,8 +21,6 @@ import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import ws.moor.gletscher.blocks.BlockStore;
@@ -34,6 +32,8 @@ import ws.moor.gletscher.proto.Gletscher;
 import ws.moor.gletscher.util.StreamSplitter;
 
 import javax.annotation.Nullable;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,7 +48,6 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.regex.Pattern;
 
@@ -115,9 +114,8 @@ class BackupCommand extends AbstractCommand {
     private final PrintStream stdout;
     private final PrintStream stderr;
     private final Clock clock;
-    private final ListeningExecutorService mainWorkerPool;
     private final Semaphore pendingStoreRequests;
-    private final Semaphore pendingDiskTasks;
+    private final Semaphore pendingStoreBytes;
 
     BackUpper(@Nullable CatalogReader catalogReader, StreamSplitter splitter, BlockStore blockStore,
               Set<Pattern> skipPatterns, PrintStream stdout, PrintStream stderr, Clock clock) {
@@ -128,9 +126,8 @@ class BackupCommand extends AbstractCommand {
       this.stdout = stdout;
       this.stderr = stderr;
       this.clock = clock;
-      this.mainWorkerPool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(1));
-      this.pendingStoreRequests = new Semaphore(6);
-      this.pendingDiskTasks = new Semaphore(4);
+      this.pendingStoreRequests = new Semaphore(32);
+      this.pendingStoreBytes = new Semaphore(64 << 20);
     }
 
     @Override
@@ -187,9 +184,9 @@ class BackupCommand extends AbstractCommand {
           if (existingDirectory != null && !existingDirectory.hasChanged(dirProto)) {
             return Futures.immediateFuture(existingDirectory.getAddress());
           }
-          return storeThrottled(dirProto.toByteArray(), true);
+          return blockStore.store(dirProto.toByteArray(), true);
         }
-      }, mainWorkerPool);
+      });
     }
 
     private ListenableFuture<Gletscher.DirectoryEntry> handleRegularFile(
@@ -224,47 +221,47 @@ class BackupCommand extends AbstractCommand {
     }
 
     private ListenableFuture<List<PersistedBlock>> uploadFileContents(Path path, String message) {
-      pendingDiskTasks.acquireUninterruptibly();
-      ListenableFuture<List<ListenableFuture<PersistedBlock>>> future = mainWorkerPool.submit(() -> {
-        stdout.println(message + " file: " + path);
-        List<ListenableFuture<PersistedBlock>> futures = new ArrayList<>();
-        Iterator<byte[]> parts = splitter.split(Files.newInputStream(path));
+      stdout.println(message + " file: " + path);
+      List<ListenableFuture<PersistedBlock>> futures = new ArrayList<>();
+      try (InputStream is = Files.newInputStream(path)){
+        Iterator<byte[]> parts = splitter.split(is);
         while (parts.hasNext()) {
           byte[] part = parts.next();
           futures.add(storeThrottled(part, false));
         }
-        return futures;
-      });
-      releaseWhenDone(future, pendingDiskTasks);
-      return Futures.transformAsync(future, Futures::allAsList);
+      } catch (IOException e) {
+        return Futures.immediateFailedFuture(e);
+      }
+      return Futures.allAsList(futures);
     }
 
     private ListenableFuture<Gletscher.DirectoryEntry> handleSymbolicLink(FileSystemReader.Entry entry) {
-      pendingDiskTasks.acquireUninterruptibly();
-      ListenableFuture<Gletscher.DirectoryEntry> future = mainWorkerPool.submit(() -> {
+      try {
         Gletscher.SymLinkEntry.Builder symlinkBuilder = Gletscher.SymLinkEntry.newBuilder()
             .setName(entry.path.getFileName().toString())
             .setTarget(Files.readSymbolicLink(entry.path).toString());
-        return Gletscher.DirectoryEntry.newBuilder().setSymlink(symlinkBuilder).build();
-      });
-      releaseWhenDone(future, pendingDiskTasks);
-      return future;
+        return Futures.immediateFuture(Gletscher.DirectoryEntry.newBuilder().setSymlink(symlinkBuilder).build());
+      } catch (IOException e) {
+        return Futures.immediateFailedFuture(e);
+      }
     }
 
     private ListenableFuture<PersistedBlock> storeThrottled(byte[] part, boolean cache) {
       pendingStoreRequests.acquireUninterruptibly();
+      pendingStoreBytes.acquireUninterruptibly(part.length);
       ListenableFuture<PersistedBlock> future = blockStore.store(part, cache);
-      releaseWhenDone(future, pendingStoreRequests);
+      releaseWhenDone(future, pendingStoreBytes, part.length);
+      releaseWhenDone(future, pendingStoreRequests, 1);
       return future;
     }
 
-    private static void releaseWhenDone(ListenableFuture<?> future, Semaphore semaphore) {
+    private static void releaseWhenDone(ListenableFuture<?> future, Semaphore semaphore, int permits) {
       Futures.addCallback(future, new FutureCallback<Object>() {
         @Override public void onSuccess(@Nullable Object unused) {
-          semaphore.release();
+          semaphore.release(permits);
         }
         @Override public void onFailure(Throwable t) {
-          semaphore.release();
+          semaphore.release(permits);
         }
       });
     }
