@@ -82,8 +82,10 @@ class ReadOnlyLayer extends Layer {
   }
 
   @Override
-  ByteBuffer read(BlockLocation location) throws KVStoreException {
-    Preconditions.checkArgument(location.layer == this);
+  ByteBuffer read(KeyInfo keyInfo) throws KVStoreException {
+    Preconditions.checkArgument(keyInfo instanceof BlockLocation);
+    BlockLocation location = (BlockLocation) keyInfo;
+    Preconditions.checkState(location.layer == this);
     return KVStoreImpl.readFromChannel(channel, location.offset, location.size);
   }
 

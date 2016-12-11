@@ -16,9 +16,11 @@
 
 package ws.moor.gletscher.kv;
 
+import com.google.common.base.Preconditions;
+
 import java.nio.ByteBuffer;
 
-final class BlockLocation {
+final class BlockLocation implements Layer.KeyInfo {
   static BlockLocation parseFrom(Layer layer, ByteBuffer data) {
     Type type = Type.values()[data.get()];
     long offset = data.getLong();
@@ -41,6 +43,22 @@ final class BlockLocation {
     buffer.put(type.value);
     buffer.putLong(offset);
     buffer.putInt(size);
+  }
+
+  @Override
+  public boolean isDeleteMarker() {
+    return type == Type.DELETION;
+  }
+
+  @Override
+  public int size() {
+    return size;
+  }
+
+  @Override
+  public ByteBuffer read() {
+    Preconditions.checkState(!isDeleteMarker());
+    return layer.read(this);
   }
 
   enum Type {

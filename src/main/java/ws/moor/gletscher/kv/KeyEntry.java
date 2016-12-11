@@ -20,11 +20,11 @@ import javax.annotation.Nullable;
 
 class KeyEntry implements KVStore.Entry {
   final Key key;
-  final BlockLocation location;
+  final Layer.KeyInfo info;
 
-  KeyEntry(Key key, BlockLocation location) {
+  KeyEntry(Key key, Layer.KeyInfo info) {
     this.key = key;
-    this.location = location;
+    this.info = info;
   }
 
   @Override public Key getKey() {
@@ -32,13 +32,13 @@ class KeyEntry implements KVStore.Entry {
   }
 
   @Override public int size() {
-    return location.size;
+    return info.size();
   }
 
   @Nullable
   @Override
   public byte[] read() throws KVStoreException {
     // TODO(pmoor): handle layer unavailable/compacted/etc or key deleted
-    return location.layer.read(location).array();
+    return info.read().array();
   }
 }

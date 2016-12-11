@@ -158,7 +158,10 @@ class ReadWriteLayer extends Layer{
     return position;
   }
 
-  ByteBuffer read(BlockLocation location) throws KVStoreException {
+  @Override
+  ByteBuffer read(KeyInfo keyInfo) throws KVStoreException {
+    Preconditions.checkArgument(keyInfo instanceof BlockLocation);
+    BlockLocation location = (BlockLocation) keyInfo;
     Preconditions.checkState(location.layer == this);
     return KVStoreImpl.readFromChannel(fileChannel, location.offset, location.size);
   }

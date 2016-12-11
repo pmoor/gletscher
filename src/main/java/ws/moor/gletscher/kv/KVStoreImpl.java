@@ -148,10 +148,10 @@ class KVStoreImpl implements KVStore {
 
       Key key = front.current.key;
       if (lastKey.compareTo(key) < 0) {
-        BlockLocation location = front.current.location;
-        if (location.type != BlockLocation.Type.DELETION) {
+        Layer.KeyInfo keyInfo = front.current.info;
+        if (!keyInfo.isDeleteMarker()) {
           // keep it
-          combinedLayer.write(key, front.file.read(location));
+          combinedLayer.write(key, keyInfo.read());
         } else if (!major) {
           // keep deletions in minor compactions
           combinedLayer.delete(key);
@@ -213,7 +213,7 @@ class KVStoreImpl implements KVStore {
           }
           if (lastKey == null || !lastKey.equals(currentEntry.key)) {
             lastKey = currentEntry.key;
-            if (currentEntry.location.type != BlockLocation.Type.DELETION) {
+            if (!currentEntry.info.isDeleteMarker()) {
               return currentEntry;
             }
           }
@@ -240,17 +240,17 @@ class KVStoreImpl implements KVStore {
 
   @Override
   public synchronized byte[] get(Key key) throws KVStoreException {
-    BlockLocation location = find(key);
-    if (location == null || location.type == BlockLocation.Type.DELETION) {
+    Layer.KeyInfo keyInfo = find(key);
+    if (keyInfo == null || keyInfo.isDeleteMarker()) {
       return null;
     }
-    return readValue(location).array();
+    return keyInfo.read().array();
   }
 
   @Override
   public synchronized boolean contains(Key key) throws KVStoreException {
-    BlockLocation location = find(key);
-    return location != null && location.type != BlockLocation.Type.DELETION;
+    Layer.KeyInfo keyInfo = find(key);
+    return keyInfo != null && !keyInfo.isDeleteMarker();
   }
 
   @Override
@@ -268,19 +268,14 @@ class KVStoreImpl implements KVStore {
     ((ReadWriteLayer) layers.peek()).write(key, value);
   }
 
-  private BlockLocation find(Key key) throws KVStoreException {
+  private Layer.KeyInfo find(Key key) throws KVStoreException {
     for (Layer layer : layers) {
-      BlockLocation location = layer.find(key);
-      if (location != null) {
-        return location;
+      Layer.KeyInfo keyInfo = layer.find(key);
+      if (keyInfo != null) {
+        return keyInfo;
       }
     }
     return null;
-  }
-
-  private ByteBuffer readValue(BlockLocation location) throws KVStoreException {
-    Preconditions.checkArgument(location.type == BlockLocation.Type.VALUE);
-    return location.layer.read(location);
   }
 
   static void writeToChannel(FileChannel channel, long offset, ByteBuffer data) throws KVStoreException {

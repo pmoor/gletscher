@@ -16,6 +16,7 @@
 
 package ws.moor.gletscher.kv;
 
+import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
@@ -27,11 +28,18 @@ abstract class Layer {
     this.id = id;
   }
 
-  abstract BlockLocation find(Key key) throws KVStoreException;
+  abstract @Nullable KeyInfo find(Key key) throws KVStoreException;
 
   abstract void close() throws KVStoreException;
 
-  abstract ByteBuffer read(BlockLocation location) throws KVStoreException;
+  abstract ByteBuffer read(KeyInfo keyInfo) throws KVStoreException;
 
   abstract Iterator<KeyEntry> keyIterator(Key start, boolean inclusive, boolean ascending);
+
+  interface KeyInfo {
+    boolean isDeleteMarker();
+
+    int size();
+    ByteBuffer read();
+  }
 }
