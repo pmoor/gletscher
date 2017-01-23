@@ -38,8 +38,6 @@ public class BlockStore {
   private final CloudFileStorage cloudFileStorage;
   private final Signer signer;
 
-  private final Object lock = new Object();
-
   public BlockStore(CloudFileStorage cloudFileStorage, Signer signer) {
     this.cloudFileStorage = cloudFileStorage;
     this.signer = signer;
@@ -53,10 +51,17 @@ public class BlockStore {
     PersistedBlock persisted = new PersistedBlock(signature, length);
     String fileName = toFileName(persisted);
 
-    ListenableFuture<?> future = cloudFileStorage.store(
-        fileName, block, md5, ImmutableMap.of(), new CloudFileStorage.StoreOptions(cache));
-    ListenableFuture<PersistedBlock> transformed = Futures.transform(future, (unused) -> persisted);
-    return Futures.catching(transformed, CloudFileStorage.FileAlreadyExistsException.class, (unused) -> persisted);
+    ListenableFuture<Boolean> existsFuture = cloudFileStorage.exists(fileName);
+    return Futures.transformAsync(existsFuture, fileExists -> {
+      if (fileExists) {
+        return Futures.immediateFuture(persisted);
+      } else {
+        ListenableFuture<?> future = cloudFileStorage.store(
+            fileName, block, md5, ImmutableMap.of(), new CloudFileStorage.StoreOptions(cache));
+        ListenableFuture<PersistedBlock> transformed = Futures.transform(future, (unused) -> persisted);
+        return Futures.catching(transformed, CloudFileStorage.FileAlreadyExistsException.class, (unused) -> persisted);
+      }
+    });
   }
 
   public ListenableFuture<byte[]> retrieve(PersistedBlock block) {
