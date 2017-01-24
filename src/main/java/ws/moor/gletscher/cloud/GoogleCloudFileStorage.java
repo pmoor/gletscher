@@ -180,8 +180,8 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
       Storage.Objects.Get get = client.objects().get(bucket, filePrefix + name);
       get.setFields("");
       try {
-        get.execute();
         costTracker.trackHead();
+        get.execute();
         return true;
       } catch (HttpResponseException e) {
         if (e.getStatusCode() == 404) {
