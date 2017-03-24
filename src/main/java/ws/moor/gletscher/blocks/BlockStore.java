@@ -16,6 +16,7 @@
 
 package ws.moor.gletscher.blocks;
 
+import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
@@ -58,8 +59,8 @@ public class BlockStore {
       } else {
         ListenableFuture<?> future = cloudFileStorage.store(
             fileName, block, md5, ImmutableMap.of(), new CloudFileStorage.StoreOptions(cache));
-        ListenableFuture<PersistedBlock> transformed = Futures.transform(future, (unused) -> persisted);
-        return Futures.catching(transformed, CloudFileStorage.FileAlreadyExistsException.class, (unused) -> persisted);
+        ListenableFuture<PersistedBlock> transformed = Futures.transform(future, Functions.constant(persisted));
+        return Futures.catching(transformed, CloudFileStorage.FileAlreadyExistsException.class, Functions.constant(persisted));
       }
     });
   }
