@@ -155,7 +155,7 @@ public class InMemoryCloudFileStorage implements CloudFileStorage {
           proto.getName(),
           Hashing.md5().hashBytes(proto.getContents().toByteArray()),
           proto.getContents().size(),
-          proto.getMeta());
+          proto.getMetaMap());
       return new Entry(proto.getName(), header, proto.getContents());
     }
   }

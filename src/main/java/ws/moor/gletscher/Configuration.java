@@ -42,12 +42,14 @@ public class Configuration {
   private final FileSystem fs;
   private final Map<String, Object> yaml;
 
+  @SuppressWarnings("unchecked")
   static Configuration fromLines(FileSystem fs, String... lines) {
     Yaml yaml = new Yaml(new SafeConstructor());
     Map<String, Object> result = (Map<String, Object>) yaml.load(Joiner.on('\n').join(lines));
     return new Configuration(fs, result);
   }
 
+  @SuppressWarnings("unchecked")
   public static Configuration fromFile(Path configFile) throws IOException {
     Yaml yaml = new Yaml(new SafeConstructor());
     Map<String, Object> result =
@@ -109,15 +111,18 @@ public class Configuration {
     return (boolean) yaml.get("disable_cache");
   }
 
+  @SuppressWarnings("unchecked")
   private Map<String, Object> findGcsNode() {
     return (Map<String, Object>) yaml.get("gcs");
   }
 
+  @SuppressWarnings("unchecked")
   public Set<Path> getIncludes() {
     return ((List<String>) yaml.get("include")).stream()
         .map(fs::getPath).collect(Collectors.toSet());
   }
 
+  @SuppressWarnings("unchecked")
   public Set<Pattern> getExcludes() {
     List<String> excludeStrings = yaml.containsKey("exclude") ? (List<String>) yaml.get("exclude") : ImmutableList.of();
     Set<Pattern> patterns = excludeStrings.stream().map(Pattern::compile).collect(Collectors.toSet());
