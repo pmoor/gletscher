@@ -95,7 +95,7 @@ public class FileSystemReader {
             }
           }
         } catch (IOException | RuntimeException e) {
-          stderr.println("error while reading: " + directory);
+          stderr.printf("error while reading directory %s: %s\n", directory, e);
         }
         Collections.sort(entries);
         return visitor.visit(directory, entries, this);
