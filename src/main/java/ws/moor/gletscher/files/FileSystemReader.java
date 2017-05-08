@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class FileSystemReader {
@@ -78,17 +79,15 @@ public class FileSystemReader {
         try {
           if (pathToRoots.containsKey(directory)) {
             // artificial directory, use only contents from in here
-            for (Path child : pathToRoots.get(directory)) {
-              BasicFileAttributes attributes = readAttributes(child);
-              entries.add(new Entry(child, attributes));
-            }
+            entries.addAll(pathToRoots.get(directory).stream()
+                .map(this::createDirEntry)
+                .collect(Collectors.toList()));
           } else {
             if (Files.isReadable(directory)) {
               try (Stream<Path> stream = Files.list(directory)) {
-                stream.forEach(child -> {
-                  BasicFileAttributes attributes = readAttributes(child);
-                  entries.add(new Entry(child, attributes));
-                });
+                entries.addAll(stream
+                    .map(this::createDirEntry)
+                    .collect(Collectors.toList()));
               }
             } else {
               stderr.println("unreadable: " + directory);
@@ -99,6 +98,11 @@ public class FileSystemReader {
         }
         Collections.sort(entries);
         return visitor.visit(directory, entries, this);
+      }
+
+      private Entry createDirEntry(Path child) {
+        BasicFileAttributes attributes = readAttributes(child);
+        return new Entry(child, attributes);
       }
     };
 
