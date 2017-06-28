@@ -17,6 +17,7 @@
 package ws.moor.gletscher.kv;
 
 import javax.annotation.Nullable;
+import java.nio.ByteBuffer;
 
 class KeyEntry implements KVStore.Entry {
   final Key key;
@@ -39,6 +40,14 @@ class KeyEntry implements KVStore.Entry {
   @Override
   public byte[] read() throws KVStoreException {
     // TODO(pmoor): handle layer unavailable/compacted/etc or key deleted
-    return info.read().array();
+    return ((ByteBuffer) (ByteBuffer.allocate(info.size()).put(info.read()).rewind())).array();
+  }
+
+  ByteBuffer readByteBuffer() {
+    return info.read();
+  }
+
+  boolean isDeleteMarker() {
+    return info.isDeleteMarker();
   }
 }

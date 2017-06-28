@@ -62,7 +62,7 @@ final class BTreeNode {
     return true;
   }
 
-  static BTreeNode parseFrom(Layer layer, ByteBuffer data) {
+  static BTreeNode parseFrom(DiskLayer layer, ByteBuffer data) {
     int size = data.getInt();
 
     List<Key> keys = new ArrayList<>(size);

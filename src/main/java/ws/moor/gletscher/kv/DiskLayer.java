@@ -32,7 +32,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 import java.util.Stack;
 
-class ReadOnlyLayer extends Layer {
+class DiskLayer extends Layer {
 
   private final Path path;
   private FileChannel channel;
@@ -43,7 +43,7 @@ class ReadOnlyLayer extends Layer {
       .maximumWeight(64 << 20)
       .build();
 
-  ReadOnlyLayer(Path path) {
+  DiskLayer(Path path) {
     super(Integer.valueOf(path.getFileName().toString().substring("data-".length()), 10));
     Preconditions.checkState(Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS));
     Preconditions.checkState(Files.isReadable(path));
@@ -81,7 +81,6 @@ class ReadOnlyLayer extends Layer {
     }
   }
 
-  @Override
   ByteBuffer read(KeyInfo keyInfo) throws KVStoreException {
     Preconditions.checkArgument(keyInfo instanceof BlockLocation);
     BlockLocation location = (BlockLocation) keyInfo;

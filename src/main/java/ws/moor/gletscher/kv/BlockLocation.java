@@ -21,7 +21,7 @@ import com.google.common.base.Preconditions;
 import java.nio.ByteBuffer;
 
 final class BlockLocation implements Layer.KeyInfo {
-  static BlockLocation parseFrom(Layer layer, ByteBuffer data) {
+  static BlockLocation parseFrom(DiskLayer layer, ByteBuffer data) {
     Type type = Type.values()[data.get()];
     long offset = data.getLong();
     int size = data.getInt();
@@ -74,11 +74,11 @@ final class BlockLocation implements Layer.KeyInfo {
   }
 
   final Type type;
-  final Layer layer;
+  final DiskLayer layer;
   final long offset;
   final int size;
 
-  BlockLocation(Type type, Layer layer, long offset, int size) {
+  BlockLocation(Type type, DiskLayer layer, long offset, int size) {
     this.type = type;
     this.layer = layer;
     this.offset = offset;

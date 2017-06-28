@@ -32,8 +32,6 @@ abstract class Layer {
 
   abstract void close() throws KVStoreException;
 
-  abstract ByteBuffer read(KeyInfo keyInfo) throws KVStoreException;
-
   abstract Iterator<KeyEntry> keyIterator(Key start, boolean inclusive, boolean ascending);
 
   interface KeyInfo {

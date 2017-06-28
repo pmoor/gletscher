@@ -25,6 +25,7 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -70,31 +71,31 @@ class KVStoreImpl implements KVStore {
       nextId = layers.isEmpty() ? 0 : (layers.peek().id + 1);
 
       if (layers.size() >= MAX_LAYERS) {
-        List<ReadOnlyLayer> layersToCompact = new ArrayList<>();
-        ReadOnlyLayer first = (ReadOnlyLayer) layers.pop();
+        List<DiskLayer> layersToCompact = new ArrayList<>();
+        DiskLayer first = (DiskLayer) layers.pop();
         layersToCompact.add(first);
-        ReadOnlyLayer second = (ReadOnlyLayer) layers.pop();
+        DiskLayer second = (DiskLayer) layers.pop();
         layersToCompact.add(second);
         long cumulativeSize = first.size() + second.size();
 
-        while (!layers.isEmpty() && ((ReadOnlyLayer) layers.peek()).size() < cumulativeSize) {
-          ReadOnlyLayer next = (ReadOnlyLayer) layers.pop();
+        while (!layers.isEmpty() && ((DiskLayer) layers.peek()).size() < cumulativeSize) {
+          DiskLayer next = (DiskLayer) layers.pop();
           layersToCompact.add(next);
           cumulativeSize += next.size();
         }
 
-        ReadWriteLayer newLayer = compact(layersToCompact, layers.isEmpty());
-        layers.push(openReadOnly(newLayer.finish()));
+        DiskLayer newLayer = compact(layersToCompact, layers.isEmpty());
+        layers.push(newLayer);
         layersToCompact.forEach(Layer::close);
-        layersToCompact.forEach(ReadOnlyLayer::delete);
+        layersToCompact.forEach(DiskLayer::delete);
       }
     } catch (IOException e) {
       throw new KVStoreException(e);
     }
   }
 
-  private ReadOnlyLayer openReadOnly(Path path) throws KVStoreException {
-    ReadOnlyLayer readOnly = new ReadOnlyLayer(path);
+  private DiskLayer openReadOnly(Path path) throws KVStoreException {
+    DiskLayer readOnly = new DiskLayer(path);
     readOnly.open();
     return readOnly;
   }
@@ -131,40 +132,56 @@ class KVStoreImpl implements KVStore {
     }
   }
 
-  private ReadWriteLayer compact(List<ReadOnlyLayer> layers, boolean major) throws KVStoreException {
-    ReadWriteLayer combinedLayer = new ReadWriteLayer(rootDir, nextId++);
+  private DiskLayer compact(List<DiskLayer> layers, boolean major) throws KVStoreException {
+    try {
+      FileChannel fileChannel = FileChannel.open(
+          rootDir.resolve("latest-layer"),
+          StandardOpenOption.TRUNCATE_EXISTING,
+          StandardOpenOption.CREATE,
+          StandardOpenOption.WRITE);
 
-    PriorityQueue<Holder> queue = new PriorityQueue<>(layers.size());
-    for (ReadOnlyLayer layer : layers) {
-      Iterator<KeyEntry> it = layer.keyIterator(Key.MIN, true, true);
-      if (it.hasNext()) {
-        queue.add(new Holder(layer, it, true));
-      }
-    }
+      DiskLayerWriter writer = new DiskLayerWriter(fileChannel);
 
-    Key lastKey = Key.MIN;
-    while (!queue.isEmpty()) {
-      Holder front = queue.poll();
-
-      Key key = front.current.key;
-      if (lastKey.compareTo(key) < 0) {
-        Layer.KeyInfo keyInfo = front.current.info;
-        if (!keyInfo.isDeleteMarker()) {
-          // keep it
-          combinedLayer.write(key, keyInfo.read());
-        } else if (!major) {
-          // keep deletions in minor compactions
-          combinedLayer.delete(key);
+      PriorityQueue<Holder> queue = new PriorityQueue<>(layers.size());
+      for (DiskLayer layer : layers) {
+        Iterator<KeyEntry> it = layer.keyIterator(Key.MIN, true, true);
+        if (it.hasNext()) {
+          queue.add(new Holder(layer, it, true));
         }
-        lastKey = key;
       }
 
-      if (front.moveOn()) {
-        queue.add(front);
+      Key lastKey = Key.MIN;
+      while (!queue.isEmpty()) {
+        Holder front = queue.poll();
+
+        Key key = front.current.key;
+        if (lastKey.compareTo(key) < 0) {
+          if (!front.current.isDeleteMarker()) {
+            // keep it
+            writer.write(key, front.current.readByteBuffer());
+          } else if (!major) {
+            // keep deletions in minor compactions
+            writer.write(key, null);
+          }
+          lastKey = key;
+        }
+
+        if (front.moveOn()) {
+          queue.add(front);
+        }
       }
+
+      writer.finish();
+      fileChannel.close();
+
+      Path newPath = rootDir.resolve(String.format("data-%06d", nextId++));
+      fileChannel.close();
+      Files.move(rootDir.resolve("latest-layer"), newPath, StandardCopyOption.ATOMIC_MOVE);
+
+      return openReadOnly(newPath);
+    } catch (IOException e) {
+      throw new KVStoreException(e);
     }
-
-    return combinedLayer;
   }
 
   @Override
@@ -213,7 +230,7 @@ class KVStoreImpl implements KVStore {
           }
           if (lastKey == null || !lastKey.equals(currentEntry.key)) {
             lastKey = currentEntry.key;
-            if (!currentEntry.info.isDeleteMarker()) {
+            if (!currentEntry.isDeleteMarker()) {
               return currentEntry;
             }
           }
@@ -232,10 +249,10 @@ class KVStoreImpl implements KVStore {
   @Override
   public synchronized void delete(Key key) throws KVStoreException {
     Preconditions.checkArgument(key.isNormal());
-    if (layers.isEmpty() || !(layers.peek() instanceof ReadWriteLayer)) {
-      layers.push(new ReadWriteLayer(rootDir, nextId++));
+    if (layers.isEmpty() || !(layers.peek() instanceof MemoryLayer)) {
+      layers.push(new MemoryLayer(nextId++));
     }
-    ((ReadWriteLayer) layers.peek()).delete(key);
+    ((MemoryLayer) layers.peek()).delete(key);
   }
 
   @Override
@@ -244,7 +261,7 @@ class KVStoreImpl implements KVStore {
     if (keyInfo == null || keyInfo.isDeleteMarker()) {
       return null;
     }
-    return keyInfo.read().array();
+    return ((ByteBuffer) (ByteBuffer.allocate(keyInfo.size()).put(keyInfo.read()).rewind())).array();
   }
 
   @Override
@@ -255,17 +272,41 @@ class KVStoreImpl implements KVStore {
 
   @Override
   public synchronized void flush() throws KVStoreException {
-    if (!layers.isEmpty() && layers.peek() instanceof ReadWriteLayer) {
-      layers.push(openReadOnly(((ReadWriteLayer) layers.pop()).finish()));
+    if (!layers.isEmpty() && layers.peek() instanceof MemoryLayer) {
+      try {
+        FileChannel fileChannel = FileChannel.open(
+            rootDir.resolve("latest-layer"),
+            StandardOpenOption.TRUNCATE_EXISTING,
+            StandardOpenOption.CREATE,
+            StandardOpenOption.WRITE);
+
+        DiskLayerWriter writer = new DiskLayerWriter(fileChannel);
+        Layer memLayer = layers.pop();
+        Iterator<KeyEntry> it = memLayer.keyIterator(Key.MIN, false, true);
+        while (it.hasNext()) {
+          KeyEntry entry = it.next();
+          writer.write(entry.getKey(), entry.isDeleteMarker() ? null : entry.readByteBuffer());
+        }
+        writer.finish();
+        fileChannel.close();
+
+        Path newPath = rootDir.resolve(String.format("data-%06d", memLayer.id));
+        fileChannel.close();
+        Files.move(rootDir.resolve("latest-layer"), newPath, StandardCopyOption.ATOMIC_MOVE);
+
+        layers.push(openReadOnly(newPath));
+      } catch (IOException e) {
+        throw new KVStoreException(e);
+      }
     }
   }
 
   private void internalStore(Key key, ByteBuffer value) throws KVStoreException {
     Preconditions.checkArgument(key.isNormal());
-    if (layers.isEmpty() || !(layers.peek() instanceof ReadWriteLayer)) {
-      layers.push(new ReadWriteLayer(rootDir, nextId++));
+    if (layers.isEmpty() || !(layers.peek() instanceof MemoryLayer)) {
+      layers.push(new MemoryLayer(nextId++));
     }
-    ((ReadWriteLayer) layers.peek()).write(key, value);
+    ((MemoryLayer) layers.peek()).write(key, value);
   }
 
   private Layer.KeyInfo find(Key key) throws KVStoreException {
@@ -276,17 +317,6 @@ class KVStoreImpl implements KVStore {
       }
     }
     return null;
-  }
-
-  static void writeToChannel(FileChannel channel, long offset, ByteBuffer data) throws KVStoreException {
-    try {
-      channel.position(offset);
-      while (data.hasRemaining()) {
-        channel.write(data);
-      }
-    } catch (IOException e) {
-      throw new KVStoreException(e);
-    }
   }
 
   static ByteBuffer readFromChannel(FileChannel channel, long offset, int size) throws KVStoreException {
