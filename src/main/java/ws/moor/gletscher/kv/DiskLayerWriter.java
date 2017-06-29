@@ -29,14 +29,24 @@ import java.nio.channels.FileChannel;
 
 public class DiskLayerWriter {
 
+  static final long CURRENT_VERSION = 1;
+
   private final FileChannel out;
 
   private Key lastKey = Key.MIN;
   private RangeMap<Key, BlockLocation> nodes = TreeRangeMap.create();
   private BTreeNode leafNode = BTreeNode.newEmptyLeafNode();
 
-  DiskLayerWriter(FileChannel out) {
+  DiskLayerWriter(FileChannel out) throws IOException {
     this.out = out;
+    writeHeader();
+  }
+
+  private void writeHeader() throws IOException {
+    ByteBuffer version = ByteBuffer.allocate(8);
+    version.putLong(CURRENT_VERSION);
+    version.rewind();
+    appendRaw(version);
   }
 
   void write(Key key, @Nullable ByteBuffer data) throws IOException {

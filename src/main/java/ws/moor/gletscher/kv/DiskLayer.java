@@ -54,6 +54,12 @@ class DiskLayer extends Layer {
     try {
       channel = FileChannel.open(path, StandardOpenOption.READ);
 
+      ByteBuffer version = KVStoreImpl.readFromChannel(channel, 0, 8);
+      long versionLong = version.getLong();
+      Preconditions.checkArgument(
+          versionLong == DiskLayerWriter.CURRENT_VERSION,
+          "invalid version: %s", versionLong);
+
       ByteBuffer buffer = KVStoreImpl.readFromChannel(channel, channel.size() - 4, 4);
       int length = buffer.getInt();
 
