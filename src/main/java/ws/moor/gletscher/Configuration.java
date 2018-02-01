@@ -39,6 +39,8 @@ import java.util.stream.Collectors;
 
 public class Configuration {
 
+  private static final byte[] DEFAULT_KEY = new byte[32];
+
   private final FileSystem fs;
   private final Map<String, Object> yaml;
 
@@ -65,11 +67,15 @@ public class Configuration {
   }
 
   public SecretKeySpec getSigningKey() {
-    return new SecretKeySpec((byte[]) yaml.get("secret_key"), Signer.MAC_ALGO);
+    return new SecretKeySpec(loadKeyBytes(), Signer.MAC_ALGO);
+  }
+
+  private byte[] loadKeyBytes() {
+    return (byte[]) yaml.getOrDefault("secret_key", DEFAULT_KEY);
   }
 
   public SecretKeySpec getEncryptionKey() {
-    return new SecretKeySpec((byte[]) yaml.get("secret_key"), Cryptor.KEY_ALGO);
+    return new SecretKeySpec(loadKeyBytes(), Cryptor.KEY_ALGO);
   }
 
   public String getBucketName() {
@@ -97,7 +103,7 @@ public class Configuration {
   }
 
   public StreamSplitter getStreamSplitter() {
-    switch ((String) yaml.get("split_algorithm")) {
+    switch ((String) yaml.getOrDefault("split_algorithm", "rolling")) {
       case "rolling":
         return StreamSplitter.rollingHashSplitter(getMaxSplitSize());
       case "fixed":

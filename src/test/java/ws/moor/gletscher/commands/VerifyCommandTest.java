@@ -49,8 +49,6 @@ public class VerifyCommandTest {
         ("version: 1\n" +
             "max_split_size: 65536\n" +
             "disable_cache: true\n" +
-            "split_algorithm: rolling\n" +
-            "secret_key: !!binary AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n" +
             "include:\n" +
             "  - /home\n"
         ).getBytes(StandardCharsets.UTF_8));

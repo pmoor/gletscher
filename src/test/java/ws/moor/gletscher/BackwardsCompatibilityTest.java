@@ -57,8 +57,6 @@ public class BackwardsCompatibilityTest {
         ("version: 1\n" +
             "max_split_size: 10\n" +
             "disable_cache: true\n" +
-            "split_algorithm: rolling\n" +
-            "secret_key: !!binary AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n" +
             "include:\n" +
             "  - /home\n" +
             "exclude:\n" +

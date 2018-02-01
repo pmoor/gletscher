@@ -53,8 +53,6 @@ public class BackupRestoreIT {
             "cache_dir: /tmp/cache\n" +
             "max_split_size: 65536\n" +
             "disable_cache: false\n" +
-            "split_algorithm: rolling\n" +
-            "secret_key: !!binary AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n" +
             "include:\n" +
             "  - /home/pmoor\n" +
             "  - /home/cmoor\n" +

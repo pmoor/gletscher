@@ -17,8 +17,8 @@
 # Config file version identifier.
 version: 1
 
-# 256 bit key, Base64 encoded.
-secret_key: !!binary AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+# (Optional) 256 bit key, Base64 encoded. If absent, 32 zero bytes are used.
+# secret_key: !!binary AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
 
 # Google Cloud Storage Configuration.
 gcs:
