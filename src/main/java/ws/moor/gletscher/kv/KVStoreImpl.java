@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 class KVStoreImpl implements KVStore {
 
   private static final int MAX_LAYERS = 6;
+  private static final int MAX_MEM_LAYER_SIZE = 128 << 20; // 128 MiB
 
   private final Path rootDir;
   private boolean opened = false;
@@ -243,7 +244,16 @@ class KVStoreImpl implements KVStore {
 
   @Override
   public synchronized void store(Key key, byte[] value) throws KVStoreException {
-    internalStore(key, ByteBuffer.wrap(value));
+    Preconditions.checkArgument(key.isNormal());
+    if (layers.isEmpty() || !(layers.peek() instanceof MemoryLayer)) {
+      layers.push(new MemoryLayer(nextId++));
+    }
+    MemoryLayer memLayer = (MemoryLayer) layers.peek();
+    memLayer.write(key, ByteBuffer.wrap(value));
+
+    if (memLayer.getApproximateByteSize() > MAX_MEM_LAYER_SIZE) {
+      flush();
+    }
   }
 
   @Override
@@ -252,7 +262,12 @@ class KVStoreImpl implements KVStore {
     if (layers.isEmpty() || !(layers.peek() instanceof MemoryLayer)) {
       layers.push(new MemoryLayer(nextId++));
     }
-    ((MemoryLayer) layers.peek()).delete(key);
+    MemoryLayer memLayer = (MemoryLayer) layers.peek();
+    memLayer.delete(key);
+
+    if (memLayer.getApproximateByteSize() > MAX_MEM_LAYER_SIZE) {
+      flush();
+    }
   }
 
   @Override
@@ -299,14 +314,6 @@ class KVStoreImpl implements KVStore {
         throw new KVStoreException(e);
       }
     }
-  }
-
-  private void internalStore(Key key, ByteBuffer value) throws KVStoreException {
-    Preconditions.checkArgument(key.isNormal());
-    if (layers.isEmpty() || !(layers.peek() instanceof MemoryLayer)) {
-      layers.push(new MemoryLayer(nextId++));
-    }
-    ((MemoryLayer) layers.peek()).write(key, value);
   }
 
   private Layer.KeyInfo find(Key key) throws KVStoreException {

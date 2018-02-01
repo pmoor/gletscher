@@ -27,6 +27,7 @@ import java.util.TreeMap;
 class MemoryLayer extends Layer {
 
   private final NavigableMap<Key, KeyEntry> keys = new TreeMap<>();
+  private long approximateByteSize = 0;
 
   private static class KeyData implements Layer.KeyInfo {
 
@@ -74,10 +75,12 @@ class MemoryLayer extends Layer {
 
   void write(Key key, ByteBuffer value) throws KVStoreException {
     keys.put(key, new KeyEntry(key, KeyData.from(value)));
+    approximateByteSize += key.serializedSize() + value.remaining();
   }
 
   void delete(Key key) {
     keys.put(key, new KeyEntry(key, KeyData.DELETED));
+    approximateByteSize += key.serializedSize();
   }
 
   @Override
@@ -89,5 +92,9 @@ class MemoryLayer extends Layer {
   @Override
   void close() {
     throw new UnsupportedOperationException();
+  }
+
+  long getApproximateByteSize() {
+    return approximateByteSize;
   }
 }
