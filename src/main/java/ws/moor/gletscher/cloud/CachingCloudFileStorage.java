@@ -101,7 +101,7 @@ public class CachingCloudFileStorage implements CloudFileStorage {
         }, executor);
         return delegateFuture;
       }
-    });
+    }, MoreExecutors.directExecutor());
   }
 
   @Override
@@ -122,7 +122,7 @@ public class CachingCloudFileStorage implements CloudFileStorage {
         }, executor);
         return delegateFuture;
       }
-    });
+    }, MoreExecutors.directExecutor());
   }
 
   private void storeExists(String name) {

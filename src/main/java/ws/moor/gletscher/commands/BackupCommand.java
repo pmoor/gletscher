@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import ws.moor.gletscher.blocks.BlockStore;
@@ -162,7 +163,7 @@ class BackupCommand extends AbstractCommand {
                 .setName(entry.path.getFileName().toString())
                 .setBlock(childBlock.toProto());
             return Gletscher.DirectoryEntry.newBuilder().setDirectory(childDirBuilder).build();
-          }));
+          }, MoreExecutors.directExecutor()));
         } else {
           stderr.printf("skipping unknown file type: %s\n", entry.path);
         }
@@ -186,7 +187,7 @@ class BackupCommand extends AbstractCommand {
           }
           return blockStore.store(dirProto.toByteArray(), true);
         }
-      });
+      }, MoreExecutors.directExecutor());
     }
 
     private ListenableFuture<Gletscher.DirectoryEntry> handleRegularFile(
@@ -207,7 +208,7 @@ class BackupCommand extends AbstractCommand {
             }
             return Gletscher.DirectoryEntry.newBuilder().setFile(fileBuilder).build();
           }
-        });
+        }, MoreExecutors.directExecutor());
       } else {
         // matching
         Gletscher.FileEntry.Builder fileBuilder = Gletscher.FileEntry.newBuilder()
@@ -263,7 +264,7 @@ class BackupCommand extends AbstractCommand {
         @Override public void onFailure(Throwable t) {
           semaphore.release(permits);
         }
-      });
+      }, MoreExecutors.directExecutor());
     }
 
     private boolean isSkippedPath(Path path) {

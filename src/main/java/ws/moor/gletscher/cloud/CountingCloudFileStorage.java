@@ -20,6 +20,7 @@ import com.google.common.base.Function;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import java.util.Iterator;
 import java.util.Map;
@@ -66,7 +67,7 @@ public class CountingCloudFileStorage implements CloudFileStorage {
         getSize.addAndGet(input.length);
       }
       return input;
-    });
+    }, MoreExecutors.directExecutor());
   }
 
   @Override

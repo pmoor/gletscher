@@ -20,6 +20,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;
@@ -67,7 +68,7 @@ abstract class TransformingCloudFileStorage implements CloudFileStorage {
 
   @Override
   public ListenableFuture<byte[]> get(String name) {
-    return Futures.transform(delegate.get(name), decodingFn::apply);
+    return Futures.transform(delegate.get(name), decodingFn::apply, MoreExecutors.directExecutor());
   }
 
   @Override

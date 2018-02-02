@@ -59,10 +59,10 @@ public class BlockStore {
       } else {
         ListenableFuture<?> future = cloudFileStorage.store(
             fileName, block, md5, ImmutableMap.of(), new CloudFileStorage.StoreOptions(cache));
-        ListenableFuture<PersistedBlock> transformed = Futures.transform(future, Functions.constant(persisted));
-        return Futures.catching(transformed, CloudFileStorage.FileAlreadyExistsException.class, Functions.constant(persisted));
+        ListenableFuture<PersistedBlock> transformed = Futures.transform(future, Functions.constant(persisted), MoreExecutors.directExecutor());
+        return Futures.catching(transformed, CloudFileStorage.FileAlreadyExistsException.class, Functions.constant(persisted), MoreExecutors.directExecutor());
       }
-    });
+    }, MoreExecutors.directExecutor());
   }
 
   public ListenableFuture<byte[]> retrieve(PersistedBlock block) {
