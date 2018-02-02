@@ -20,19 +20,14 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.hash.HashCode;
-import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.protobuf.ByteString;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.proto.testing.Testing;
+import ws.moor.gletscher.util.LegacyHashing;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class InMemoryCloudFileStorage implements CloudFileStorage {
@@ -159,7 +154,7 @@ public class InMemoryCloudFileStorage implements CloudFileStorage {
       FileHeader header =
           new FileHeader(
               proto.getName(),
-              Hashing.md5().hashBytes(proto.getContents().toByteArray()),
+              LegacyHashing.md5().hashBytes(proto.getContents().toByteArray()),
               proto.getContents().size(),
               proto.getMetaMap());
       return new Entry(proto.getName(), header, proto.getContents());

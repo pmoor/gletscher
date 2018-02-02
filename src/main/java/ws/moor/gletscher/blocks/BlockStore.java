@@ -20,11 +20,11 @@ import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
-import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import ws.moor.gletscher.cloud.CloudFileStorage;
+import ws.moor.gletscher.util.LegacyHashing;
 import ws.moor.gletscher.util.Signer;
 
 import java.util.Iterator;
@@ -45,7 +45,7 @@ public class BlockStore {
   }
 
   public ListenableFuture<PersistedBlock> store(byte[] block, boolean cache) {
-    HashCode md5 = Hashing.md5().hashBytes(block);
+    HashCode md5 = LegacyHashing.md5().hashBytes(block);
 
     int length = block.length;
     Signature signature = signer.computeSignature(block);

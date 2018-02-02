@@ -17,10 +17,10 @@
 package ws.moor.gletscher.cloud;
 
 import com.google.common.hash.HashCode;
-import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import ws.moor.gletscher.util.LegacyHashing;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;
@@ -48,10 +48,10 @@ abstract class TransformingCloudFileStorage implements CloudFileStorage {
   public ListenableFuture<?> store(
       String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
     byte[] encoded = encode(data);
-    HashCode encodedMd5 = Hashing.md5().hashBytes(encoded);
+    HashCode encodedMd5 = LegacyHashing.md5().hashBytes(encoded);
 
     byte[] restoredData = decode(encoded);
-    if (!Hashing.md5().hashBytes(restoredData).equals(md5)) {
+    if (!LegacyHashing.md5().hashBytes(restoredData).equals(md5)) {
       throw new IllegalStateException("oops, return trip does not match");
     }
     if (!Arrays.equals(data, restoredData)) {

@@ -40,9 +40,8 @@ final class BTreeNode {
         keys.isEmpty()
             || !keys.get(0)
                 .equals(
-                    Key
-                        .MIN); // inner node always has empty key first (so that nothing is to the
-                               // left)
+                    Key.MIN); // inner node always has empty key first (so that nothing is to the
+    // left)
 
     serializedSize = 4;
     for (Key key : keys) {

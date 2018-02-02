@@ -18,21 +18,17 @@ package ws.moor.gletscher.catalog;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Futures;
 import com.google.protobuf.InvalidProtocolBufferException;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.proto.Gletscher;
+import ws.moor.gletscher.util.LegacyHashing;
 
 import java.nio.file.FileSystem;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
+import java.util.*;
 
 public class CatalogStore {
 
@@ -54,7 +50,7 @@ public class CatalogStore {
         storage.store(
             fileName,
             data,
-            Hashing.md5().hashBytes(data),
+            LegacyHashing.md5().hashBytes(data),
             ImmutableMap.of(),
             new CloudFileStorage.StoreOptions(true)));
   }

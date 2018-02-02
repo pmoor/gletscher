@@ -28,11 +28,7 @@ import ws.moor.gletscher.util.StreamSplitter;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Command(name = "contains", description = "Checks whether a local file is part of a backup.")
 class ContainsCommand extends AbstractCommand {

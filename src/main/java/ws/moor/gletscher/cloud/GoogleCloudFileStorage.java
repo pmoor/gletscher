@@ -33,12 +33,12 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
-import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.Uninterruptibles;
+import ws.moor.gletscher.util.LegacyHashing;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -232,7 +232,7 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
                     if (matcher.find()) {
                       HashCode md5 =
                           HashCode.fromBytes(BaseEncoding.base64().decode(matcher.group(1)));
-                      HashCode actualMd5 = Hashing.md5().hashBytes(data);
+                      HashCode actualMd5 = LegacyHashing.md5().hashBytes(data);
                       if (actualMd5.equals(md5)) {
                         return data;
                       }
