@@ -38,7 +38,11 @@ import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Random;
 
-@Command(name = "spot_check", description = "Downloads a random sample from the backup and compares the bytes against live files locally.")
+@Command(
+  name = "spot_check",
+  description =
+      "Downloads a random sample from the backup and compares the bytes against live files locally."
+)
 class SpotCheckCommand extends AbstractCommand {
 
   static HashFunction hashFn = Hashing.hmacSha256(MoreArrays.randomBytes(new Random(), 32));
@@ -50,8 +54,20 @@ class SpotCheckCommand extends AbstractCommand {
   @Override
   protected void addCommandLineOptions(Options options) {
     addConfigFileOption(options);
-    options.addOption(Option.builder().longOpt("max_blocks").hasArg().type(Integer.class).argName("BLOCK_COUNT").build());
-    options.addOption(Option.builder().longOpt("max_bytes").hasArg().type(Long.class).argName("BYTE_COUNT").build());
+    options.addOption(
+        Option.builder()
+            .longOpt("max_blocks")
+            .hasArg()
+            .type(Integer.class)
+            .argName("BLOCK_COUNT")
+            .build());
+    options.addOption(
+        Option.builder()
+            .longOpt("max_bytes")
+            .hasArg()
+            .type(Long.class)
+            .argName("BYTE_COUNT")
+            .build());
   }
 
   @Override
@@ -73,8 +89,9 @@ class SpotCheckCommand extends AbstractCommand {
     }
     CatalogReader reader = new CatalogReader(blockStore, catalog.get());
 
-    PriorityQueue<Sample> pq = new PriorityQueue<>(
-        (o1, o2) -> Double.compare(o2.score, o1.score)); // highest score in front
+    PriorityQueue<Sample> pq =
+        new PriorityQueue<>(
+            (o1, o2) -> Double.compare(o2.score, o1.score)); // highest score in front
     long totalSize = 0;
     Iterator<CatalogReader.FileInformation> it = reader.walk();
     while (it.hasNext()) {
@@ -100,9 +117,14 @@ class SpotCheckCommand extends AbstractCommand {
     while (!pq.isEmpty()) {
       Sample sample = pq.poll();
 
-      context.getStdOut().printf("checking %s (offset %d, %d bytes): ", sample.path, sample.offset, sample.block.getOriginalLength());
+      context
+          .getStdOut()
+          .printf(
+              "checking %s (offset %d, %d bytes): ",
+              sample.path, sample.offset, sample.block.getOriginalLength());
 
-      try (SeekableByteChannel channel = Files.newByteChannel(sample.path, StandardOpenOption.READ)) {
+      try (SeekableByteChannel channel =
+          Files.newByteChannel(sample.path, StandardOpenOption.READ)) {
         channel.position(sample.offset);
 
         ByteBuffer data = ByteBuffer.allocate(sample.block.getOriginalLength());
@@ -136,7 +158,10 @@ class SpotCheckCommand extends AbstractCommand {
 
     Sample(Path path, long offset, PersistedBlock block) {
       double adjustment = block.getOriginalLength() > (1 << 20) ? 4.0 : 1.0;
-      this.score = adjustment * (double) (hashFn.hashBytes(block.getSignature().asBytes()).asInt() & 0xfffffff) / 0xfffffff;
+      this.score =
+          adjustment
+              * (double) (hashFn.hashBytes(block.getSignature().asBytes()).asInt() & 0xfffffff)
+              / 0xfffffff;
       this.path = path;
       this.offset = offset;
       this.block = block;

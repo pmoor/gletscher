@@ -46,8 +46,7 @@ public class Cryptor {
       Cipher cipher = Cipher.getInstance(CIPHER_ALGO);
       cipher.init(Cipher.ENCRYPT_MODE, encryptionKey);
 
-      IvParameterSpec ivSpec =
-          cipher.getParameters().getParameterSpec(IvParameterSpec.class);
+      IvParameterSpec ivSpec = cipher.getParameters().getParameterSpec(IvParameterSpec.class);
       byte[] iv = ivSpec.getIV();
       Preconditions.checkState(iv.length == 16, "odd iv length: " + iv.length);
 

@@ -43,7 +43,9 @@ public class FileSystemReaderTest {
   public void testMultipleRootsOnWindows() throws Exception {
     Configuration config = Configuration.windows().toBuilder().setRoots("C:\\", "D:\\").build();
     FileSystem fs = Jimfs.newFileSystem(config);
-    Set<Path> paths = ImmutableSet.of(fs.getPath("C:\\home\\pmoor"), fs.getPath("D:\\root"), fs.getPath("D:\\var\\log"));
+    Set<Path> paths =
+        ImmutableSet.of(
+            fs.getPath("C:\\home\\pmoor"), fs.getPath("D:\\root"), fs.getPath("D:\\var\\log"));
     for (Path path : paths) {
       Files.createDirectories(path);
     }
@@ -59,44 +61,50 @@ public class FileSystemReaderTest {
 
     StringBuilder output = new StringBuilder();
     AtomicInteger level = new AtomicInteger(0);
-    Map<Path, Integer> sum = reader.start(new FileSystemReader.Visitor<Integer>() {
-      @Override public Integer visit(
-          Path directory, List<FileSystemReader.Entry> entries, FileSystemReader.Recursor<Integer> recursor) {
-        output.append(Strings.repeat(" ", level.get()));
-        output.append(directory.toString()).append("\n");
-        level.incrementAndGet();
-        int sum = 1;
-        for (FileSystemReader.Entry entry : entries) {
-          sum += recursor.recurse(entry.path);
-        }
-        level.decrementAndGet();
-        output.append(Strings.repeat(" ", level.get()));
-        output.append(sum).append("\n");
-        return sum;
-      }
-    });
+    Map<Path, Integer> sum =
+        reader.start(
+            new FileSystemReader.Visitor<Integer>() {
+              @Override
+              public Integer visit(
+                  Path directory,
+                  List<FileSystemReader.Entry> entries,
+                  FileSystemReader.Recursor<Integer> recursor) {
+                output.append(Strings.repeat(" ", level.get()));
+                output.append(directory.toString()).append("\n");
+                level.incrementAndGet();
+                int sum = 1;
+                for (FileSystemReader.Entry entry : entries) {
+                  sum += recursor.recurse(entry.path);
+                }
+                level.decrementAndGet();
+                output.append(Strings.repeat(" ", level.get()));
+                output.append(sum).append("\n");
+                return sum;
+              }
+            });
 
-    assertThat(output.toString()).isEqualTo(
-        "C:\\\n" +
-        " C:\\home\n" +
-        "  C:\\home\\pmoor\n" +
-        "   C:\\home\\pmoor\\child\n" +
-        "    C:\\home\\pmoor\\child\\should-be-included.TXT\n" +
-        "    1\n" +
-        "   2\n" +
-        "   C:\\home\\pmoor\\should-be-included.TXT\n" +
-        "   1\n" +
-        "  4\n" +
-        " 5\n" +
-        "6\n" +
-        "D:\\\n" +
-        " D:\\root\n" +
-        " 1\n" +
-        " D:\\var\n" +
-        "  D:\\var\\log\n" +
-        "  1\n" +
-        " 2\n" +
-        "4\n");
+    assertThat(output.toString())
+        .isEqualTo(
+            "C:\\\n"
+                + " C:\\home\n"
+                + "  C:\\home\\pmoor\n"
+                + "   C:\\home\\pmoor\\child\n"
+                + "    C:\\home\\pmoor\\child\\should-be-included.TXT\n"
+                + "    1\n"
+                + "   2\n"
+                + "   C:\\home\\pmoor\\should-be-included.TXT\n"
+                + "   1\n"
+                + "  4\n"
+                + " 5\n"
+                + "6\n"
+                + "D:\\\n"
+                + " D:\\root\n"
+                + " 1\n"
+                + " D:\\var\n"
+                + "  D:\\var\\log\n"
+                + "  1\n"
+                + " 2\n"
+                + "4\n");
     assertThat(sum).hasSize(2);
     assertThat(sum).containsEntry(fs.getPath("C:\\"), 6);
     assertThat(sum).containsEntry(fs.getPath("D:\\"), 4);

@@ -46,51 +46,50 @@ public class BackupRestoreIT {
   @Test
   public void testBackupAndRestore() throws Exception {
     FileSystem fs = Jimfs.newFileSystem();
-    CloudFileStorage inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
+    CloudFileStorage inMemoryStorage =
+        new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
 
-    Files.write(fs.getPath("/config.properties"),
-        ("version: 1\n" +
-            "cache_dir: /tmp/cache\n" +
-            "max_split_size: 65536\n" +
-            "disable_cache: false\n" +
-            "include:\n" +
-            "  - /home/pmoor\n" +
-            "  - /home/cmoor\n" +
-            "  - /tmp\n" +
-            "exclude:\n" +
-            "  - \\.ignore$"
-        ).getBytes(StandardCharsets.UTF_8));
+    Files.write(
+        fs.getPath("/config.properties"),
+        ("version: 1\n"
+                + "cache_dir: /tmp/cache\n"
+                + "max_split_size: 65536\n"
+                + "disable_cache: false\n"
+                + "include:\n"
+                + "  - /home/pmoor\n"
+                + "  - /home/cmoor\n"
+                + "  - /tmp\n"
+                + "exclude:\n"
+                + "  - \\.ignore$")
+            .getBytes(StandardCharsets.UTF_8));
     Files.createDirectories(fs.getPath("/tmp/cache"));
     Files.createDirectories(fs.getPath("/home/cmoor"));
 
     // initial backup
     createRandomFileTree(fs.getPath("/home/pmoor"), 6);
-    runCommandAndAssertSuccess(fs, inMemoryStorage,
-        "backup", "-c", "/config.properties");
+    runCommandAndAssertSuccess(fs, inMemoryStorage, "backup", "-c", "/config.properties");
 
     // incremental backup
     createRandomFileTree(fs.getPath("/", "home", "pmoor", "new child"), 3);
     createRandomFileTree(fs.getPath("/", "home", "cmoor", "stuff"), 5);
-    runCommandAndAssertSuccess(fs, inMemoryStorage,
-        "backup", "-c", "/config.properties");
+    runCommandAndAssertSuccess(fs, inMemoryStorage, "backup", "-c", "/config.properties");
 
     // restore
-    runCommandAndAssertSuccess(fs, inMemoryStorage,
-        "restore", "-c", "/config.properties", "/tmp/restore");
+    runCommandAndAssertSuccess(
+        fs, inMemoryStorage, "restore", "-c", "/config.properties", "/tmp/restore");
 
     compare(fs.getPath("/", "home", "pmoor"), fs.getPath("/", "tmp", "restore", "home", "pmoor"));
     compare(fs.getPath("/", "home", "cmoor"), fs.getPath("/", "tmp", "restore", "home", "cmoor"));
 
     // verify
-    runCommandAndAssertSuccess(fs, inMemoryStorage,
-        "verify", "-c", "/config.properties");
+    runCommandAndAssertSuccess(fs, inMemoryStorage, "verify", "-c", "/config.properties");
 
     // spot check
-    runCommandAndAssertSuccess(fs, inMemoryStorage,
-        "spot_check", "-c", "/config.properties");
+    runCommandAndAssertSuccess(fs, inMemoryStorage, "spot_check", "-c", "/config.properties");
   }
 
-  private void runCommandAndAssertSuccess(FileSystem fs, CloudFileStorage inMemoryStorage, String... args) throws Exception {
+  private void runCommandAndAssertSuccess(
+      FileSystem fs, CloudFileStorage inMemoryStorage, String... args) throws Exception {
     TestCommandContext context = new TestCommandContext(fs, inMemoryStorage);
     GletscherMain gletscherMain = new GletscherMain(context);
     gletscherMain.run(args);
@@ -133,7 +132,8 @@ public class BackupRestoreIT {
       Path target1 = Files.readSymbolicLink(path1);
       Path target2 = Files.readSymbolicLink(path2);
       if (!target1.equals(target2)) {
-        System.out.printf("targets don't match for %s (%s): %s vs. %s\n", path1, path2, target1, target2);
+        System.out.printf(
+            "targets don't match for %s (%s): %s vs. %s\n", path1, path2, target1, target2);
         return;
       }
     } else if (Files.isRegularFile(path1, LinkOption.NOFOLLOW_LINKS)) {
@@ -145,14 +145,17 @@ public class BackupRestoreIT {
       long size1 = Files.size(path1);
       long size2 = Files.size(path2);
       if (size1 != size2) {
-        System.out.printf("file sizes don't match for %s (%s): %d vs. %d\n", path1, path2, size1, size2);
+        System.out.printf(
+            "file sizes don't match for %s (%s): %d vs. %d\n", path1, path2, size1, size2);
         return;
       }
 
       FileTime lastModifiedTime1 = Files.getLastModifiedTime(path1);
       FileTime lastModifiedTime2 = Files.getLastModifiedTime(path2);
       if (!lastModifiedTime1.equals(lastModifiedTime2)) {
-        System.out.printf("last modified times do not match for %s (%s): %s vs. %s\n", path1, path2, lastModifiedTime1, lastModifiedTime2);
+        System.out.printf(
+            "last modified times do not match for %s (%s): %s vs. %s\n",
+            path1, path2, lastModifiedTime1, lastModifiedTime2);
         return;
       }
     } else {
@@ -189,7 +192,8 @@ public class BackupRestoreIT {
       String name = createRandomSymlinkName(rnd);
       names.add(name);
 
-      String target = rnd.nextBoolean() ? names.get(rnd.nextInt(names.size())) : "../something/random";
+      String target =
+          rnd.nextBoolean() ? names.get(rnd.nextInt(names.size())) : "../something/random";
 
       Files.createSymbolicLink(root.resolve(name), root.relativize(root.resolve(target)));
     }
@@ -206,5 +210,4 @@ public class BackupRestoreIT {
   private String createRandomFileName(Random rnd) {
     return String.valueOf(Math.abs(rnd.nextInt()));
   }
-
 }

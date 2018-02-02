@@ -35,7 +35,9 @@ public class CryptorTest {
       byte[] plaintext = MoreArrays.randomBytes(rnd, rnd.nextInt(1024));
 
       byte[] key = MoreArrays.randomBytes(rnd, 32);
-      Cryptor cryptor = new Cryptor(new SecretKeySpec(key, Cryptor.KEY_ALGO), new SecretKeySpec(key, Cryptor.MAC_ALGO));
+      Cryptor cryptor =
+          new Cryptor(
+              new SecretKeySpec(key, Cryptor.KEY_ALGO), new SecretKeySpec(key, Cryptor.MAC_ALGO));
 
       Truth.assertThat(cryptor.decrypt(cryptor.encrypt(plaintext))).isEqualTo(plaintext);
     }

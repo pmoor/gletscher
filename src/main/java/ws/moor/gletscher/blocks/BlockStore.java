@@ -53,16 +53,30 @@ public class BlockStore {
     String fileName = toFileName(persisted);
 
     ListenableFuture<Boolean> existsFuture = cloudFileStorage.exists(fileName);
-    return Futures.transformAsync(existsFuture, fileExists -> {
-      if (fileExists) {
-        return Futures.immediateFuture(persisted);
-      } else {
-        ListenableFuture<?> future = cloudFileStorage.store(
-            fileName, block, md5, ImmutableMap.of(), new CloudFileStorage.StoreOptions(cache));
-        ListenableFuture<PersistedBlock> transformed = Futures.transform(future, Functions.constant(persisted), MoreExecutors.directExecutor());
-        return Futures.catching(transformed, CloudFileStorage.FileAlreadyExistsException.class, Functions.constant(persisted), MoreExecutors.directExecutor());
-      }
-    }, MoreExecutors.directExecutor());
+    return Futures.transformAsync(
+        existsFuture,
+        fileExists -> {
+          if (fileExists) {
+            return Futures.immediateFuture(persisted);
+          } else {
+            ListenableFuture<?> future =
+                cloudFileStorage.store(
+                    fileName,
+                    block,
+                    md5,
+                    ImmutableMap.of(),
+                    new CloudFileStorage.StoreOptions(cache));
+            ListenableFuture<PersistedBlock> transformed =
+                Futures.transform(
+                    future, Functions.constant(persisted), MoreExecutors.directExecutor());
+            return Futures.catching(
+                transformed,
+                CloudFileStorage.FileAlreadyExistsException.class,
+                Functions.constant(persisted),
+                MoreExecutors.directExecutor());
+          }
+        },
+        MoreExecutors.directExecutor());
   }
 
   public ListenableFuture<byte[]> retrieve(PersistedBlock block) {
@@ -71,8 +85,12 @@ public class BlockStore {
 
   private static String toFileName(PersistedBlock block) {
     Signature signature = block.getSignature();
-    return String.format("blocks/%02x/%02x/%s:%d",
-        signature.getFirstByte(), signature.getSecondByte(), signature.toString(), block.getOriginalLength());
+    return String.format(
+        "blocks/%02x/%02x/%s:%d",
+        signature.getFirstByte(),
+        signature.getSecondByte(),
+        signature.toString(),
+        block.getOriginalLength());
   }
 
   public Set<PersistedBlock> listAllBlocks() {
@@ -81,17 +99,19 @@ public class BlockStore {
     ExecutorService executor = Executors.newFixedThreadPool(8);
     for (int i = 0; i < 16; i++) {
       final String prefix = String.format("blocks/%x", i);
-      executor.execute(() -> {
-        Set<PersistedBlock> set = new TreeSet<>();
-        Iterator<CloudFileStorage.FileHeader> it = cloudFileStorage.listFiles(prefix, Integer.MAX_VALUE);
-        while (it.hasNext()) {
-          CloudFileStorage.FileHeader header = it.next();
-          set.add(parseFileName(header.name));
-        }
-        synchronized (all) {
-          all.addAll(set);
-        }
-      });
+      executor.execute(
+          () -> {
+            Set<PersistedBlock> set = new TreeSet<>();
+            Iterator<CloudFileStorage.FileHeader> it =
+                cloudFileStorage.listFiles(prefix, Integer.MAX_VALUE);
+            while (it.hasNext()) {
+              CloudFileStorage.FileHeader header = it.next();
+              set.add(parseFileName(header.name));
+            }
+            synchronized (all) {
+              all.addAll(set);
+            }
+          });
     }
     MoreExecutors.shutdownAndAwaitTermination(executor, 1, TimeUnit.HOURS);
     return all;

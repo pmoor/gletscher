@@ -45,13 +45,14 @@ public class VerifyCommandTest {
     fs = Jimfs.newFileSystem();
     inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
 
-    Files.write(fs.getPath("/config.properties"),
-        ("version: 1\n" +
-            "max_split_size: 65536\n" +
-            "disable_cache: true\n" +
-            "include:\n" +
-            "  - /home\n"
-        ).getBytes(StandardCharsets.UTF_8));
+    Files.write(
+        fs.getPath("/config.properties"),
+        ("version: 1\n"
+                + "max_split_size: 65536\n"
+                + "disable_cache: true\n"
+                + "include:\n"
+                + "  - /home\n")
+            .getBytes(StandardCharsets.UTF_8));
 
     // files to back-up
     Files.createDirectories(fs.getPath("/home"));
@@ -74,12 +75,14 @@ public class VerifyCommandTest {
   @Test
   public void testFailedVerify() throws Exception {
     takeBackup();
-    inMemoryStorage.delete("blocks/50/08/50082da69e7e4780c867be198e795b9cd5e94e739ee9485aa95a70f60e36e73f:11");
+    inMemoryStorage.delete(
+        "blocks/50/08/50082da69e7e4780c867be198e795b9cd5e94e739ee9485aa95a70f60e36e73f:11");
 
     main.run("verify", "-c", "/config.properties");
     assertThat(context.status).isEqualTo(-1);
-    assertThat(context.stdOutString()).contains(
-        "missing block: 50082da69e7e4780c867be198e795b9cd5e94e739ee9485aa95a70f60e36e73f:11 in /home/file.txt");
+    assertThat(context.stdOutString())
+        .contains(
+            "missing block: 50082da69e7e4780c867be198e795b9cd5e94e739ee9485aa95a70f60e36e73f:11 in /home/file.txt");
     assertThat(context.stdErrString()).isEmpty();
   }
 

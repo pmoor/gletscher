@@ -74,7 +74,11 @@ class SearchCommand extends AbstractCommand {
           }
         }
         if (matches) {
-          context.getStdOut().printf("\t%s: %s (%d bytes)\n", file.path, file.lastModifiedTime, file.getOriginalSize());
+          context
+              .getStdOut()
+              .printf(
+                  "\t%s: %s (%d bytes)\n",
+                  file.path, file.lastModifiedTime, file.getOriginalSize());
         }
       }
       context.getStdOut().println();

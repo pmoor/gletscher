@@ -53,7 +53,8 @@ public abstract class StreamSplitter {
       super(maxBlockSize);
     }
 
-    @Override public Iterator<byte[]> split(InputStream is) {
+    @Override
+    public Iterator<byte[]> split(InputStream is) {
       return new SplitIterator(new BufferedInputStream(is, 1 << 20));
     }
 
@@ -68,7 +69,8 @@ public abstract class StreamSplitter {
         this.rollingHash = new RollingHash();
       }
 
-      @Override protected byte[] computeNext() {
+      @Override
+      protected byte[] computeNext() {
         try {
           int value = is.read();
           if (value < 0) {
@@ -101,7 +103,8 @@ public abstract class StreamSplitter {
       super(maxBlockSize);
     }
 
-    @Override public Iterator<byte[]> split(InputStream is) {
+    @Override
+    public Iterator<byte[]> split(InputStream is) {
       return new SplitIterator(new BufferedInputStream(is, 1 << 20));
     }
 
@@ -113,7 +116,8 @@ public abstract class StreamSplitter {
         this.is = is;
       }
 
-      @Override protected byte[] computeNext() {
+      @Override
+      protected byte[] computeNext() {
         try {
           byte[] buffer = new byte[maxBlockSize];
           int offset = 0;

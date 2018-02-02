@@ -41,7 +41,9 @@ class VersionCommand extends AbstractCommand {
 
   private String readVersionString() throws IOException {
     Properties properties = new Properties();
-    properties.load(getClass().getResourceAsStream("/META-INF/maven/ws.moor.gletscher/gletscher/pom.properties"));
+    properties.load(
+        getClass()
+            .getResourceAsStream("/META-INF/maven/ws.moor.gletscher/gletscher/pom.properties"));
     return (String) properties.get("version");
   }
 }

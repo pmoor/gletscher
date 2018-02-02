@@ -65,7 +65,11 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
   private final CostTracker costTracker;
 
   public GoogleCloudFileStorage(
-      Storage client, String bucket, String filePrefix, ListeningExecutorService executor, CostTracker costTracker) {
+      Storage client,
+      String bucket,
+      String filePrefix,
+      ListeningExecutorService executor,
+      CostTracker costTracker) {
     Preconditions.checkArgument(filePrefix.endsWith("/"));
     this.client = client;
     this.bucket = bucket;
@@ -78,8 +82,11 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
     try {
       HttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
       JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
-      Credential credential = GoogleCredential.fromStream(Files.newInputStream(credentialFilePath), httpTransport, jsonFactory)
-          .createScoped(ImmutableSet.of("https://www.googleapis.com/auth/devstorage.read_write"));
+      Credential credential =
+          GoogleCredential.fromStream(
+                  Files.newInputStream(credentialFilePath), httpTransport, jsonFactory)
+              .createScoped(
+                  ImmutableSet.of("https://www.googleapis.com/auth/devstorage.read_write"));
       return new Storage.Builder(httpTransport, jsonFactory, credential)
           .setApplicationName("Gletscher/1.0")
           .build();
@@ -89,39 +96,46 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
-  public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
-    return executor.submit(() -> retry(() -> {
-      try {
-        StorageObject sob = new StorageObject()
-            .setName(filePrefix + name)
-            .setMd5Hash(BaseEncoding.base64().encode(md5.asBytes()))
-            .setMetadata(metadata);
-        ByteArrayContent content = new ByteArrayContent("application/octet-stream", data);
+  public ListenableFuture<?> store(
+      String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
+    return executor.submit(
+        () ->
+            retry(
+                () -> {
+                  try {
+                    StorageObject sob =
+                        new StorageObject()
+                            .setName(filePrefix + name)
+                            .setMd5Hash(BaseEncoding.base64().encode(md5.asBytes()))
+                            .setMetadata(metadata);
+                    ByteArrayContent content =
+                        new ByteArrayContent("application/octet-stream", data);
 
-        costTracker.trackInsert(metadata, data.length);
-        Storage.Objects.Insert method = client.objects().insert(bucket, sob, content);
-        method.setDisableGZipContent(true);
-        method.setIfGenerationMatch(0L);
-        method.setFields("md5Hash");
-        if (data.length < 10 << 20) {
-          method.getMediaHttpUploader().setDirectUploadEnabled(true);
-        }
-        StorageObject response = method.execute();
-        logger.fine("response received: " + response);
+                    costTracker.trackInsert(metadata, data.length);
+                    Storage.Objects.Insert method = client.objects().insert(bucket, sob, content);
+                    method.setDisableGZipContent(true);
+                    method.setIfGenerationMatch(0L);
+                    method.setFields("md5Hash");
+                    if (data.length < 10 << 20) {
+                      method.getMediaHttpUploader().setDirectUploadEnabled(true);
+                    }
+                    StorageObject response = method.execute();
+                    logger.fine("response received: " + response);
 
-        String expectedMd5 = BaseEncoding.base64().encode(md5.asBytes());
-        if (!expectedMd5.equals(response.getMd5Hash())) {
-          throw new IllegalStateException("expected md5: " + expectedMd5 + ", actual: " + response.getMd5Hash());
-        }
-        return null;
-      } catch (HttpResponseException e) {
-        if (e.getStatusCode() == 412) {
-          // precondition failed -> object already exists
-          throw new FileAlreadyExistsException(name);
-        }
-        throw e;
-      }
-    }));
+                    String expectedMd5 = BaseEncoding.base64().encode(md5.asBytes());
+                    if (!expectedMd5.equals(response.getMd5Hash())) {
+                      throw new IllegalStateException(
+                          "expected md5: " + expectedMd5 + ", actual: " + response.getMd5Hash());
+                    }
+                    return null;
+                  } catch (HttpResponseException e) {
+                    if (e.getStatusCode() == 412) {
+                      // precondition failed -> object already exists
+                      throw new FileAlreadyExistsException(name);
+                    }
+                    throw e;
+                  }
+                }));
   }
 
   @Override
@@ -132,7 +146,8 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
       boolean done = false;
       long remaining = limit;
 
-      @Override protected FileHeader computeNext() {
+      @Override
+      protected FileHeader computeNext() {
         if (currentBatch != null && currentBatch.hasNext()) {
           return currentBatch.next();
         } else if (done) {
@@ -141,17 +156,19 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
 
         Objects result;
         try {
-          result = retry(() -> {
-            costTracker.trackList();
-            Storage.Objects.List list = client.objects().list(bucket);
-            list.setPrefix(filePrefix + prefix);
-            list.setMaxResults(Math.min(1000, remaining));
-            list.setFields("nextPageToken,items(name,size,md5Hash,metadata/*)");
-            if (nextPageToken != null) {
-              list.setPageToken(nextPageToken);
-            }
-            return list.execute();
-          });
+          result =
+              retry(
+                  () -> {
+                    costTracker.trackList();
+                    Storage.Objects.List list = client.objects().list(bucket);
+                    list.setPrefix(filePrefix + prefix);
+                    list.setMaxResults(Math.min(1000, remaining));
+                    list.setFields("nextPageToken,items(name,size,md5Hash,metadata/*)");
+                    if (nextPageToken != null) {
+                      list.setPageToken(nextPageToken);
+                    }
+                    return list.execute();
+                  });
         } catch (Exception e) {
           throw new IllegalStateException(e);
         }
@@ -176,50 +193,60 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
 
   @Override
   public ListenableFuture<Boolean> exists(String name) {
-    return executor.submit(() -> retry(() -> {
-      Storage.Objects.Get get = client.objects().get(bucket, filePrefix + name);
-      get.setFields("");
-      try {
-        costTracker.trackHead();
-        get.execute();
-        return true;
-      } catch (HttpResponseException e) {
-        if (e.getStatusCode() == 404) {
-          return false;
-        }
-        throw e;
-      }}));
+    return executor.submit(
+        () ->
+            retry(
+                () -> {
+                  Storage.Objects.Get get = client.objects().get(bucket, filePrefix + name);
+                  get.setFields("");
+                  try {
+                    costTracker.trackHead();
+                    get.execute();
+                    return true;
+                  } catch (HttpResponseException e) {
+                    if (e.getStatusCode() == 404) {
+                      return false;
+                    }
+                    throw e;
+                  }
+                }));
   }
 
   @Override
   public ListenableFuture<byte[]> get(String name) {
-    return executor.submit(() -> retry(() -> {
-      Storage.Objects.Get get = client.objects().get(bucket, filePrefix + name);
-      get.getMediaHttpDownloader().setDirectDownloadEnabled(true);
-      try {
-        HttpResponse httpResponse = get.executeMedia();
-        byte[] data = ByteStreams.toByteArray(httpResponse.getContent());
-        costTracker.trackGet(data.length);
-        String hash = httpResponse.getHeaders().getFirstHeaderStringValue("x-goog-hash");
+    return executor.submit(
+        () ->
+            retry(
+                () -> {
+                  Storage.Objects.Get get = client.objects().get(bucket, filePrefix + name);
+                  get.getMediaHttpDownloader().setDirectDownloadEnabled(true);
+                  try {
+                    HttpResponse httpResponse = get.executeMedia();
+                    byte[] data = ByteStreams.toByteArray(httpResponse.getContent());
+                    costTracker.trackGet(data.length);
+                    String hash =
+                        httpResponse.getHeaders().getFirstHeaderStringValue("x-goog-hash");
 
-        Pattern pattern = Pattern.compile("md5=([A-Za-z0-9=/+]+)");
-        Matcher matcher = pattern.matcher(hash);
-        if (matcher.find()) {
-          HashCode md5 = HashCode.fromBytes(BaseEncoding.base64().decode(matcher.group(1)));
-          HashCode actualMd5 = Hashing.md5().hashBytes(data);
-          if (actualMd5.equals(md5)) {
-            return data;
-          }
-          throw new IllegalStateException("mismatched md5");
-        } else {
-          throw new IllegalStateException("mismatched md5");
-        }
-      } catch (HttpResponseException e) {
-        if (e.getStatusCode() == 404) {
-          return null;
-        }
-        throw e;
-      }}));
+                    Pattern pattern = Pattern.compile("md5=([A-Za-z0-9=/+]+)");
+                    Matcher matcher = pattern.matcher(hash);
+                    if (matcher.find()) {
+                      HashCode md5 =
+                          HashCode.fromBytes(BaseEncoding.base64().decode(matcher.group(1)));
+                      HashCode actualMd5 = Hashing.md5().hashBytes(data);
+                      if (actualMd5.equals(md5)) {
+                        return data;
+                      }
+                      throw new IllegalStateException("mismatched md5");
+                    } else {
+                      throw new IllegalStateException("mismatched md5");
+                    }
+                  } catch (HttpResponseException e) {
+                    if (e.getStatusCode() == 404) {
+                      return null;
+                    }
+                    throw e;
+                  }
+                }));
   }
 
   @Override

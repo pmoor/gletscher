@@ -49,7 +49,8 @@ public final class Commands {
   }
 
   static AbstractCommand newInstance(
-      Class<? extends AbstractCommand> commandClass, CommandContext context) throws ReflectiveOperationException {
+      Class<? extends AbstractCommand> commandClass, CommandContext context)
+      throws ReflectiveOperationException {
     Constructor<? extends AbstractCommand> constructor =
         commandClass.getDeclaredConstructor(CommandContext.class);
     return constructor.newInstance(context);

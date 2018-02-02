@@ -22,8 +22,7 @@ public class ByteSize {
 
   private static final long thresholds[] =
       new long[] {1L << 50, 1L << 40, 1 << 30, 1 << 20, 1 << 10};
-  private static final String names[] =
-      new String[] {"PB", "TB", "GB", "MB", "KB"};
+  private static final String names[] = new String[] {"PB", "TB", "GB", "MB", "KB"};
 
   private final long bytes;
 

@@ -28,11 +28,13 @@ class KeyEntry implements KVStore.Entry {
     this.info = info;
   }
 
-  @Override public Key getKey() {
+  @Override
+  public Key getKey() {
     return key;
   }
 
-  @Override public int size() {
+  @Override
+  public int size() {
     return info.size();
   }
 

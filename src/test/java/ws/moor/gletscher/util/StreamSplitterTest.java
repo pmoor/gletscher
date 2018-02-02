@@ -45,13 +45,16 @@ public class StreamSplitterTest {
     StreamSplitter splitter = StreamSplitter.rollingHashSplitter(32 << 20);
 
     Set<HashCode> fileAHashes = new HashSet<>();
-    splitter.split(new ByteArrayInputStream(fileA)).forEachRemaining(block ->
-        fileAHashes.add(Hashing.md5().hashBytes(block)));
+    splitter
+        .split(new ByteArrayInputStream(fileA))
+        .forEachRemaining(block -> fileAHashes.add(Hashing.md5().hashBytes(block)));
 
     Set<HashCode> fileBHashes = new HashSet<>();
-    splitter.split(new ByteArrayInputStream(fileB)).forEachRemaining(block ->
-        fileBHashes.add(Hashing.md5().hashBytes(block)));
+    splitter
+        .split(new ByteArrayInputStream(fileB))
+        .forEachRemaining(block -> fileBHashes.add(Hashing.md5().hashBytes(block)));
 
-    assertThat(Sets.union(fileAHashes, fileBHashes).size()).isLessThan(fileAHashes.size() + fileBHashes.size());
+    assertThat(Sets.union(fileAHashes, fileBHashes).size())
+        .isLessThan(fileAHashes.size() + fileBHashes.size());
   }
 }

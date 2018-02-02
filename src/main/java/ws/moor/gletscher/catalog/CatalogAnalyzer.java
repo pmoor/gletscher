@@ -78,7 +78,8 @@ public class CatalogAnalyzer {
       }
     }
 
-    long uniqueSize = uniqueBlocks.stream().collect(Collectors.summingLong(PersistedBlock::getOriginalLength));
+    long uniqueSize =
+        uniqueBlocks.stream().collect(Collectors.summingLong(PersistedBlock::getOriginalLength));
 
     out.println("            roots: " + catalog.getRoots().size());
     out.println("      directories: " + directories);
@@ -91,21 +92,21 @@ public class CatalogAnalyzer {
     out.println("unique block size: " + ByteSize.ofBytes(uniqueSize));
     out.println();
 
-//    Set<PersistedBlock> allBlocksThere = blockStore.listAllBlocks();
-//    System.out.println("all blocks in storage: " + allBlocksThere.size());
-//    long totalSize = 0;
-//    for (PersistedBlock block : allBlocksThere) {
-//      totalSize += block.getOriginalLength();
-//    }
-//    System.out.println("all blocks in storage size: " + totalSize);
-//
-//    allBlocksThere.removeAll(uniqueBlocks);
-//    System.out.println("excess blocks: " + allBlocksThere.size());
-//    totalSize = 0;
-//    for (PersistedBlock block : allBlocksThere) {
-//      totalSize += block.getOriginalLength();
-//    }
-//    System.out.println("excess blocks size: " + totalSize);
+    //    Set<PersistedBlock> allBlocksThere = blockStore.listAllBlocks();
+    //    System.out.println("all blocks in storage: " + allBlocksThere.size());
+    //    long totalSize = 0;
+    //    for (PersistedBlock block : allBlocksThere) {
+    //      totalSize += block.getOriginalLength();
+    //    }
+    //    System.out.println("all blocks in storage size: " + totalSize);
+    //
+    //    allBlocksThere.removeAll(uniqueBlocks);
+    //    System.out.println("excess blocks: " + allBlocksThere.size());
+    //    totalSize = 0;
+    //    for (PersistedBlock block : allBlocksThere) {
+    //      totalSize += block.getOriginalLength();
+    //    }
+    //    System.out.println("excess blocks size: " + totalSize);
   }
 
   private Gletscher.Directory fetchDirectory(PersistedBlock root) {

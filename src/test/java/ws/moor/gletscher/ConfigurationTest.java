@@ -33,30 +33,32 @@ public class ConfigurationTest {
   @Test
   public void testFromString() {
     FileSystem fs = Jimfs.newFileSystem();
-    Configuration config = Configuration.fromLines(
-        fs,
-        "version: 1",
-        "secret_key: !!binary AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-        "gcs:",
-        "  credentials: /credential/file.json",
-        "  bucket_name: bucket-name",
-        "  object_prefix: \" prefix/\"",
-        "disable_cache: false",
-        "cache_dir: /tmp/cache.dir",
-        "max_split_size: 42",
-        "split_algorithm: rolling",
-        "",
-        "include:",
-        " - /Users/pmoor",
-        " - /Volumes/External",
-        "",
-        "exclude:",
-        " - \\.DS_Store$",
-        " - \\.fseventsd$");
+    Configuration config =
+        Configuration.fromLines(
+            fs,
+            "version: 1",
+            "secret_key: !!binary AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            "gcs:",
+            "  credentials: /credential/file.json",
+            "  bucket_name: bucket-name",
+            "  object_prefix: \" prefix/\"",
+            "disable_cache: false",
+            "cache_dir: /tmp/cache.dir",
+            "max_split_size: 42",
+            "split_algorithm: rolling",
+            "",
+            "include:",
+            " - /Users/pmoor",
+            " - /Volumes/External",
+            "",
+            "exclude:",
+            " - \\.DS_Store$",
+            " - \\.fseventsd$");
 
     assertThat(config.getEncryptionKey().getEncoded()).isEqualTo(new byte[32]);
     assertThat(config.getSigningKey().getEncoded()).isEqualTo(new byte[32]);
-    assertThat((Object) config.getCredentialFilePath()).isEqualTo(fs.getPath("/credential/file.json"));
+    assertThat((Object) config.getCredentialFilePath())
+        .isEqualTo(fs.getPath("/credential/file.json"));
     assertThat(config.getBucketName()).isEqualTo("bucket-name");
     assertThat(config.getFilePrefix()).isEqualTo(" prefix/");
     assertThat(config.disableCache()).isFalse();

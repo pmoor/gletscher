@@ -41,7 +41,8 @@ public class CountingCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
-  public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
+  public ListenableFuture<?> store(
+      String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
     storeCount.incrementAndGet();
     storeSize.getAndAdd(data.length);
     return delegate.store(name, data, md5, metadata, options);
@@ -61,13 +62,17 @@ public class CountingCloudFileStorage implements CloudFileStorage {
   @Override
   public ListenableFuture<byte[]> get(String name) {
     ListenableFuture<byte[]> future = delegate.get(name);
-    return Futures.transform(future, (Function<byte[], byte[]>) input -> {
-      getCount.incrementAndGet();
-      if (input != null) {
-        getSize.addAndGet(input.length);
-      }
-      return input;
-    }, MoreExecutors.directExecutor());
+    return Futures.transform(
+        future,
+        (Function<byte[], byte[]>)
+            input -> {
+              getCount.incrementAndGet();
+              if (input != null) {
+                getSize.addAndGet(input.length);
+              }
+              return input;
+            },
+        MoreExecutors.directExecutor());
   }
 
   @Override

@@ -58,22 +58,31 @@ public class CachingCloudFileStorage implements CloudFileStorage {
     this.delegate = delegate;
     this.kvStore = KVStores.open(localCacheDir);
     this.clock = clock;
-    this.executor = MoreExecutors.listeningDecorator(
-        Executors.newFixedThreadPool(1, new ThreadFactoryBuilder().setNameFormat("cache-thread-%d").build()));
+    this.executor =
+        MoreExecutors.listeningDecorator(
+            Executors.newFixedThreadPool(
+                1, new ThreadFactoryBuilder().setNameFormat("cache-thread-%d").build()));
 
     this.bloomFilter = BloomFilter.create(Funnels.stringFunnel(StandardCharsets.UTF_8), 100_000);
   }
 
   @Override
-  public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
+  public ListenableFuture<?> store(
+      String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
     ListenableFuture<?> future = delegate.store(name, data, md5, metadata, options);
     if (options.cacheContentsOnUpload) {
-      Futures.addCallback(future, new FutureCallback<Object>() {
-        @Override public void onSuccess(@Nullable Object unused) {
-          storeData(name, data);
-        }
-        @Override public void onFailure(Throwable throwable) { }
-      }, executor);
+      Futures.addCallback(
+          future,
+          new FutureCallback<Object>() {
+            @Override
+            public void onSuccess(@Nullable Object unused) {
+              storeData(name, data);
+            }
+
+            @Override
+            public void onFailure(Throwable throwable) {}
+          },
+          executor);
     }
     return future;
   }
@@ -86,43 +95,61 @@ public class CachingCloudFileStorage implements CloudFileStorage {
   @Override
   public ListenableFuture<Boolean> exists(String name) {
     ListenableFuture<Boolean> future = executor.submit(() -> checkExists(name));
-    return Futures.transformAsync(future, input -> {
-      if (input) {
-        return Futures.immediateFuture(true);
-      } else {
-        ListenableFuture<Boolean> delegateFuture = delegate.exists(name);
-        Futures.addCallback(delegateFuture, new FutureCallback<Boolean>() {
-          @Override public void onSuccess(@Nullable Boolean exists) {
-            if (exists) {
-              storeExists(name);
-            }
+    return Futures.transformAsync(
+        future,
+        input -> {
+          if (input) {
+            return Futures.immediateFuture(true);
+          } else {
+            ListenableFuture<Boolean> delegateFuture = delegate.exists(name);
+            Futures.addCallback(
+                delegateFuture,
+                new FutureCallback<Boolean>() {
+                  @Override
+                  public void onSuccess(@Nullable Boolean exists) {
+                    if (exists) {
+                      storeExists(name);
+                    }
+                  }
+
+                  @Override
+                  public void onFailure(Throwable throwable) {}
+                },
+                executor);
+            return delegateFuture;
           }
-          @Override public void onFailure(Throwable throwable) { }
-        }, executor);
-        return delegateFuture;
-      }
-    }, MoreExecutors.directExecutor());
+        },
+        MoreExecutors.directExecutor());
   }
 
   @Override
   public ListenableFuture<byte[]> get(String name) {
     ListenableFuture<byte[]> data = executor.submit(() -> readData(name));
-    return Futures.transformAsync(data, bytes -> {
-      if (bytes != null) {
-        return Futures.immediateFuture(bytes);
-      } else {
-        ListenableFuture<byte[]> delegateFuture = delegate.get(name);
-        Futures.addCallback(delegateFuture, new FutureCallback<byte[]>() {
-          @Override public void onSuccess(@Nullable byte[] data) {
-            if (data != null) {
-              storeData(name, data);
-            }
+    return Futures.transformAsync(
+        data,
+        bytes -> {
+          if (bytes != null) {
+            return Futures.immediateFuture(bytes);
+          } else {
+            ListenableFuture<byte[]> delegateFuture = delegate.get(name);
+            Futures.addCallback(
+                delegateFuture,
+                new FutureCallback<byte[]>() {
+                  @Override
+                  public void onSuccess(@Nullable byte[] data) {
+                    if (data != null) {
+                      storeData(name, data);
+                    }
+                  }
+
+                  @Override
+                  public void onFailure(Throwable t) {}
+                },
+                executor);
+            return delegateFuture;
           }
-          @Override public void onFailure(Throwable t) { }
-        }, executor);
-        return delegateFuture;
-      }
-    }, MoreExecutors.directExecutor());
+        },
+        MoreExecutors.directExecutor());
   }
 
   private void storeExists(String name) {
@@ -131,8 +158,8 @@ public class CachingCloudFileStorage implements CloudFileStorage {
   }
 
   private boolean checkExists(String name) {
-    boolean exists = kvStore.contains(Key.fromUtf8("e:" + name))
-        || kvStore.contains(Key.fromUtf8("d:" + name));
+    boolean exists =
+        kvStore.contains(Key.fromUtf8("e:" + name)) || kvStore.contains(Key.fromUtf8("d:" + name));
     if (exists) {
       bloomFilter.put(name);
     }

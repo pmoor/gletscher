@@ -67,12 +67,13 @@ public class InMemoryCloudFileStorage implements CloudFileStorage {
 
   @Override
   public ListenableFuture<byte[]> get(String name) {
-    return executor.submit(() -> {
-      synchronized (lock) {
-        Entry entry = files.get(name);
-        return entry == null ? null : entry.data.toByteArray();
-      }
-    });
+    return executor.submit(
+        () -> {
+          synchronized (lock) {
+            Entry entry = files.get(name);
+            return entry == null ? null : entry.data.toByteArray();
+          }
+        });
   }
 
   @Override
@@ -80,17 +81,21 @@ public class InMemoryCloudFileStorage implements CloudFileStorage {
     // no-op
   }
 
-  @Override public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
-    return executor.submit(() -> {
-      synchronized (lock) {
-        if (files.containsKey(name)) {
-          throw new FileAlreadyExistsException(name);
-        }
-        FileHeader header = new FileHeader(name, md5, data.length, ImmutableMap.copyOf(metadata));
-        files.put(name, new Entry(name, header, ByteString.copyFrom(data)));
-        return null;
-      }
-    });
+  @Override
+  public ListenableFuture<?> store(
+      String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
+    return executor.submit(
+        () -> {
+          synchronized (lock) {
+            if (files.containsKey(name)) {
+              throw new FileAlreadyExistsException(name);
+            }
+            FileHeader header =
+                new FileHeader(name, md5, data.length, ImmutableMap.copyOf(metadata));
+            files.put(name, new Entry(name, header, ByteString.copyFrom(data)));
+            return null;
+          }
+        });
   }
 
   public void delete(String name) {
@@ -151,11 +156,12 @@ public class InMemoryCloudFileStorage implements CloudFileStorage {
     }
 
     static Entry fromProto(Testing.File proto) {
-      FileHeader header = new FileHeader(
-          proto.getName(),
-          Hashing.md5().hashBytes(proto.getContents().toByteArray()),
-          proto.getContents().size(),
-          proto.getMetaMap());
+      FileHeader header =
+          new FileHeader(
+              proto.getName(),
+              Hashing.md5().hashBytes(proto.getContents().toByteArray()),
+              proto.getContents().size(),
+              proto.getMetaMap());
       return new Entry(proto.getName(), header, proto.getContents());
     }
   }

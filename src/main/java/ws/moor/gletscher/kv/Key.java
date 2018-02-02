@@ -28,7 +28,9 @@ import java.util.Comparator;
 public final class Key implements Comparable<Key> {
 
   enum KeyType {
-    NORMAL, MIN, MAX
+    NORMAL,
+    MIN,
+    MAX
   }
 
   public static final Key MIN = new Key(KeyType.MIN, new byte[0]);
@@ -108,8 +110,7 @@ public final class Key implements Comparable<Key> {
       return false;
     } else {
       Key otherKey = (Key) o;
-      return this.type == otherKey.type
-          && Arrays.equals(this.key, otherKey.key);
+      return this.type == otherKey.type && Arrays.equals(this.key, otherKey.key);
     }
   }
 
@@ -128,9 +129,7 @@ public final class Key implements Comparable<Key> {
     return type == KeyType.NORMAL;
   }
 
-  /**
-   * @return lo &lt; x &lt;= hi
-   */
+  /** @return lo &lt; x &lt;= hi */
   public Key findBetween(Key next) {
     Preconditions.checkArgument(isNormal());
     Preconditions.checkArgument(next.isNormal());

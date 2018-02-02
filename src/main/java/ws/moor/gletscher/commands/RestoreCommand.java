@@ -66,36 +66,47 @@ class RestoreCommand extends AbstractCommand {
     }
 
     Catalog catalog = Iterables.getOnlyElement(lastCatalogs);
-    Gletscher.Directory rootDir = Gletscher.Directory.parseFrom(Futures.getUnchecked(blockStore.retrieve(catalog.getOnlyRootBlock())));
+    Gletscher.Directory rootDir =
+        Gletscher.Directory.parseFrom(
+            Futures.getUnchecked(blockStore.retrieve(catalog.getOnlyRootBlock())));
     restoreInner(blockStore, rootDir, restoreRoot);
     return 0;
   }
 
-  private void restoreInner(BlockStore blockStore, Gletscher.Directory dir, Path path) throws IOException {
+  private void restoreInner(BlockStore blockStore, Gletscher.Directory dir, Path path)
+      throws IOException {
     for (Gletscher.DirectoryEntry entry : dir.getEntryList()) {
       switch (entry.getTypeCase()) {
         case FILE:
           Path tmpFile = Files.createTempFile(path, ".gletscher-", ".tmprestore");
-          OutputStream fos = new BufferedOutputStream(Files.newOutputStream(tmpFile, StandardOpenOption.TRUNCATE_EXISTING));
+          OutputStream fos =
+              new BufferedOutputStream(
+                  Files.newOutputStream(tmpFile, StandardOpenOption.TRUNCATE_EXISTING));
           for (Gletscher.PersistedBlock block : entry.getFile().getBlockList()) {
-            byte[] data = Futures.getUnchecked(blockStore.retrieve(PersistedBlock.fromProto(block)));
+            byte[] data =
+                Futures.getUnchecked(blockStore.retrieve(PersistedBlock.fromProto(block)));
             fos.write(data);
           }
           fos.close();
-          Files.setLastModifiedTime(tmpFile, FileTime.fromMillis(entry.getFile().getLastModifiedMillis()));
+          Files.setLastModifiedTime(
+              tmpFile, FileTime.fromMillis(entry.getFile().getLastModifiedMillis()));
 
           Path actualFile = path.resolve(entry.getFile().getName());
           Files.move(tmpFile, actualFile);
           break;
         case DIRECTORY:
           Path childPath = path.resolve(entry.getDirectory().getName());
-          Gletscher.Directory childDir = Gletscher.Directory.parseFrom(
-              Futures.getUnchecked(blockStore.retrieve(PersistedBlock.fromProto(entry.getDirectory().getBlock()))));
+          Gletscher.Directory childDir =
+              Gletscher.Directory.parseFrom(
+                  Futures.getUnchecked(
+                      blockStore.retrieve(
+                          PersistedBlock.fromProto(entry.getDirectory().getBlock()))));
           Files.createDirectory(childPath);
           restoreInner(blockStore, childDir, childPath);
           break;
         case SYMLINK:
-          Files.createSymbolicLink(path.resolve(entry.getSymlink().getName()),
+          Files.createSymbolicLink(
+              path.resolve(entry.getSymlink().getName()),
               path.getFileSystem().getPath(entry.getSymlink().getTarget()));
           break;
         default:

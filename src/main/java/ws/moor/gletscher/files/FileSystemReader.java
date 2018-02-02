@@ -72,39 +72,42 @@ public class FileSystemReader {
     }
     removeRecursively(pathToRoots, paths);
 
-    Recursor<T> recursor = new Recursor<T>() {
-      @Override public T recurse(Path directory) {
-        List<Entry> entries = new ArrayList<>();
+    Recursor<T> recursor =
+        new Recursor<T>() {
+          @Override
+          public T recurse(Path directory) {
+            List<Entry> entries = new ArrayList<>();
 
-        try {
-          if (pathToRoots.containsKey(directory)) {
-            // artificial directory, use only contents from in here
-            entries.addAll(pathToRoots.get(directory).stream()
-                .map(this::createDirEntry)
-                .collect(Collectors.toList()));
-          } else {
-            if (Files.isReadable(directory)) {
-              try (Stream<Path> stream = Files.list(directory)) {
-                entries.addAll(stream
-                    .map(this::createDirEntry)
-                    .collect(Collectors.toList()));
+            try {
+              if (pathToRoots.containsKey(directory)) {
+                // artificial directory, use only contents from in here
+                entries.addAll(
+                    pathToRoots
+                        .get(directory)
+                        .stream()
+                        .map(this::createDirEntry)
+                        .collect(Collectors.toList()));
+              } else {
+                if (Files.isReadable(directory)) {
+                  try (Stream<Path> stream = Files.list(directory)) {
+                    entries.addAll(stream.map(this::createDirEntry).collect(Collectors.toList()));
+                  }
+                } else {
+                  stderr.println("unreadable: " + directory);
+                }
               }
-            } else {
-              stderr.println("unreadable: " + directory);
+            } catch (IOException | RuntimeException e) {
+              stderr.printf("error while reading directory %s: %s\n", directory, e);
             }
+            Collections.sort(entries);
+            return visitor.visit(directory, entries, this);
           }
-        } catch (IOException | RuntimeException e) {
-          stderr.printf("error while reading directory %s: %s\n", directory, e);
-        }
-        Collections.sort(entries);
-        return visitor.visit(directory, entries, this);
-      }
 
-      private Entry createDirEntry(Path child) {
-        BasicFileAttributes attributes = readAttributes(child);
-        return new Entry(child, attributes);
-      }
-    };
+          private Entry createDirEntry(Path child) {
+            BasicFileAttributes attributes = readAttributes(child);
+            return new Entry(child, attributes);
+          }
+        };
 
     Map<Path, T> result = new TreeMap<>();
     for (Path root : roots) {

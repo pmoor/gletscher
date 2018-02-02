@@ -90,7 +90,8 @@ public class DiskLayerWriter {
     appendRaw(buffer);
   }
 
-  private RangeMap<Key, BlockLocation> rollUp(RangeMap<Key, BlockLocation> nodes) throws IOException {
+  private RangeMap<Key, BlockLocation> rollUp(RangeMap<Key, BlockLocation> nodes)
+      throws IOException {
     RangeMap<Key, BlockLocation> nextLevelNodes = TreeRangeMap.create();
     Range<Key> first = null;
     Range<Key> last = null;

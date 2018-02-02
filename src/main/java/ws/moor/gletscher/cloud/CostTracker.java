@@ -63,7 +63,8 @@ public class CostTracker {
 
     if (insertRequests > 0) {
       double cost = PRICE_PER_CLASS_A * insertRequests;
-      stream.printf("insert: %d, %s, $%02.6f\n", insertRequests, ByteSize.ofBytes(insertSize), cost);
+      stream.printf(
+          "insert: %d, %s, $%02.6f\n", insertRequests, ByteSize.ofBytes(insertSize), cost);
       totalCost += cost;
     }
 

@@ -38,7 +38,8 @@ public class Catalog {
     this.roots = roots;
   }
 
-  public static Catalog fromNewBackup(Instant startTime, Instant endTime, Map<Path, PersistedBlock> roots) {
+  public static Catalog fromNewBackup(
+      Instant startTime, Instant endTime, Map<Path, PersistedBlock> roots) {
     return new Catalog(startTime, endTime, ImmutableMap.copyOf(roots));
   }
 

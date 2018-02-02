@@ -24,7 +24,6 @@ import com.google.protobuf.ByteString;
 import javax.crypto.Mac;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.Random;
 
 public final class Signature implements Comparable<Signature> {
 
@@ -48,22 +47,26 @@ public final class Signature implements Comparable<Signature> {
     return new Signature(bytes.toByteArray());
   }
 
-  @Override public int compareTo(Signature o) {
+  @Override
+  public int compareTo(Signature o) {
     return COMPARATOR.compare(this.signature, o.signature);
   }
 
-  @Override public int hashCode() {
+  @Override
+  public int hashCode() {
     return Arrays.hashCode(signature);
   }
 
-  @Override public boolean equals(Object o) {
+  @Override
+  public boolean equals(Object o) {
     if (o == null || !o.getClass().equals(Signature.class)) {
       return false;
     }
     return Arrays.equals(signature, ((Signature) o).signature);
   }
 
-  @Override public String toString() {
+  @Override
+  public String toString() {
     return STRING_ENCODING.encode(signature);
   }
 

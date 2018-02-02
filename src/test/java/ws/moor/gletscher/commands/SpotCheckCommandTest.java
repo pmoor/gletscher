@@ -47,13 +47,14 @@ public class SpotCheckCommandTest {
     fs = Jimfs.newFileSystem();
     inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
 
-    Files.write(fs.getPath("/config.properties"),
-        ("version: 1\n" +
-            "max_split_size: 65536\n" +
-            "disable_cache: true\n" +
-            "include:\n" +
-            "  - /home\n"
-        ).getBytes(StandardCharsets.UTF_8));
+    Files.write(
+        fs.getPath("/config.properties"),
+        ("version: 1\n"
+                + "max_split_size: 65536\n"
+                + "disable_cache: true\n"
+                + "include:\n"
+                + "  - /home\n")
+            .getBytes(StandardCharsets.UTF_8));
 
     // files to back-up
     Files.createDirectories(fs.getPath("/home"));

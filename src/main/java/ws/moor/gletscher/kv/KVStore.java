@@ -23,7 +23,8 @@ public interface KVStore extends AutoCloseable {
 
   void store(Key key, byte[] value) throws KVStoreException;
 
-  @Nullable byte[] get(Key key) throws KVStoreException;
+  @Nullable
+  byte[] get(Key key) throws KVStoreException;
 
   boolean contains(Key key) throws KVStoreException;
 
@@ -38,7 +39,10 @@ public interface KVStore extends AutoCloseable {
 
   interface Entry {
     Key getKey();
+
     int size();
-    @Nullable byte[] read() throws KVStoreException;
+
+    @Nullable
+    byte[] read() throws KVStoreException;
   }
 }

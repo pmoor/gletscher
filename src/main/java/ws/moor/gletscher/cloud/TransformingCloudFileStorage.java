@@ -31,18 +31,22 @@ import java.util.function.Function;
 abstract class TransformingCloudFileStorage implements CloudFileStorage {
 
   private final CloudFileStorage delegate;
-  private final Function<byte[], byte[]> decodingFn = new Function<byte[], byte[]>() {
-    @Nullable @Override public byte[] apply(@Nullable byte[] raw) {
-      return raw == null ? null : decode(raw);
-    }
-  };
+  private final Function<byte[], byte[]> decodingFn =
+      new Function<byte[], byte[]>() {
+        @Nullable
+        @Override
+        public byte[] apply(@Nullable byte[] raw) {
+          return raw == null ? null : decode(raw);
+        }
+      };
 
   TransformingCloudFileStorage(CloudFileStorage delegate) {
     this.delegate = delegate;
   }
 
   @Override
-  public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
+  public ListenableFuture<?> store(
+      String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
     byte[] encoded = encode(data);
     HashCode encodedMd5 = Hashing.md5().hashBytes(encoded);
 

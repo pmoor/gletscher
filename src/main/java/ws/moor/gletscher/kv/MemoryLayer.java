@@ -65,10 +65,10 @@ class MemoryLayer extends Layer {
     super(id);
   }
 
-  @Override Iterator<KeyEntry> keyIterator(Key start, boolean inclusive, boolean ascending) {
-    NavigableMap<Key, KeyEntry> map = ascending
-        ? keys.tailMap(start, inclusive)
-        : keys.headMap(start, inclusive).descendingMap();
+  @Override
+  Iterator<KeyEntry> keyIterator(Key start, boolean inclusive, boolean ascending) {
+    NavigableMap<Key, KeyEntry> map =
+        ascending ? keys.tailMap(start, inclusive) : keys.headMap(start, inclusive).descendingMap();
 
     return map.values().iterator();
   }
@@ -84,7 +84,8 @@ class MemoryLayer extends Layer {
   }
 
   @Override
-  @Nullable KeyInfo find(Key key) {
+  @Nullable
+  KeyInfo find(Key key) {
     KeyEntry keyEntry = keys.get(key);
     return keyEntry != null ? keyEntry.info : null;
   }

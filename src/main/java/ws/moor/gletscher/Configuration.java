@@ -55,7 +55,8 @@ public class Configuration {
   public static Configuration fromFile(Path configFile) throws IOException {
     Yaml yaml = new Yaml(new SafeConstructor());
     Map<String, Object> result =
-        (Map<String, Object>) yaml.load(Files.newBufferedReader(configFile, StandardCharsets.UTF_8));
+        (Map<String, Object>)
+            yaml.load(Files.newBufferedReader(configFile, StandardCharsets.UTF_8));
     return new Configuration(configFile.getFileSystem(), result);
   }
 
@@ -124,14 +125,18 @@ public class Configuration {
 
   @SuppressWarnings("unchecked")
   public Set<Path> getIncludes() {
-    return ((List<String>) yaml.get("include")).stream()
-        .map(fs::getPath).collect(Collectors.toSet());
+    return ((List<String>) yaml.get("include"))
+        .stream()
+        .map(fs::getPath)
+        .collect(Collectors.toSet());
   }
 
   @SuppressWarnings("unchecked")
   public Set<Pattern> getExcludes() {
-    List<String> excludeStrings = yaml.containsKey("exclude") ? (List<String>) yaml.get("exclude") : ImmutableList.of();
-    Set<Pattern> patterns = excludeStrings.stream().map(Pattern::compile).collect(Collectors.toSet());
+    List<String> excludeStrings =
+        yaml.containsKey("exclude") ? (List<String>) yaml.get("exclude") : ImmutableList.of();
+    Set<Pattern> patterns =
+        excludeStrings.stream().map(Pattern::compile).collect(Collectors.toSet());
     if (hasLocalCacheDir()) {
       // Always exclude the cache directory.
       patterns.add(Pattern.compile("^" + Pattern.quote(getLocalCacheDir().toString()) + "$"));

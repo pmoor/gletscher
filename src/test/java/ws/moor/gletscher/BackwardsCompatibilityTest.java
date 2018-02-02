@@ -39,7 +39,6 @@ import java.time.Instant;
 
 import static com.google.common.truth.Truth.assertThat;
 
-
 @RunWith(JUnit4.class)
 public class BackwardsCompatibilityTest {
 
@@ -53,38 +52,36 @@ public class BackwardsCompatibilityTest {
   @Before
   public void setUp() throws Exception {
     fs = Jimfs.newFileSystem(Configuration.unix());
-    Files.write(fs.getPath("/config.properties"),
-        ("version: 1\n" +
-            "max_split_size: 10\n" +
-            "disable_cache: true\n" +
-            "include:\n" +
-            "  - /home\n" +
-            "exclude:\n" +
-            "  - \\.ignore$"
-        ).getBytes(StandardCharsets.UTF_8));
+    Files.write(
+        fs.getPath("/config.properties"),
+        ("version: 1\n"
+                + "max_split_size: 10\n"
+                + "disable_cache: true\n"
+                + "include:\n"
+                + "  - /home\n"
+                + "exclude:\n"
+                + "  - \\.ignore$")
+            .getBytes(StandardCharsets.UTF_8));
 
     inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
   }
-
 
   @Test
   public void liveVersion() throws Exception {
     populateTestCase(fs);
 
-    runCommandAndAssertSuccess(fs, inMemoryStorage,
-        "backup", "-c", "/config.properties");
+    runCommandAndAssertSuccess(fs, inMemoryStorage, "backup", "-c", "/config.properties");
 
-    runCommandAndAssertSuccess(fs, inMemoryStorage,
-        "restore", "-c", "/config.properties", "/restore");
+    runCommandAndAssertSuccess(
+        fs, inMemoryStorage, "restore", "-c", "/config.properties", "/restore");
     assertProperlyRestored(fs.getPath("/restore"));
 
-    runCommandAndAssertSuccess(fs, inMemoryStorage,
-        "verify", "-c", "/config.properties");
+    runCommandAndAssertSuccess(fs, inMemoryStorage, "verify", "-c", "/config.properties");
 
     // remove comment to create new test test
-//    try (FileOutputStream fos = new FileOutputStream("/tmp/dump.bin")) {
-//      inMemoryStorage.toProto().writeTo(fos);
-//    }
+    //    try (FileOutputStream fos = new FileOutputStream("/tmp/dump.bin")) {
+    //      inMemoryStorage.toProto().writeTo(fos);
+    //    }
   }
 
   @Test
@@ -92,12 +89,11 @@ public class BackwardsCompatibilityTest {
     inMemoryStorage.mergeFromProto(
         Testing.FileList.parseFrom(getClass().getResourceAsStream("/20160930.bin")));
 
-    runCommandAndAssertSuccess(fs, inMemoryStorage,
-        "restore", "-c", "/config.properties", "/restore");
+    runCommandAndAssertSuccess(
+        fs, inMemoryStorage, "restore", "-c", "/config.properties", "/restore");
     assertProperlyRestored(fs.getPath("/restore"));
 
-    runCommandAndAssertSuccess(fs, inMemoryStorage,
-        "verify", "-c", "/config.properties");
+    runCommandAndAssertSuccess(fs, inMemoryStorage, "verify", "-c", "/config.properties");
   }
 
   @Test
@@ -105,15 +101,15 @@ public class BackwardsCompatibilityTest {
     inMemoryStorage.mergeFromProto(
         Testing.FileList.parseFrom(getClass().getResourceAsStream("/20160930-new-cryptor.bin")));
 
-    runCommandAndAssertSuccess(fs, inMemoryStorage,
-        "restore", "-c", "/config.properties", "/restore");
+    runCommandAndAssertSuccess(
+        fs, inMemoryStorage, "restore", "-c", "/config.properties", "/restore");
     assertProperlyRestored(fs.getPath("/restore"));
 
-    runCommandAndAssertSuccess(fs, inMemoryStorage,
-        "verify", "-c", "/config.properties");
+    runCommandAndAssertSuccess(fs, inMemoryStorage, "verify", "-c", "/config.properties");
   }
 
-  private void runCommandAndAssertSuccess(FileSystem fs, CloudFileStorage inMemoryStorage, String... args) throws Exception {
+  private void runCommandAndAssertSuccess(
+      FileSystem fs, CloudFileStorage inMemoryStorage, String... args) throws Exception {
     TestCommandContext context = new TestCommandContext(fs, inMemoryStorage);
     GletscherMain gletscherMain = new GletscherMain(context);
     gletscherMain.run(args);
@@ -131,12 +127,15 @@ public class BackwardsCompatibilityTest {
     writeFile(fs.getPath("/home/userA/file-02.txt"), TIME_B, "What is going on?\n");
     writeFile(fs.getPath("/home/userA/file-03.txt"), TIME_C, "Hello World!\n");
 
-    writeFile(fs.getPath("/home/userB/file-01.txt"), TIME_A, "Hello World! How are we all doing?\n");
+    writeFile(
+        fs.getPath("/home/userB/file-01.txt"), TIME_A, "Hello World! How are we all doing?\n");
     writeFile(fs.getPath("/home/userB/file-02.txt"), TIME_B, "");
 
     Files.createSymbolicLink(fs.getPath("/home/userB/file-03.txt"), fs.getPath("file-02.txt"));
-    Files.createSymbolicLink(fs.getPath("/home/userB/file-04.txt"), fs.getPath("/home/userA/file-01.txt"));
-    Files.createSymbolicLink(fs.getPath("/home/userB/file-05.txt"), fs.getPath("/random-file-not-backed.up"));
+    Files.createSymbolicLink(
+        fs.getPath("/home/userB/file-04.txt"), fs.getPath("/home/userA/file-01.txt"));
+    Files.createSymbolicLink(
+        fs.getPath("/home/userB/file-05.txt"), fs.getPath("/random-file-not-backed.up"));
 
     writeFile(fs.getPath("/home/file.ignore"), TIME_A, "ignored");
     writeFile(fs.getPath("/home/large-file.bin"), TIME_A, Strings.repeat("*", 512));

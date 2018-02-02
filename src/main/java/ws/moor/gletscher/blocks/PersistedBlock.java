@@ -56,7 +56,8 @@ public class PersistedBlock implements Comparable<PersistedBlock> {
   }
 
   public static PersistedBlock fromProto(Gletscher.PersistedBlock proto) {
-    return new PersistedBlock(Signature.fromByteString(proto.getSignature()), proto.getOriginalSize());
+    return new PersistedBlock(
+        Signature.fromByteString(proto.getSignature()), proto.getOriginalSize());
   }
 
   public Gletscher.PersistedBlock toProto() {

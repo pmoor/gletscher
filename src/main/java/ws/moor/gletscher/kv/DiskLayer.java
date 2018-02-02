@@ -38,10 +38,12 @@ class DiskLayer extends Layer {
   private FileChannel channel;
   private BlockLocation rootNodeLocation;
 
-  private final static Cache<BlockLocation, BTreeNode> nodeCache = CacheBuilder.newBuilder()
-      .weigher((Weigher<BlockLocation, BTreeNode>) (location, node) -> 32 + node.cacheMemoryUsage())
-      .maximumWeight(64 << 20)
-      .build();
+  private static final Cache<BlockLocation, BTreeNode> nodeCache =
+      CacheBuilder.newBuilder()
+          .weigher(
+              (Weigher<BlockLocation, BTreeNode>) (location, node) -> 32 + node.cacheMemoryUsage())
+          .maximumWeight(64 << 20)
+          .build();
 
   DiskLayer(Path path) {
     super(Integer.valueOf(path.getFileName().toString().substring("data-".length()), 10));
@@ -57,8 +59,7 @@ class DiskLayer extends Layer {
       ByteBuffer version = KVStoreImpl.readFromChannel(channel, 0, 8);
       long versionLong = version.getLong();
       Preconditions.checkArgument(
-          versionLong == DiskLayerWriter.CURRENT_VERSION,
-          "invalid version: %s", versionLong);
+          versionLong == DiskLayerWriter.CURRENT_VERSION, "invalid version: %s", versionLong);
 
       ByteBuffer buffer = KVStoreImpl.readFromChannel(channel, channel.size() - 4, 4);
       int length = buffer.getInt();
@@ -118,7 +119,8 @@ class DiskLayer extends Layer {
               element.nextPos = inclusive ? index : (ascending ? index + 1 : index - 1);
               break;
             } else {
-              element.nextPos = ascending ? index + 1 : index - 1; // we're going down @index right now
+              element.nextPos =
+                  ascending ? index + 1 : index - 1; // we're going down @index right now
               // descend
               StackElement child = new StackElement(readNode(element.node.locations.get(index)));
               nodeStack.push(child);
@@ -139,8 +141,8 @@ class DiskLayer extends Layer {
         }
 
         if (top.node.isLeaf) {
-          KeyEntry entry = new KeyEntry(
-              top.node.keys.get(top.nextPos), top.node.locations.get(top.nextPos));
+          KeyEntry entry =
+              new KeyEntry(top.node.keys.get(top.nextPos), top.node.locations.get(top.nextPos));
           if (ascending) {
             top.nextPos++;
           } else {

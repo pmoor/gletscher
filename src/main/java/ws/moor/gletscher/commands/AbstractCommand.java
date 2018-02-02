@@ -85,7 +85,7 @@ abstract class AbstractCommand {
     int returnCode = runInternal(commandLine, argList);
 
     if (cloudFileStorage != null) {
-      cloudFileStorage.close();  // caches can clean-up
+      cloudFileStorage.close(); // caches can clean-up
     }
 
     if (costTracker.hasUsage()) {
@@ -100,7 +100,8 @@ abstract class AbstractCommand {
 
   final void addConfigFileOption(Options options) {
     hasConfigArg = true;
-    options.addOption(Option.builder("c").longOpt("config").required().hasArg().argName("FILE").build());
+    options.addOption(
+        Option.builder("c").longOpt("config").required().hasArg().argName("FILE").build());
   }
 
   private CloudFileStorage buildCloudFileStorage(Configuration config, CostTracker costTracker) {
@@ -109,11 +110,14 @@ abstract class AbstractCommand {
     CountingCloudFileStorage counting = new CountingCloudFileStorage(cloudFileStorage);
     cloudFileStorage = counting;
     if (!config.disableCache()) {
-      cloudFileStorage = new CachingCloudFileStorage(counting, config.getLocalCacheDir(), context.getClock());
+      cloudFileStorage =
+          new CachingCloudFileStorage(counting, config.getLocalCacheDir(), context.getClock());
     }
-    cloudFileStorage = new SigningCloudFileStorage(cloudFileStorage, new Signer(config.getSigningKey()));
-    cloudFileStorage = new EncryptingCloudFileStorage(
-        cloudFileStorage, new Cryptor(config.getEncryptionKey(), config.getSigningKey()));
+    cloudFileStorage =
+        new SigningCloudFileStorage(cloudFileStorage, new Signer(config.getSigningKey()));
+    cloudFileStorage =
+        new EncryptingCloudFileStorage(
+            cloudFileStorage, new Cryptor(config.getEncryptionKey(), config.getSigningKey()));
     cloudFileStorage = new CompressingCloudFileStorage(cloudFileStorage, new Compressor());
     return cloudFileStorage;
   }
@@ -127,7 +131,8 @@ abstract class AbstractCommand {
   }
 
   private Configuration loadConfig(CommandLine commandLine) throws IOException {
-    return Configuration.fromFile(context.getFileSystem().getPath(commandLine.getOptionValue("config")));
+    return Configuration.fromFile(
+        context.getFileSystem().getPath(commandLine.getOptionValue("config")));
   }
 
   private String getCommandName() {

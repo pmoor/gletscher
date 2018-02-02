@@ -59,12 +59,15 @@ public class GletscherMain {
     private final ListeningExecutorService executor;
 
     RealCommandContext() {
-      ThreadFactory threadFactory = new ThreadFactoryBuilder()
-          .setNameFormat("gletscher-pool-%d")
-          .setUncaughtExceptionHandler(UncaughtExceptionHandlers.systemExit())
-          .build();
-      executor = MoreExecutors.listeningDecorator(
-          new ThreadPoolExecutor(4, 32, 1, TimeUnit.MINUTES, new LinkedBlockingQueue<>(1024), threadFactory));
+      ThreadFactory threadFactory =
+          new ThreadFactoryBuilder()
+              .setNameFormat("gletscher-pool-%d")
+              .setUncaughtExceptionHandler(UncaughtExceptionHandlers.systemExit())
+              .build();
+      executor =
+          MoreExecutors.listeningDecorator(
+              new ThreadPoolExecutor(
+                  4, 32, 1, TimeUnit.MINUTES, new LinkedBlockingQueue<>(1024), threadFactory));
     }
 
     @Override
@@ -74,8 +77,10 @@ public class GletscherMain {
 
     @Override
     public CloudFileStorage connectToCloud(Configuration config, CostTracker costTracker) {
-      Storage storage = GoogleCloudFileStorage.buildStorageWithCredentials(config.getCredentialFilePath());
-      return new GoogleCloudFileStorage(storage, config.getBucketName(), config.getFilePrefix(), executor, costTracker);
+      Storage storage =
+          GoogleCloudFileStorage.buildStorageWithCredentials(config.getCredentialFilePath());
+      return new GoogleCloudFileStorage(
+          storage, config.getBucketName(), config.getFilePrefix(), executor, costTracker);
     }
 
     @Override

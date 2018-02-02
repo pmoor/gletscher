@@ -24,7 +24,8 @@ import java.util.Map;
 
 public interface CloudFileStorage extends AutoCloseable {
 
-  ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options);
+  ListenableFuture<?> store(
+      String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options);
 
   Iterator<FileHeader> listFiles(String prefix, int limit);
 

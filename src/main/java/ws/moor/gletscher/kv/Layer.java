@@ -38,6 +38,7 @@ abstract class Layer {
     boolean isDeleteMarker();
 
     int size();
+
     ByteBuffer read();
   }
 }

@@ -242,8 +242,7 @@ public class KVStoreRandomizedIT {
     store.close();
   }
 
-  private boolean keyShouldBeReturned(
-      Key startKey, Key key, boolean inclusive, boolean ascending) {
+  private boolean keyShouldBeReturned(Key startKey, Key key, boolean inclusive, boolean ascending) {
     int cmp = startKey.compareTo(key);
     if (ascending) {
       return cmp < 0 || (cmp == 0 && inclusive);

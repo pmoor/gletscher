@@ -45,10 +45,11 @@ public class CatalogReader {
 
   private final BlockStore blockStore;
   private final Catalog catalog;
-  private final LoadingCache<Path, CacheEntry> dirCache = CacheBuilder.newBuilder()
-      .maximumWeight(4 << 20) // 4 MB
-      .weigher((Weigher<Path, CacheEntry>) (k, v) -> k.toString().length() + v.weight())
-      .build(CacheLoader.from(this::loadDirectory));
+  private final LoadingCache<Path, CacheEntry> dirCache =
+      CacheBuilder.newBuilder()
+          .maximumWeight(4 << 20) // 4 MB
+          .weigher((Weigher<Path, CacheEntry>) (k, v) -> k.toString().length() + v.weight())
+          .build(CacheLoader.from(this::loadDirectory));
 
   public CatalogReader(BlockStore blockStore, Catalog catalog) {
     this.blockStore = blockStore;
@@ -64,7 +65,7 @@ public class CatalogReader {
     return new DirectoryInformation(path, cacheEntry);
   }
 
-  public final static class FileInformation {
+  public static final class FileInformation {
 
     public final Path path;
     public final Instant lastModifiedTime;
@@ -81,7 +82,7 @@ public class CatalogReader {
     }
   }
 
-  public final static class DirectoryInformation {
+  public static final class DirectoryInformation {
 
     private final CacheEntry cacheEntry;
     private final Map<Path, FileInformation> fileEntries = new TreeMap<>();
@@ -126,7 +127,8 @@ public class CatalogReader {
     for (Gletscher.PersistedBlock persistedBlock : fileProto.getBlockList()) {
       builder.add(PersistedBlock.fromProto(persistedBlock));
     }
-    return new FileInformation(name, Instant.ofEpochMilli(fileProto.getLastModifiedMillis()), builder.build());
+    return new FileInformation(
+        name, Instant.ofEpochMilli(fileProto.getLastModifiedMillis()), builder.build());
   }
 
   public Iterator<FileInformation> walk() {
@@ -146,9 +148,10 @@ public class CatalogReader {
             case FILE:
               return toFileInfo(currentPath.resolve(next.getFile().getName()), next.getFile());
             case DIRECTORY:
-              stack.push(new PathAndBlock(
-                  currentPath.resolve(next.getDirectory().getName()),
-                  PersistedBlock.fromProto(next.getDirectory().getBlock())));
+              stack.push(
+                  new PathAndBlock(
+                      currentPath.resolve(next.getDirectory().getName()),
+                      PersistedBlock.fromProto(next.getDirectory().getBlock())));
               break;
             case SYMLINK:
               // TODO(pmoor): implement
@@ -201,7 +204,7 @@ public class CatalogReader {
     return new CacheEntry(null, NULL_DIR);
   }
 
-  private Gletscher.Directory fetchDir(PersistedBlock block){
+  private Gletscher.Directory fetchDir(PersistedBlock block) {
     byte[] data = Futures.getUnchecked(blockStore.retrieve(block));
     if (data == null) {
       return NULL_DIR;

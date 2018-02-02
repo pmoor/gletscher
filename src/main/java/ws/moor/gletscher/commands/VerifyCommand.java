@@ -27,7 +27,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-@Command(name = "verify", description = "Verifies that a catalog has all its data stored in the cloud.")
+@Command(
+  name = "verify",
+  description = "Verifies that a catalog has all its data stored in the cloud."
+)
 class VerifyCommand extends AbstractCommand {
   VerifyCommand(CommandContext context) {
     super(context);

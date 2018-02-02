@@ -71,7 +71,8 @@ class RollingHash {
     }
 
     for (int i = 0; i < BUFFER_SIZE; i++) {
-      if (buffer[(next + i) & BUFFER_MODULO_MASK] != other.buffer[(other.next + i) & BUFFER_MODULO_MASK]) {
+      if (buffer[(next + i) & BUFFER_MODULO_MASK]
+          != other.buffer[(other.next + i) & BUFFER_MODULO_MASK]) {
         return false;
       }
     }

@@ -43,9 +43,8 @@ public class CatalogStore {
   public CatalogStore(FileSystem fs, CloudFileStorage storage) {
     this.fs = fs;
     this.storage = storage;
-    dateTimeFormatter = DateTimeFormatter
-        .ofPattern("yyyy-MM-dd-HH-mm-ss", Locale.US)
-        .withZone(ZoneId.of("UTC"));
+    dateTimeFormatter =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss", Locale.US).withZone(ZoneId.of("UTC"));
   }
 
   public void store(Catalog catalog) {
@@ -53,7 +52,10 @@ public class CatalogStore {
     byte[] data = catalog.toProto().toByteArray();
     Futures.getUnchecked(
         storage.store(
-            fileName, data, Hashing.md5().hashBytes(data), ImmutableMap.of(),
+            fileName,
+            data,
+            Hashing.md5().hashBytes(data),
+            ImmutableMap.of(),
             new CloudFileStorage.StoreOptions(true)));
   }
 
@@ -74,7 +76,8 @@ public class CatalogStore {
     while (it.hasNext()) {
       CloudFileStorage.FileHeader header = it.next();
       try {
-        Gletscher.Catalog proto = Gletscher.Catalog.parseFrom(Futures.getUnchecked(storage.get(header.name)));
+        Gletscher.Catalog proto =
+            Gletscher.Catalog.parseFrom(Futures.getUnchecked(storage.get(header.name)));
         catalogs.add(Catalog.fromProto(fs, proto));
       } catch (InvalidProtocolBufferException e) {
         throw new IllegalArgumentException(e);

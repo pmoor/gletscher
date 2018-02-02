@@ -42,7 +42,8 @@ public class SigningCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
-  public ListenableFuture<?> store(String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
+  public ListenableFuture<?> store(
+      String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
     Preconditions.checkArgument(!metadata.containsKey(PROPERTY_NAME));
 
     Map<String, String> attributes = new HashMap<>(metadata);
@@ -52,14 +53,16 @@ public class SigningCloudFileStorage implements CloudFileStorage {
 
   @Override
   public Iterator<FileHeader> listFiles(String prefix, int limit) {
-    return Iterators.transform(delegate.listFiles(prefix, limit), file -> {
-      Preconditions.checkArgument(file.metadata.containsKey(PROPERTY_NAME));
-      Signature signature = sign(file.md5, file.name);
-      if (!signature.toString().equals(file.metadata.get(PROPERTY_NAME))) {
-        throw new IllegalStateException("signature mismatch");
-      }
-      return file;
-    });
+    return Iterators.transform(
+        delegate.listFiles(prefix, limit),
+        file -> {
+          Preconditions.checkArgument(file.metadata.containsKey(PROPERTY_NAME));
+          Signature signature = sign(file.md5, file.name);
+          if (!signature.toString().equals(file.metadata.get(PROPERTY_NAME))) {
+            throw new IllegalStateException("signature mismatch");
+          }
+          return file;
+        });
   }
 
   @Override
@@ -78,7 +81,8 @@ public class SigningCloudFileStorage implements CloudFileStorage {
   }
 
   private Signature sign(HashCode md5, String name) {
-    byte[] dataToSign = MoreArrays.concatenate(md5.asBytes(), name.getBytes(StandardCharsets.UTF_8));
+    byte[] dataToSign =
+        MoreArrays.concatenate(md5.asBytes(), name.getBytes(StandardCharsets.UTF_8));
     return signer.computeSignature(dataToSign);
   }
 }
