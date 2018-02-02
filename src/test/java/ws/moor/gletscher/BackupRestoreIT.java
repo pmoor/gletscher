@@ -84,6 +84,10 @@ public class BackupRestoreIT {
     // verify
     runCommandAndAssertSuccess(fs, inMemoryStorage,
         "verify", "-c", "/config.properties");
+
+    // spot check
+    runCommandAndAssertSuccess(fs, inMemoryStorage,
+        "spot_check", "-c", "/config.properties");
   }
 
   private void runCommandAndAssertSuccess(FileSystem fs, CloudFileStorage inMemoryStorage, String... args) throws Exception {
