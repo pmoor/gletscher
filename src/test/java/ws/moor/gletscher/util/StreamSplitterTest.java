@@ -18,6 +18,7 @@ package ws.moor.gletscher.util;
 
 import com.google.common.collect.Sets;
 import com.google.common.hash.HashCode;
+import com.google.common.hash.Hashing;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -46,12 +47,12 @@ public class StreamSplitterTest {
     Set<HashCode> fileAHashes = new HashSet<>();
     splitter
         .split(new ByteArrayInputStream(fileA))
-        .forEachRemaining(block -> fileAHashes.add(LegacyHashing.md5().hashBytes(block)));
+        .forEachRemaining(block -> fileAHashes.add(Hashing.sha256().hashBytes(block)));
 
     Set<HashCode> fileBHashes = new HashSet<>();
     splitter
         .split(new ByteArrayInputStream(fileB))
-        .forEachRemaining(block -> fileBHashes.add(LegacyHashing.md5().hashBytes(block)));
+        .forEachRemaining(block -> fileBHashes.add(Hashing.sha256().hashBytes(block)));
 
     assertThat(Sets.union(fileAHashes, fileBHashes).size())
         .isLessThan(fileAHashes.size() + fileBHashes.size());
