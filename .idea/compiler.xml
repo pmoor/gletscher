@@ -23,7 +23,7 @@
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="Gletscher" target="1.8" />
+      <module name="Gletscher" target="1.10" />
     </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
