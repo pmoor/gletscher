@@ -36,6 +36,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
@@ -215,7 +216,7 @@ class BackupCommand extends AbstractCommand {
 
     private ListenableFuture<Gletscher.DirectoryEntry> handleRegularFile(
         FileSystemReader.Entry entry, CatalogReader.FileInformation existingFile) {
-      Instant currentLastModifiedTime = entry.attributes.lastModifiedTime().toInstant();
+      Instant currentLastModifiedTime = entry.attributes.lastModifiedTime().toInstant().truncatedTo(ChronoUnit.MILLIS);
       if (existingFile == null
           || !existingFile.lastModifiedTime.equals(currentLastModifiedTime)
           || existingFile.getOriginalSize() != entry.attributes.size()) {
