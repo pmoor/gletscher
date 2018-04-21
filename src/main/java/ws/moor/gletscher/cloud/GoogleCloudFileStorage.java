@@ -32,6 +32,7 @@ import com.google.api.services.storage.model.StorageObject;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.FluentLogger;
 import com.google.common.hash.HashCode;
 import com.google.common.io.BaseEncoding;
 import com.google.common.io.ByteStreams;
@@ -50,13 +51,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class GoogleCloudFileStorage implements CloudFileStorage {
 
-  private static final Logger logger = Logger.getLogger(GoogleCloudFileStorage.class.getName());
+  private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
   private final Storage client;
   private final String bucket;
@@ -120,7 +120,7 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
                       method.getMediaHttpUploader().setDirectUploadEnabled(true);
                     }
                     StorageObject response = method.execute();
-                    logger.fine("response received: " + response);
+                    logger.atFine().log("response received: %s", response);
 
                     String expectedMd5 = BaseEncoding.base64().encode(md5.asBytes());
                     if (!expectedMd5.equals(response.getMd5Hash())) {
