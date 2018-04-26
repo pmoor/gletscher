@@ -45,6 +45,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.GeneralSecurityException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -84,7 +85,7 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
       JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
       Credential credential =
           GoogleCredential.fromStream(
-                  Files.newInputStream(credentialFilePath), httpTransport, jsonFactory)
+              Files.newInputStream(credentialFilePath), httpTransport, jsonFactory)
               .createScoped(
                   ImmutableSet.of("https://www.googleapis.com/auth/devstorage.read_write"));
       return new Storage.Builder(httpTransport, jsonFactory, credential)
@@ -99,43 +100,42 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
   public ListenableFuture<?> store(
       String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
     return executor.submit(
-        () ->
-            retry(
-                () -> {
-                  try {
-                    StorageObject sob =
-                        new StorageObject()
-                            .setName(filePrefix + name)
-                            .setMd5Hash(BaseEncoding.base64().encode(md5.asBytes()))
-                            .setMetadata(metadata);
-                    ByteArrayContent content =
-                        new ByteArrayContent("application/octet-stream", data);
+        retryingCallable(
+            () -> {
+              try {
+                StorageObject sob =
+                    new StorageObject()
+                        .setName(filePrefix + name)
+                        .setMd5Hash(BaseEncoding.base64().encode(md5.asBytes()))
+                        .setMetadata(metadata);
+                ByteArrayContent content =
+                    new ByteArrayContent("application/octet-stream", data);
 
-                    costTracker.trackInsert(metadata, data.length);
-                    Storage.Objects.Insert method = client.objects().insert(bucket, sob, content);
-                    method.setDisableGZipContent(true);
-                    method.setIfGenerationMatch(0L);
-                    method.setFields("md5Hash");
-                    if (data.length < 10 << 20) {
-                      method.getMediaHttpUploader().setDirectUploadEnabled(true);
-                    }
-                    StorageObject response = method.execute();
-                    logger.atFine().log("response received: %s", response);
+                costTracker.trackInsert(metadata, data.length);
+                Storage.Objects.Insert method = client.objects().insert(bucket, sob, content);
+                method.setDisableGZipContent(true);
+                method.setIfGenerationMatch(0L);
+                method.setFields("md5Hash");
+                if (data.length < 10 << 20) {
+                  method.getMediaHttpUploader().setDirectUploadEnabled(true);
+                }
+                StorageObject response = method.execute();
+                logger.atFine().log("response received: %s", response);
 
-                    String expectedMd5 = BaseEncoding.base64().encode(md5.asBytes());
-                    if (!expectedMd5.equals(response.getMd5Hash())) {
-                      throw new IllegalStateException(
-                          "expected md5: " + expectedMd5 + ", actual: " + response.getMd5Hash());
-                    }
-                    return null;
-                  } catch (HttpResponseException e) {
-                    if (e.getStatusCode() == 412) {
-                      // precondition failed -> object already exists
-                      throw new FileAlreadyExistsException(name);
-                    }
-                    throw e;
-                  }
-                }));
+                String expectedMd5 = BaseEncoding.base64().encode(md5.asBytes());
+                if (!expectedMd5.equals(response.getMd5Hash())) {
+                  throw new IllegalStateException(
+                      "expected md5: " + expectedMd5 + ", actual: " + response.getMd5Hash());
+                }
+                return null;
+              } catch (HttpResponseException e) {
+                if (e.getStatusCode() == 412) {
+                  // precondition failed -> object already exists
+                  throw new FileAlreadyExistsException(name);
+                }
+                throw e;
+              }
+            }));
   }
 
   @Override
@@ -194,59 +194,56 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
   @Override
   public ListenableFuture<Boolean> exists(String name) {
     return executor.submit(
-        () ->
-            retry(
-                () -> {
-                  Storage.Objects.Get get = client.objects().get(bucket, filePrefix + name);
-                  get.setFields("");
-                  try {
-                    costTracker.trackHead();
-                    get.execute();
-                    return true;
-                  } catch (HttpResponseException e) {
-                    if (e.getStatusCode() == 404) {
-                      return false;
-                    }
-                    throw e;
-                  }
-                }));
+        retryingCallable(() -> {
+          Storage.Objects.Get get = client.objects().get(bucket, filePrefix + name);
+          get.setFields("");
+          try {
+            costTracker.trackHead();
+            get.execute();
+            return true;
+          } catch (HttpResponseException e) {
+            if (e.getStatusCode() == 404) {
+              return false;
+            }
+            throw e;
+          }
+        }));
   }
 
   @Override
   public ListenableFuture<byte[]> get(String name) {
     return executor.submit(
-        () ->
-            retry(
-                () -> {
-                  Storage.Objects.Get get = client.objects().get(bucket, filePrefix + name);
-                  get.getMediaHttpDownloader().setDirectDownloadEnabled(true);
-                  try {
-                    HttpResponse httpResponse = get.executeMedia();
-                    byte[] data = ByteStreams.toByteArray(httpResponse.getContent());
-                    costTracker.trackGet(data.length);
-                    String hash =
-                        httpResponse.getHeaders().getFirstHeaderStringValue("x-goog-hash");
+        retryingCallable(
+            () -> {
+              Storage.Objects.Get get = client.objects().get(bucket, filePrefix + name);
+              get.getMediaHttpDownloader().setDirectDownloadEnabled(true);
+              try {
+                HttpResponse httpResponse = get.executeMedia();
+                byte[] data = ByteStreams.toByteArray(httpResponse.getContent());
+                costTracker.trackGet(data.length);
+                String hash =
+                    httpResponse.getHeaders().getFirstHeaderStringValue("x-goog-hash");
 
-                    Pattern pattern = Pattern.compile("md5=([A-Za-z0-9=/+]+)");
-                    Matcher matcher = pattern.matcher(hash);
-                    if (matcher.find()) {
-                      HashCode md5 =
-                          HashCode.fromBytes(BaseEncoding.base64().decode(matcher.group(1)));
-                      HashCode actualMd5 = LegacyHashing.md5().hashBytes(data);
-                      if (actualMd5.equals(md5)) {
-                        return data;
-                      }
-                      throw new IllegalStateException("mismatched md5");
-                    } else {
-                      throw new IllegalStateException("mismatched md5");
-                    }
-                  } catch (HttpResponseException e) {
-                    if (e.getStatusCode() == 404) {
-                      return null;
-                    }
-                    throw e;
+                Pattern pattern = Pattern.compile("md5=([A-Za-z0-9=/+]+)");
+                Matcher matcher = pattern.matcher(hash);
+                if (matcher.find()) {
+                  HashCode md5 =
+                      HashCode.fromBytes(BaseEncoding.base64().decode(matcher.group(1)));
+                  HashCode actualMd5 = LegacyHashing.md5().hashBytes(data);
+                  if (actualMd5.equals(md5)) {
+                    return data;
                   }
-                }));
+                  throw new IllegalStateException("mismatched md5");
+                } else {
+                  throw new IllegalStateException("mismatched md5");
+                }
+              } catch (HttpResponseException e) {
+                if (e.getStatusCode() == 404) {
+                  return null;
+                }
+                throw e;
+              }
+            }));
   }
 
   @Override
@@ -265,26 +262,32 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
         object.getMetadata());
   }
 
+  private static <R> Callable<R> retryingCallable(Callable<R> callable) {
+    return () -> retry(callable);
+  }
+
   private static <R> R retry(Callable<R> callable) throws Exception {
     Stopwatch stopwatch = Stopwatch.createStarted();
-    long nextSleepMillis = 100;
-    long maxSleepMillis = 5 * 60 * 1000;
-    long maxAttemptDuration = 60 * 60 * 1000;
+    Duration nextSleepDuration = Duration.ofMillis(100);
+    final Duration maxSleepDuration = Duration.ofMinutes(5);
+    final Duration maxAttemptDuration = Duration.ofHours(1);
 
     while (true) {
       try {
         return callable.call();
       } catch (IOException e) {
-        if (stopwatch.elapsed(TimeUnit.MILLISECONDS) + nextSleepMillis > maxAttemptDuration) {
+        if (stopwatch.elapsed().plus(nextSleepDuration).compareTo(maxAttemptDuration) > 0) {
           IllegalStateException ise = new IllegalStateException("too many retries");
           ise.addSuppressed(e);
           throw ise;
         }
       }
 
-      Uninterruptibles.sleepUninterruptibly(nextSleepMillis, TimeUnit.MILLISECONDS);
-      nextSleepMillis *= 2;
-      nextSleepMillis = Math.min(nextSleepMillis, maxSleepMillis);
+      Uninterruptibles.sleepUninterruptibly(nextSleepDuration.toMillis(), TimeUnit.MILLISECONDS);
+      nextSleepDuration = nextSleepDuration.multipliedBy(2);
+      if (nextSleepDuration.compareTo(maxSleepDuration) > 0) {
+        nextSleepDuration = maxSleepDuration;
+      }
     }
   }
 }
