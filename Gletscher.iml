@@ -39,5 +39,6 @@
     <orderEntry type="library" name="Maven: com.google.guava:guava-jdk5:17.0" level="project" />
     <orderEntry type="library" name="Maven: commons-cli:commons-cli:1.4" level="project" />
     <orderEntry type="library" name="Maven: com.google.flogger:flogger:0.1" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: com.google.flogger:flogger-system-backend:0.1" level="project" />
   </component>
 </module>
