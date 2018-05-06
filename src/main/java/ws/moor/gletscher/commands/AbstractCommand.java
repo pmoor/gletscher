@@ -67,7 +67,7 @@ abstract class AbstractCommand {
       config = loadConfig(commandLine);
       cloudFileStorage = buildCloudFileStorage(config, costTracker);
       blockStore = new BlockStore(cloudFileStorage, new Signer(config.getSigningKey()));
-      catalogStore = new CatalogStore(context.getFileSystem(), cloudFileStorage);
+      catalogStore = new CatalogStore(context.getFileSystem(), cloudFileStorage, blockStore);
     }
 
     List<String> argList = new ArrayList<>(commandLine.getArgList());
@@ -83,7 +83,8 @@ abstract class AbstractCommand {
     return returnCode;
   }
 
-  void addCommandLineOptions(Options options) {}
+  void addCommandLineOptions(Options options) {
+  }
 
   protected abstract int runInternal(CommandLine commandLine, List<String> args) throws Exception;
 

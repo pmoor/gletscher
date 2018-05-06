@@ -19,7 +19,11 @@ package ws.moor.gletscher.catalog;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.InvalidProtocolBufferException;
+import ws.moor.gletscher.blocks.BlockStore;
+import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.proto.Gletscher;
 import ws.moor.gletscher.util.LegacyHashing;
@@ -32,13 +36,17 @@ import java.util.*;
 
 public class CatalogStore {
 
+  private static final String VERSION_META_KEY = "version";
+
   private final FileSystem fs;
   private final CloudFileStorage storage;
+  private final BlockStore blockStore;
   private final DateTimeFormatter dateTimeFormatter;
 
-  public CatalogStore(FileSystem fs, CloudFileStorage storage) {
+  public CatalogStore(FileSystem fs, CloudFileStorage storage, BlockStore blockStore) {
     this.fs = fs;
     this.storage = storage;
+    this.blockStore = blockStore;
     dateTimeFormatter =
         DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss", Locale.US).withZone(ZoneId.of("UTC"));
   }
@@ -46,13 +54,15 @@ public class CatalogStore {
   public void store(Catalog catalog) {
     String fileName = createFileName(catalog.getStartTime());
     byte[] data = catalog.toProto().toByteArray();
-    Futures.getUnchecked(
-        storage.store(
-            fileName,
-            data,
-            LegacyHashing.md5().hashBytes(data),
-            ImmutableMap.of(),
-            new CloudFileStorage.StoreOptions(true)));
+
+    PersistedBlock pb = Futures.getUnchecked(blockStore.store(data, true));
+    byte[] bytes = pb.toProto().toByteArray();
+    Futures.getUnchecked(storage.store(
+        fileName,
+        bytes,
+        LegacyHashing.md5().hashBytes(bytes),
+        ImmutableMap.of(VERSION_META_KEY, "1"),
+        new CloudFileStorage.StoreOptions(true)));
   }
 
   private String createFileName(Instant now) {
@@ -72,8 +82,18 @@ public class CatalogStore {
     while (it.hasNext()) {
       CloudFileStorage.FileHeader header = it.next();
       try {
+        ListenableFuture<byte[]> catalogBytesFuture;
+        if (header.metadata.containsKey(VERSION_META_KEY)
+            && Integer.parseInt(header.metadata.get(VERSION_META_KEY)) == 1) {
+          catalogBytesFuture = Futures.transformAsync(storage.get(header.name), (data) -> {
+            Gletscher.PersistedBlock pbProto = Gletscher.PersistedBlock.parseFrom(data);
+            return blockStore.retrieve(PersistedBlock.fromProto(pbProto));
+          }, MoreExecutors.directExecutor());
+        } else {
+          catalogBytesFuture = storage.get(header.name);
+        }
         Gletscher.Catalog proto =
-            Gletscher.Catalog.parseFrom(Futures.getUnchecked(storage.get(header.name)));
+            Gletscher.Catalog.parseFrom(Futures.getUnchecked(catalogBytesFuture));
         catalogs.add(Catalog.fromProto(fs, proto));
       } catch (InvalidProtocolBufferException e) {
         throw new IllegalArgumentException(e);
