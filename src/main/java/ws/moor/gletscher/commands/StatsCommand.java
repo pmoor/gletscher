@@ -22,6 +22,7 @@ import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogAnalyzer;
 
 import java.util.List;
+import java.util.Optional;
 
 @Command(name = "stats", description = "Print size stats of the last 3 remote catalogs.")
 class StatsCommand extends AbstractCommand {
@@ -41,8 +42,10 @@ class StatsCommand extends AbstractCommand {
     }
 
     CatalogAnalyzer analyzer = new CatalogAnalyzer(blockStore);
-    for (Catalog catalog : catalogStore.findLastCatalogs(3)) {
-      analyzer.analyze(catalog, context.getStdOut());
+    Optional<Catalog> catalog = catalogStore.getLatestCatalog();
+    while (catalog.isPresent()) {
+      analyzer.analyze(catalog.get(), context.getStdOut());
+      catalog = catalog.get().getBaseCatalog().map(catalogStore::load);
     }
     return 0;
   }

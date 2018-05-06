@@ -27,6 +27,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 
 public class Catalog {
 
@@ -98,5 +99,9 @@ public class Catalog {
 
   public PersistedBlock getOnlyRootBlock() {
     return Iterables.getOnlyElement(roots.values());
+  }
+
+  public Optional<PersistedBlock> getBaseCatalog() {
+    return Optional.ofNullable(baseCatalog);
   }
 }

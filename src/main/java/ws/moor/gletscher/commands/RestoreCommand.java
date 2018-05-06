@@ -16,7 +16,6 @@
 
 package ws.moor.gletscher.commands;
 
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Futures;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
@@ -34,6 +33,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
 import java.util.List;
+import java.util.Optional;
 
 @Command(name = "restore", description = "Restore a backup locally.")
 class RestoreCommand extends AbstractCommand {
@@ -59,16 +59,15 @@ class RestoreCommand extends AbstractCommand {
     }
     Files.createDirectories(restoreRoot);
 
-    List<Catalog> lastCatalogs = catalogStore.findLastCatalogs(1);
-    if (lastCatalogs.isEmpty()) {
+    Optional<Catalog> catalog = catalogStore.getLatestCatalog();
+    if (!catalog.isPresent()) {
       context.getStdErr().println("no existing backup found");
       return -1;
     }
 
-    Catalog catalog = Iterables.getOnlyElement(lastCatalogs);
     Gletscher.Directory rootDir =
         Gletscher.Directory.parseFrom(
-            Futures.getUnchecked(blockStore.retrieve(catalog.getOnlyRootBlock())));
+            Futures.getUnchecked(blockStore.retrieve(catalog.get().getOnlyRootBlock())));
     restoreInner(blockStore, rootDir, restoreRoot);
     return 0;
   }

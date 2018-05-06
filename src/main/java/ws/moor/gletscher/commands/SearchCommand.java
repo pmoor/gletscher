@@ -24,6 +24,7 @@ import ws.moor.gletscher.catalog.CatalogReader;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 @Command(name = "search", description = "Look for a file name in a remote backup.")
@@ -51,10 +52,11 @@ class SearchCommand extends AbstractCommand {
       (isNegative ? negative : positive).add(pattern);
     }
 
-    for (Catalog catalog : catalogStore.findLastCatalogs(16)) {
-      context.getStdOut().printf("Backup %s:\n", catalog.getAddress());
+    Optional<Catalog> catalog = catalogStore.getLatestCatalog();
+    while (catalog.isPresent()) {
+      context.getStdOut().printf("Backup %s:\n", catalog.get().getAddress());
 
-      CatalogReader reader = new CatalogReader(blockStore, catalog);
+      CatalogReader reader = new CatalogReader(blockStore, catalog.get());
       Iterator<CatalogReader.FileInformation> iterator = reader.walk();
       while (iterator.hasNext()) {
         CatalogReader.FileInformation file = iterator.next();
@@ -82,6 +84,8 @@ class SearchCommand extends AbstractCommand {
         }
       }
       context.getStdOut().println();
+
+      catalog = catalog.get().getBaseCatalog().map(catalogStore::load);
     }
 
     return 0;

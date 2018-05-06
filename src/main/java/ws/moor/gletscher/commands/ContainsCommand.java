@@ -71,17 +71,20 @@ class ContainsCommand extends AbstractCommand {
       blocksByPath.put(path, blocks);
     }
 
-    for (Catalog catalog : catalogStore.findLastCatalogs(16)) {
-      CatalogReader catalogReader = new CatalogReader(blockStore, catalog);
+    Optional<Catalog> catalog = catalogStore.getLatestCatalog();
+    while (catalog.isPresent()) {
+      CatalogReader catalogReader = new CatalogReader(blockStore, catalog.get());
       Iterator<CatalogReader.FileInformation> it = catalogReader.walk();
       while (it.hasNext()) {
         CatalogReader.FileInformation file = it.next();
         for (Map.Entry<Path, List<PersistedBlock>> entry : blocksByPath.entrySet()) {
           if (file.blockList.equals(entry.getValue())) {
-            context.getStdOut().printf("match with %s in %s\n", file.path, catalog.getAddress());
+            context.getStdOut().printf("match with %s in %s\n", file.path, catalog.get().getAddress());
           }
         }
       }
+
+      catalog = catalog.get().getBaseCatalog().map(catalogStore::load);
     }
 
     return 0;
