@@ -17,6 +17,7 @@
 package ws.moor.gletscher;
 
 import com.google.api.client.repackaged.com.google.common.base.Strings;
+import com.google.common.base.Preconditions;
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -30,6 +31,7 @@ import ws.moor.gletscher.commands.testing.TestCommandContext;
 import ws.moor.gletscher.proto.testing.Testing;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
@@ -86,8 +88,8 @@ public class BackwardsCompatibilityTest {
 
   @Test
   public void version20160930() throws Exception {
-    inMemoryStorage.mergeFromProto(
-        Testing.FileList.parseFrom(getClass().getResourceAsStream("/20160930.bin")));
+    String testDataFile = "/20160930.bin";
+    populateStorageWithTestData(testDataFile);
 
     runCommandAndAssertSuccess(
         fs, inMemoryStorage, "restore", "-c", "/config.properties", "/restore");
@@ -98,8 +100,7 @@ public class BackwardsCompatibilityTest {
 
   @Test
   public void version20160930newCryptor() throws Exception {
-    inMemoryStorage.mergeFromProto(
-        Testing.FileList.parseFrom(getClass().getResourceAsStream("/20160930-new-cryptor.bin")));
+    populateStorageWithTestData("/20160930-new-cryptor.bin");
 
     runCommandAndAssertSuccess(
         fs, inMemoryStorage, "restore", "-c", "/config.properties", "/restore");
@@ -110,14 +111,18 @@ public class BackwardsCompatibilityTest {
 
   @Test
   public void version20180505newCatalog() throws Exception {
-    inMemoryStorage.mergeFromProto(
-        Testing.FileList.parseFrom(getClass().getResourceAsStream("/20180505-new-catalog.bin")));
+    populateStorageWithTestData("/20180505-new-catalog.bin");
 
     runCommandAndAssertSuccess(
         fs, inMemoryStorage, "restore", "-c", "/config.properties", "/restore");
     assertProperlyRestored(fs.getPath("/restore"));
 
     runCommandAndAssertSuccess(fs, inMemoryStorage, "verify", "-c", "/config.properties");
+  }
+
+  private void populateStorageWithTestData(String testDataFile) throws IOException {
+    InputStream resource = Preconditions.checkNotNull(getClass().getResourceAsStream(testDataFile));
+    inMemoryStorage.mergeFromProto(Testing.FileList.parseFrom(resource));
   }
 
   private void runCommandAndAssertSuccess(
