@@ -55,12 +55,12 @@ public class BackwardsCompatibilityTest {
     Files.write(
         fs.getPath("/config.properties"),
         ("version: 1\n"
-                + "max_split_size: 10\n"
-                + "disable_cache: true\n"
-                + "include:\n"
-                + "  - /home\n"
-                + "exclude:\n"
-                + "  - \\.ignore$")
+            + "max_split_size: 10\n"
+            + "disable_cache: true\n"
+            + "include:\n"
+            + "  - /home\n"
+            + "exclude:\n"
+            + "  - \\.ignore$")
             .getBytes(StandardCharsets.UTF_8));
 
     inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
@@ -78,10 +78,10 @@ public class BackwardsCompatibilityTest {
 
     runCommandAndAssertSuccess(fs, inMemoryStorage, "verify", "-c", "/config.properties");
 
-    // remove comment to create new test test
-    //    try (FileOutputStream fos = new FileOutputStream("/tmp/dump.bin")) {
-    //      inMemoryStorage.toProto().writeTo(fos);
-    //    }
+    // remove comment to create new test data
+//    try (var fos = new java.io.FileOutputStream("/tmp/dump.bin")) {
+//      inMemoryStorage.toProto().writeTo(fos);
+//    }
   }
 
   @Test
@@ -100,6 +100,18 @@ public class BackwardsCompatibilityTest {
   public void version20160930newCryptor() throws Exception {
     inMemoryStorage.mergeFromProto(
         Testing.FileList.parseFrom(getClass().getResourceAsStream("/20160930-new-cryptor.bin")));
+
+    runCommandAndAssertSuccess(
+        fs, inMemoryStorage, "restore", "-c", "/config.properties", "/restore");
+    assertProperlyRestored(fs.getPath("/restore"));
+
+    runCommandAndAssertSuccess(fs, inMemoryStorage, "verify", "-c", "/config.properties");
+  }
+
+  @Test
+  public void version20180505newCatalog() throws Exception {
+    inMemoryStorage.mergeFromProto(
+        Testing.FileList.parseFrom(getClass().getResourceAsStream("/20180505-new-catalog.bin")));
 
     runCommandAndAssertSuccess(
         fs, inMemoryStorage, "restore", "-c", "/config.properties", "/restore");

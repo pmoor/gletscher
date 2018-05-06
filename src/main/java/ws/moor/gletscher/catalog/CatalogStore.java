@@ -19,8 +19,6 @@ package ws.moor.gletscher.catalog;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.InvalidProtocolBufferException;
 import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.blocks.PersistedBlock;
@@ -51,7 +49,7 @@ public class CatalogStore {
         DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss", Locale.US).withZone(ZoneId.of("UTC"));
   }
 
-  public void store(Catalog catalog) {
+  public PersistedBlock store(Catalog catalog) {
     String fileName = createFileName(catalog.getStartTime());
     byte[] data = catalog.toProto().toByteArray();
 
@@ -63,6 +61,7 @@ public class CatalogStore {
         LegacyHashing.md5().hashBytes(bytes),
         ImmutableMap.of(VERSION_META_KEY, "1"),
         new CloudFileStorage.StoreOptions(true)));
+    return pb;
   }
 
   private String createFileName(Instant now) {
@@ -82,19 +81,19 @@ public class CatalogStore {
     while (it.hasNext()) {
       CloudFileStorage.FileHeader header = it.next();
       try {
-        ListenableFuture<byte[]> catalogBytesFuture;
+        byte[] catalogFileBytes = Futures.getUnchecked(storage.get(header.name));
         if (header.metadata.containsKey(VERSION_META_KEY)
             && Integer.parseInt(header.metadata.get(VERSION_META_KEY)) == 1) {
-          catalogBytesFuture = Futures.transformAsync(storage.get(header.name), (data) -> {
-            Gletscher.PersistedBlock pbProto = Gletscher.PersistedBlock.parseFrom(data);
-            return blockStore.retrieve(PersistedBlock.fromProto(pbProto));
-          }, MoreExecutors.directExecutor());
+          Gletscher.PersistedBlock pbProto = Gletscher.PersistedBlock.parseFrom(catalogFileBytes);
+          PersistedBlock pb = PersistedBlock.fromProto(pbProto);
+          byte[] catalogBytes = Futures.getUnchecked(blockStore.retrieve(pb));
+          Gletscher.Catalog proto = Gletscher.Catalog.parseFrom(catalogBytes);
+          catalogs.add(Catalog.fromProto(pb, fs, proto));
         } else {
-          catalogBytesFuture = storage.get(header.name);
+          Gletscher.Catalog proto = Gletscher.Catalog.parseFrom(catalogFileBytes);
+          // TODO(pmoor): Stop storing in a few weeks and stop supporting non-versioned entries.
+          catalogs.add(Catalog.fromProto(Futures.getUnchecked(blockStore.store(catalogFileBytes, true)), fs, proto));
         }
-        Gletscher.Catalog proto =
-            Gletscher.Catalog.parseFrom(Futures.getUnchecked(catalogBytesFuture));
-        catalogs.add(Catalog.fromProto(fs, proto));
       } catch (InvalidProtocolBufferException e) {
         throw new IllegalArgumentException(e);
       }

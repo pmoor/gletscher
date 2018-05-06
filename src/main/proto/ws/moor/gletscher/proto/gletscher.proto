@@ -58,4 +58,6 @@ message Catalog {
 
   uint64 start_time_millis = 2;
   uint64 end_time_millis = 3;
+
+  PersistedBlock base_catalog = 4;
 }

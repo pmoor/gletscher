@@ -73,8 +73,7 @@ class BackupCommand extends AbstractCommand {
     StreamSplitter splitter = config.getStreamSplitter();
     Optional<Catalog> latestCatalog = catalogStore.getLatestCatalog();
     @Nullable
-    CatalogReader catalogReader =
-        latestCatalog.isPresent() ? new CatalogReader(blockStore, latestCatalog.get()) : null;
+    CatalogReader catalogReader = latestCatalog.map(c -> new CatalogReader(blockStore, c)).orElse(null);
 
     Instant startTime = context.getClock().instant();
     FileSystemReader fileSystemReader =
@@ -91,9 +90,9 @@ class BackupCommand extends AbstractCommand {
     Map<Path, PersistedBlock> roots = getUnchecked(fileSystemReader.start(backUpper));
 
     Instant endTime = context.getClock().instant();
-    Catalog catalog = Catalog.fromNewBackup(startTime, endTime, roots);
-    catalogStore.store(catalog);
-    context.getStdOut().println("new catalog: " + catalog);
+    Catalog catalog = Catalog.fromNewBackup(startTime, endTime, roots, latestCatalog.orElse(null));
+    PersistedBlock pb = catalogStore.store(catalog);
+    context.getStdOut().println("new catalog: " + pb.getSignature());
     return 0;
   }
 
@@ -109,7 +108,8 @@ class BackupCommand extends AbstractCommand {
   private static class BackUpper
       implements FileSystemReader.Visitor<ListenableFuture<PersistedBlock>> {
 
-    @Nullable private final CatalogReader catalogReader;
+    @Nullable
+    private final CatalogReader catalogReader;
     private final StreamSplitter splitter;
     private final BlockStore blockStore;
     private final Set<Pattern> skipPatterns;
