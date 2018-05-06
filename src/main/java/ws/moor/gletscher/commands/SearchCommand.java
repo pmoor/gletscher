@@ -52,7 +52,7 @@ class SearchCommand extends AbstractCommand {
     }
 
     for (Catalog catalog : catalogStore.findLastCatalogs(16)) {
-      context.getStdOut().printf("Backup %s:\n", catalog);
+      context.getStdOut().printf("Backup %s:\n", catalog.getAddress());
 
       CatalogReader reader = new CatalogReader(blockStore, catalog);
       Iterator<CatalogReader.FileInformation> iterator = reader.walk();

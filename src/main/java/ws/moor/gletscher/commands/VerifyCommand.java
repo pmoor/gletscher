@@ -28,8 +28,8 @@ import java.util.Optional;
 import java.util.Set;
 
 @Command(
-  name = "verify",
-  description = "Verifies that a catalog has all its data stored in the cloud."
+    name = "verify",
+    description = "Verifies that a catalog has all its data stored in the cloud."
 )
 class VerifyCommand extends AbstractCommand {
   VerifyCommand(CommandContext context) {
@@ -49,7 +49,7 @@ class VerifyCommand extends AbstractCommand {
 
     Optional<Catalog> catalog = catalogStore.getLatestCatalog();
     if (!catalog.isPresent()) {
-      context.getStdErr().printf("No existing backups found - nothing to verify.");
+      context.getStdErr().println("No existing backups found - nothing to verify.");
       return -1;
     }
     CatalogReader reader = new CatalogReader(blockStore, catalog.get());

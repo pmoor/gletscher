@@ -78,7 +78,7 @@ class ContainsCommand extends AbstractCommand {
         CatalogReader.FileInformation file = it.next();
         for (Map.Entry<Path, List<PersistedBlock>> entry : blocksByPath.entrySet()) {
           if (file.blockList.equals(entry.getValue())) {
-            context.getStdOut().printf("match with %s in %s\n", file.path, catalog);
+            context.getStdOut().printf("match with %s in %s\n", file.path, catalog.getAddress());
           }
         }
       }

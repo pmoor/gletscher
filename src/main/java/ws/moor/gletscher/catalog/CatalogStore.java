@@ -91,8 +91,9 @@ public class CatalogStore {
           catalogs.add(Catalog.fromProto(pb, fs, proto));
         } else {
           Gletscher.Catalog proto = Gletscher.Catalog.parseFrom(catalogFileBytes);
-          // TODO(pmoor): Stop storing in a few weeks and stop supporting non-versioned entries.
-          catalogs.add(Catalog.fromProto(Futures.getUnchecked(blockStore.store(catalogFileBytes, true)), fs, proto));
+          // Store this old-style catalog as a block as well, and use its address.
+          PersistedBlock pb = Futures.getUnchecked(blockStore.store(catalogFileBytes, true));
+          catalogs.add(Catalog.fromProto(pb, fs, proto));
         }
       } catch (InvalidProtocolBufferException e) {
         throw new IllegalArgumentException(e);

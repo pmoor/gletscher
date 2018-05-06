@@ -38,7 +38,7 @@ public class CatalogAnalyzer {
   }
 
   public void analyze(Catalog catalog, PrintStream out) {
-    out.printf("Analyzing catalog %s...\n", catalog);
+    out.printf("Analyzing catalog %s...\n", catalog.getAddress());
 
     Stack<Gletscher.Directory> stack = new Stack<>();
     for (PersistedBlock root : catalog.getRoots().values()) {
