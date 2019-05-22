@@ -112,7 +112,7 @@ public class InMemoryCloudFileStorage implements CloudFileStorage {
 
   public long getTotalSize() {
     synchronized (lock) {
-      return files.values().stream().collect(Collectors.summingInt(e -> e.data.size()));
+      return files.values().stream().mapToInt(e -> e.data.size()).sum();
     }
   }
 
