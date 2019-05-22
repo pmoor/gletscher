@@ -86,7 +86,7 @@ public class InMemoryCloudFileStorage implements CloudFileStorage {
     return executor.submit(
         () -> {
           synchronized (lock) {
-            if (files.containsKey(name)) {
+            if (files.containsKey(name) && !options.allowOverwriting) {
               throw new FileAlreadyExistsException(name);
             }
             FileHeader header =

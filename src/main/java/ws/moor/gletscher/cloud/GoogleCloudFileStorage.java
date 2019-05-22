@@ -114,7 +114,9 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
                 costTracker.trackInsert(metadata, data.length);
                 Storage.Objects.Insert method = client.objects().insert(bucket, sob, content);
                 method.setDisableGZipContent(true);
-                method.setIfGenerationMatch(0L);
+                if (!options.allowOverwriting) {
+                  method.setIfGenerationMatch(0L);
+                }
                 method.setFields("md5Hash");
                 if (data.length < 10 << 20) {
                   method.getMediaHttpUploader().setDirectUploadEnabled(true);
@@ -129,7 +131,7 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
                 }
                 return null;
               } catch (HttpResponseException e) {
-                if (e.getStatusCode() == 412) {
+                if (e.getStatusCode() == 412 && !options.allowOverwriting) {
                   // precondition failed -> object already exists
                   throw new FileAlreadyExistsException(name);
                 }

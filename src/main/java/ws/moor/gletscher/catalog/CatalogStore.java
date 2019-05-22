@@ -61,7 +61,7 @@ public class CatalogStore {
         bytes,
         LegacyHashing.md5().hashBytes(bytes),
         ImmutableMap.of(VERSION_META_KEY, "1"),
-        new CloudFileStorage.StoreOptions(true)));
+        CloudFileStorage.StoreOptions.builder().setCacheContentsOnUpload(true).build()));
     return pb;
   }
 

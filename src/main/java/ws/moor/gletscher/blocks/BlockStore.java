@@ -65,7 +65,7 @@ public class BlockStore {
                     block,
                     md5,
                     ImmutableMap.of(),
-                    new CloudFileStorage.StoreOptions(cache));
+                    CloudFileStorage.StoreOptions.builder().setCacheContentsOnUpload(cache).build());
             ListenableFuture<PersistedBlock> transformed =
                 Futures.transform(
                     future, Functions.constant(persisted), MoreExecutors.directExecutor());

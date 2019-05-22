@@ -57,13 +57,41 @@ public interface CloudFileStorage extends AutoCloseable {
     }
   }
 
-  class StoreOptions {
-    public static StoreOptions DEFAULT = new StoreOptions(false);
+  final class StoreOptions {
+    public static final StoreOptions DEFAULT = StoreOptions.builder().build();
+
+    public static StoreOptionsBuilder builder() {
+      return new StoreOptionsBuilder();
+    }
+
+    public static final class StoreOptionsBuilder {
+      private boolean cacheContentsOnUpload = false;
+      private boolean allowOverwriting = false;
+
+      private StoreOptionsBuilder() {
+      }
+
+      public StoreOptionsBuilder setCacheContentsOnUpload(boolean cacheContentsOnUpload) {
+        this.cacheContentsOnUpload = cacheContentsOnUpload;
+        return this;
+      }
+
+      public StoreOptionsBuilder setAllowOverwriting(boolean allowOverwriting) {
+        this.allowOverwriting = allowOverwriting;
+        return this;
+      }
+
+      public StoreOptions build() {
+        return new StoreOptions(cacheContentsOnUpload, allowOverwriting);
+      }
+    }
 
     public final boolean cacheContentsOnUpload;
+    public final boolean allowOverwriting;
 
-    public StoreOptions(boolean cacheContentsOnUpload) {
+    private StoreOptions(boolean cacheContentsOnUpload, boolean allowOverwriting) {
       this.cacheContentsOnUpload = cacheContentsOnUpload;
+      this.allowOverwriting = allowOverwriting;
     }
   }
 }
