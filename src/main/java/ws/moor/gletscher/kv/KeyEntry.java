@@ -42,7 +42,7 @@ class KeyEntry implements KVStore.Entry {
   @Override
   public byte[] read() throws KVStoreException {
     // TODO(pmoor): handle layer unavailable/compacted/etc or key deleted
-    return ((ByteBuffer) (ByteBuffer.allocate(info.size()).put(info.read()).rewind())).array();
+    return ByteBuffer.allocate(info.size()).put(info.read()).rewind().array();
   }
 
   ByteBuffer readByteBuffer() {

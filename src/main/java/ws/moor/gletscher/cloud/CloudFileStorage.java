@@ -36,6 +36,8 @@ public interface CloudFileStorage extends AutoCloseable {
   void close();
 
   class FileAlreadyExistsException extends Exception {
+    private static final long serialVersionUID = 2979428624389974221L;
+
     public FileAlreadyExistsException(String name) {
       super("file already exists: " + name);
     }

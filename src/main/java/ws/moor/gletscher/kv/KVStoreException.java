@@ -17,6 +17,7 @@
 package ws.moor.gletscher.kv;
 
 public class KVStoreException extends RuntimeException {
+  private static final long serialVersionUID = 6232365030719599368L;
 
   KVStoreException(Throwable cause) {
     super(cause);

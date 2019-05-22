@@ -280,8 +280,7 @@ class KVStoreImpl implements KVStore {
     if (keyInfo == null || keyInfo.isDeleteMarker()) {
       return null;
     }
-    return ((ByteBuffer) (ByteBuffer.allocate(keyInfo.size()).put(keyInfo.read()).rewind()))
-        .array();
+    return ByteBuffer.allocate(keyInfo.size()).put(keyInfo.read()).rewind().array();
   }
 
   @Override

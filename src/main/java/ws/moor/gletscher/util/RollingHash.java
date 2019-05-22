@@ -79,6 +79,11 @@ class RollingHash {
     return true;
   }
 
+  @Override
+  public int hashCode() {
+    return adler32();
+  }
+
   public void reset() {
     Arrays.fill(buffer, 0);
     next = 0;

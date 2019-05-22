@@ -17,6 +17,8 @@
 package ws.moor.gletscher.commands;
 
 class InvalidUsageException extends Exception {
+  private static final long serialVersionUID = 8946953028986605714L;
+
   private final AbstractCommand command;
   private final String format;
   private final Object[] args;
