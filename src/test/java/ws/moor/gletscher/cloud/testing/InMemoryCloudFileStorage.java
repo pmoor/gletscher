@@ -27,8 +27,12 @@ import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.proto.testing.Testing;
 import ws.moor.gletscher.util.LegacyHashing;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 public class InMemoryCloudFileStorage implements CloudFileStorage {
 

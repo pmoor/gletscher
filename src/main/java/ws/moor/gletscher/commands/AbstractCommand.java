@@ -17,11 +17,22 @@
 package ws.moor.gletscher.commands;
 
 import com.google.common.base.Preconditions;
-import org.apache.commons.cli.*;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 import ws.moor.gletscher.Configuration;
 import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.catalog.CatalogStore;
-import ws.moor.gletscher.cloud.*;
+import ws.moor.gletscher.cloud.CachingCloudFileStorage;
+import ws.moor.gletscher.cloud.CloudFileStorage;
+import ws.moor.gletscher.cloud.CompressingCloudFileStorage;
+import ws.moor.gletscher.cloud.CostTracker;
+import ws.moor.gletscher.cloud.CountingCloudFileStorage;
+import ws.moor.gletscher.cloud.EncryptingCloudFileStorage;
+import ws.moor.gletscher.cloud.SigningCloudFileStorage;
 import ws.moor.gletscher.util.Compressor;
 import ws.moor.gletscher.util.Cryptor;
 import ws.moor.gletscher.util.Signer;
