@@ -25,7 +25,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -57,7 +56,12 @@ public class FileSystemReaderTest {
 
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
-    FileSystemReader reader = new FileSystemReader(paths, new PrintStream(baos));
+    FileSystemReader reader = new FileSystemReader(paths, new FileSystemReader.Observer() {
+      @Override
+      public void unreadableDirectory(Path path) { }
+      @Override
+      public void directoryListingError(Path path, Exception e) { }
+    });
 
     StringBuilder output = new StringBuilder();
     AtomicInteger level = new AtomicInteger(0);
