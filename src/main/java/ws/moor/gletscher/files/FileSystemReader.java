@@ -22,7 +22,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.TreeMultimap;
 
 import java.io.IOException;
-import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -47,15 +46,22 @@ public class FileSystemReader {
     T recurse(Path directory);
   }
 
-  private final Set<Path> paths;
-  private final PrintStream stderr;
+  public interface Observer {
 
-  public FileSystemReader(Set<Path> paths, PrintStream stderr) throws IOException {
+    void unreadableDirectory(Path path);
+
+    void directoryListingError(Path path, Exception e);
+  }
+
+  private final Set<Path> paths;
+  private final Observer obsever;
+
+  public FileSystemReader(Set<Path> paths, Observer observer) throws IOException {
     this.paths = new TreeSet<>();
     for (Path path : paths) {
       this.paths.add(path.toRealPath());
     }
-    this.stderr = stderr;
+    this.obsever = observer;
   }
 
   public <T> Map<Path, T> start(Visitor<T> visitor) {
@@ -93,11 +99,11 @@ public class FileSystemReader {
                     entries.addAll(stream.map(this::createDirEntry).collect(Collectors.toList()));
                   }
                 } else {
-                  stderr.println("unreadable: " + directory);
+                  obsever.unreadableDirectory(directory);
                 }
               }
             } catch (IOException | RuntimeException e) {
-              stderr.printf("error while reading directory %s: %s\n", directory, e);
+              obsever.directoryListingError(directory, e);
             }
             Collections.sort(entries);
             return visitor.visit(directory, entries, this);

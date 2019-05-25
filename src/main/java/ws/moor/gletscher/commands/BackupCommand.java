@@ -18,7 +18,6 @@ package ws.moor.gletscher.commands;
 
 import com.google.common.base.Function;
 import com.google.common.util.concurrent.AsyncCallable;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -87,16 +86,16 @@ class BackupCommand extends AbstractCommand {
     CatalogReader catalogReader = latestCatalog.map(c -> new CatalogReader(blockStore, c)).orElse(null);
 
     Instant startTime = context.getClock().instant();
+    BackupObserver observer = new BackupObserver(context.getStdOut(), context.getStdErr());
     FileSystemReader fileSystemReader =
-        new FileSystemReader(config.getIncludes(), context.getStdErr());
+        new FileSystemReader(config.getIncludes(), observer);
     BackUpper backUpper =
         new BackUpper(
             catalogReader,
             splitter,
             blockStore,
             config.getExcludes(),
-            context.getStdOut(),
-            context.getStdErr(),
+            observer,
             context.getClock());
     Map<Path, PersistedBlock> roots = getUnchecked(fileSystemReader.start(backUpper));
 
@@ -116,6 +115,47 @@ class BackupCommand extends AbstractCommand {
     return roots;
   }
 
+  private static class BackupObserver implements FileSystemReader.Observer {
+
+    private PrintStream stdout;
+    private PrintStream stderr;
+
+    BackupObserver(PrintStream stdout, PrintStream stderr) {
+      this.stdout = stdout;
+      this.stderr = stderr;
+    }
+
+    void skipping(FileSystemReader.Entry entry) {
+      stdout.printf("skipping: %s\n", entry.path);
+    }
+
+    void skippingUnknownFileType(FileSystemReader.Entry entry) {
+      stderr.printf("skipping unknown file type: %s\n", entry.path);
+    }
+
+    void readFailure(Path path) {
+      stderr.printf("failed to read path: %s\n", path);
+    }
+
+    void newFile(FileSystemReader.Entry entry) {
+      stdout.printf("new file: %s\n", entry.path);
+    }
+
+    void changedFile(CatalogReader.FileInformation oldFile, FileSystemReader.Entry newFile) {
+      stdout.printf("changed file: %s\n", newFile.path);
+    }
+
+    @Override
+    public void unreadableDirectory(Path path) {
+      stderr.printf("unreadable directory: %s\n", path);
+    }
+
+    @Override
+    public void directoryListingError(Path path, Exception e) {
+      stderr.printf("error while reading directory %s: %s\n", path, e);
+    }
+  }
+
   private static class BackUpper
       implements FileSystemReader.Visitor<ListenableFuture<PersistedBlock>> {
 
@@ -124,8 +164,7 @@ class BackupCommand extends AbstractCommand {
     private final StreamSplitter splitter;
     private final BlockStore blockStore;
     private final Set<Pattern> skipPatterns;
-    private final PrintStream stdout;
-    private final PrintStream stderr;
+    private final BackupObserver observer;
     private final Clock clock;
     private final Semaphore pendingStoreRequests;
     private final Semaphore pendingStoreBytes;
@@ -135,15 +174,13 @@ class BackupCommand extends AbstractCommand {
         StreamSplitter splitter,
         BlockStore blockStore,
         Set<Pattern> skipPatterns,
-        PrintStream stdout,
-        PrintStream stderr,
+        BackupObserver observer,
         Clock clock) {
       this.catalogReader = catalogReader;
       this.splitter = splitter;
       this.blockStore = blockStore;
       this.skipPatterns = skipPatterns;
-      this.stdout = stdout;
-      this.stderr = stderr;
+      this.observer = observer;
       this.clock = clock;
       this.pendingStoreRequests = new Semaphore(32);
       this.pendingStoreBytes = new Semaphore(64 << 20);
@@ -167,7 +204,7 @@ class BackupCommand extends AbstractCommand {
       SortedMap<Path, ListenableFuture<Gletscher.DirectoryEntry>> entryMap = new TreeMap<>();
       for (FileSystemReader.Entry entry : entries) {
         if (isSkippedPath(entry.path)) {
-          stdout.println("skipping: " + entry.path);
+          observer.skipping(entry);
           continue;
         }
 
@@ -195,7 +232,7 @@ class BackupCommand extends AbstractCommand {
                   },
                   MoreExecutors.directExecutor()));
         } else {
-          stderr.printf("skipping unknown file type: %s\n", entry.path);
+          observer.skippingUnknownFileType(entry);
         }
       }
 
@@ -209,7 +246,7 @@ class BackupCommand extends AbstractCommand {
                     try {
                       dirProtoBuilder.addEntry(Futures.getDone(entry.getValue()));
                     } catch (ExecutionException e) {
-                      stderr.printf("failed to read path: %s\n", entry.getKey());
+                      observer.readFailure(entry.getKey());
                     }
                   }
 
@@ -231,8 +268,12 @@ class BackupCommand extends AbstractCommand {
       if (existingFile == null
           || !existingFile.lastModifiedTime.equals(currentLastModifiedTime)
           || existingFile.getOriginalSize() != entry.attributes.size()) {
-        ListenableFuture<List<PersistedBlock>> contentsFuture =
-            uploadFileContents(entry.path, existingFile == null ? "new" : "changed");
+        if (existingFile == null) {
+          observer.newFile(entry);
+        } else {
+          observer.changedFile(existingFile, entry);
+        }
+        ListenableFuture<List<PersistedBlock>> contentsFuture = uploadFileContents(entry.path);
         return Futures.transform(
             contentsFuture,
             new Function<List<PersistedBlock>, Gletscher.DirectoryEntry>() {
@@ -263,14 +304,13 @@ class BackupCommand extends AbstractCommand {
       }
     }
 
-    private ListenableFuture<List<PersistedBlock>> uploadFileContents(Path path, String message) {
-      stdout.println(message + " file: " + path);
+    private ListenableFuture<List<PersistedBlock>> uploadFileContents(Path path) {
       List<ListenableFuture<PersistedBlock>> futures = new ArrayList<>();
       try (InputStream is = Files.newInputStream(path)) {
         Iterator<byte[]> parts = splitter.split(is);
         while (parts.hasNext()) {
           byte[] part = parts.next();
-          futures.add(storeThrottled(part, false));
+          futures.add(storeThrottled(part));
         }
       } catch (IOException e) {
         return Futures.immediateFailedFuture(e);
@@ -292,31 +332,17 @@ class BackupCommand extends AbstractCommand {
       }
     }
 
-    private ListenableFuture<PersistedBlock> storeThrottled(byte[] part, boolean cache) {
+    private ListenableFuture<PersistedBlock> storeThrottled(byte[] part) {
       pendingStoreRequests.acquireUninterruptibly();
       pendingStoreBytes.acquireUninterruptibly(part.length);
-      ListenableFuture<PersistedBlock> future = blockStore.store(part, cache);
+      ListenableFuture<PersistedBlock> future = blockStore.store(part, false);
       releaseWhenDone(future, pendingStoreBytes, part.length);
       releaseWhenDone(future, pendingStoreRequests, 1);
       return future;
     }
 
-    private static void releaseWhenDone(
-        ListenableFuture<?> future, Semaphore semaphore, int permits) {
-      Futures.addCallback(
-          future,
-          new FutureCallback<Object>() {
-            @Override
-            public void onSuccess(@Nullable Object unused) {
-              semaphore.release(permits);
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-              semaphore.release(permits);
-            }
-          },
-          MoreExecutors.directExecutor());
+    private static void releaseWhenDone(ListenableFuture<?> future, Semaphore semaphore, int permits) {
+      future.addListener(() -> semaphore.release(permits), MoreExecutors.directExecutor());
     }
 
     private boolean isSkippedPath(Path path) {
