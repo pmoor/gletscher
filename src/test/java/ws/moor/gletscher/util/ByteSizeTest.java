@@ -30,14 +30,14 @@ public class ByteSizeTest {
     assertEquals("0 B", 0);
     assertEquals("1 B", 1);
     assertEquals("1023 B", 1023);
-    assertEquals("1.000 KB", 1024);
-    assertEquals("1.001 KB", 1025);
-    assertEquals("2.000 KB", 2048);
-    assertEquals("3.000 MB", 3 << 20);
-    assertEquals("4.000 GB", 4L << 30);
-    assertEquals("5.000 TB", 5L << 40);
-    assertEquals("6.000 PB", 6L << 50);
-    assertEquals("7168.000 PB", 7L << 60);
+    assertEquals("1.000 KiB", 1024);
+    assertEquals("1.001 KiB", 1025);
+    assertEquals("2.000 KiB", 2048);
+    assertEquals("3.000 MiB", 3 << 20);
+    assertEquals("4.000 GiB", 4L << 30);
+    assertEquals("5.000 TiB", 5L << 40);
+    assertEquals("6.000 PiB", 6L << 50);
+    assertEquals("7.000 EiB", 7L << 60);
   }
 
   private void assertEquals(String expected, long bytes) {
