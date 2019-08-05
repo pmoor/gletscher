@@ -40,6 +40,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
+import static com.google.common.truth.Truth.assertThat;
+
 @RunWith(JUnit4.class)
 public class BackupRestoreIT {
 
@@ -52,15 +54,15 @@ public class BackupRestoreIT {
     Files.write(
         fs.getPath("/config.properties"),
         ("version: 1\n"
-                + "cache_dir: /tmp/cache\n"
-                + "max_split_size: 65536\n"
-                + "disable_cache: false\n"
-                + "include:\n"
-                + "  - /home/pmoor\n"
-                + "  - /home/cmoor\n"
-                + "  - /tmp\n"
-                + "exclude:\n"
-                + "  - \\.ignore$")
+            + "cache_dir: /tmp/cache\n"
+            + "max_split_size: 65536\n"
+            + "disable_cache: false\n"
+            + "include:\n"
+            + "  - /home/pmoor\n"
+            + "  - /home/cmoor\n"
+            + "  - /tmp\n"
+            + "exclude:\n"
+            + "  - \\.ignore$")
             .getBytes(StandardCharsets.UTF_8));
     Files.createDirectories(fs.getPath("/tmp/cache"));
     Files.createDirectories(fs.getPath("/home/cmoor"));
@@ -78,8 +80,8 @@ public class BackupRestoreIT {
     runCommandAndAssertSuccess(
         fs, inMemoryStorage, "restore", "-c", "/config.properties", "/tmp/restore");
 
-    compare(fs.getPath("/", "home", "pmoor"), fs.getPath("/", "tmp", "restore", "home", "pmoor"));
-    compare(fs.getPath("/", "home", "cmoor"), fs.getPath("/", "tmp", "restore", "home", "cmoor"));
+    assertThat(compare(fs.getPath("/", "home", "pmoor"), fs.getPath("/", "tmp", "restore", "home", "pmoor"))).isTrue();
+    assertThat(compare(fs.getPath("/", "home", "cmoor"), fs.getPath("/", "tmp", "restore", "home", "cmoor"))).isTrue();
 
     // verify
     runCommandAndAssertSuccess(fs, inMemoryStorage, "verify", "-c", "/config.properties");
@@ -102,31 +104,35 @@ public class BackupRestoreIT {
     }
   }
 
-  private void compare(Path path1, Path path2) throws IOException {
+  private boolean compare(Path path1, Path path2) throws IOException {
     Preconditions.checkState(Files.exists(path1, LinkOption.NOFOLLOW_LINKS));
     boolean twoExists = Files.exists(path2, LinkOption.NOFOLLOW_LINKS);
 
     if (!twoExists) {
       System.out.println("missing: " + path1);
-      return;
+      return false;
     }
 
     if (Files.isDirectory(path1, LinkOption.NOFOLLOW_LINKS)) {
       if (!Files.isDirectory(path2, LinkOption.NOFOLLOW_LINKS)) {
         System.out.println("not a directory: " + path2);
-        return;
+        return false;
       }
 
+      boolean successful = true;
       Iterator<Path> it = Files.list(path1).sorted().iterator();
       while (it.hasNext()) {
         Path path = path1.relativize(it.next());
 
-        compare(path1.resolve(path), path2.resolve(path));
+        if (!compare(path1.resolve(path), path2.resolve(path))) {
+          successful = false;
+        }
       }
+      return successful;
     } else if (Files.isSymbolicLink(path1)) {
       if (!Files.isSymbolicLink(path2)) {
         System.out.println("not a symlink: " + path2);
-        return;
+        return false;
       }
 
       Path target1 = Files.readSymbolicLink(path1);
@@ -134,12 +140,13 @@ public class BackupRestoreIT {
       if (!target1.equals(target2)) {
         System.out.printf(
             "targets don't match for %s (%s): %s vs. %s\n", path1, path2, target1, target2);
-        return;
+        return false;
       }
+      return true;
     } else if (Files.isRegularFile(path1, LinkOption.NOFOLLOW_LINKS)) {
       if (!Files.isRegularFile(path2, LinkOption.NOFOLLOW_LINKS)) {
         System.out.println("not a regular file: " + path2);
-        return;
+        return false;
       }
 
       long size1 = Files.size(path1);
@@ -147,7 +154,7 @@ public class BackupRestoreIT {
       if (size1 != size2) {
         System.out.printf(
             "file sizes don't match for %s (%s): %d vs. %d\n", path1, path2, size1, size2);
-        return;
+        return false;
       }
 
       FileTime lastModifiedTime1 = Files.getLastModifiedTime(path1);
@@ -156,10 +163,12 @@ public class BackupRestoreIT {
         System.out.printf(
             "last modified times do not match for %s (%s): %s vs. %s\n",
             path1, path2, lastModifiedTime1, lastModifiedTime2);
-        return;
+        return false;
       }
+      return true;
     } else {
       System.out.println("unsupported type: " + path1);
+      return false;
     }
   }
 

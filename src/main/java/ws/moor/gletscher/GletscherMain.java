@@ -27,10 +27,13 @@ import ws.moor.gletscher.cloud.GoogleCloudFileStorage;
 import ws.moor.gletscher.commands.CommandContext;
 import ws.moor.gletscher.commands.Commands;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
@@ -81,6 +84,11 @@ public class GletscherMain {
           GoogleCloudFileStorage.buildStorageWithCredentials(config.getCredentialFilePath());
       return new GoogleCloudFileStorage(
           storage, config.getBucketName(), config.getFilePrefix(), executor, costTracker);
+    }
+
+    @Override
+    public InputStream readFile(Path path) throws IOException {
+      return Files.newInputStream(path);
     }
 
     @Override

@@ -96,7 +96,8 @@ class BackupCommand extends AbstractCommand {
             blockStore,
             config.getExcludes(),
             observer,
-            context.getClock());
+            context.getClock(),
+            context);
     Map<Path, PersistedBlock> roots = getUnchecked(fileSystemReader.start(backUpper));
 
     Instant endTime = context.getClock().instant();
@@ -133,8 +134,8 @@ class BackupCommand extends AbstractCommand {
       stderr.printf("skipping unknown file type: %s\n", entry.path);
     }
 
-    void readFailure(Path path) {
-      stderr.printf("failed to read path: %s\n", path);
+    void readFailure(Path path, Throwable cause) {
+      stderr.printf("failed to read path: %s: %s\n", path, cause.toString());
     }
 
     void newFile(FileSystemReader.Entry entry) {
@@ -168,6 +169,7 @@ class BackupCommand extends AbstractCommand {
     private final Clock clock;
     private final Semaphore pendingStoreRequests;
     private final Semaphore pendingStoreBytes;
+    private final CommandContext context;
 
     BackUpper(
         @Nullable CatalogReader catalogReader,
@@ -175,7 +177,8 @@ class BackupCommand extends AbstractCommand {
         BlockStore blockStore,
         Set<Pattern> skipPatterns,
         BackupObserver observer,
-        Clock clock) {
+        Clock clock,
+        CommandContext context) {
       this.catalogReader = catalogReader;
       this.splitter = splitter;
       this.blockStore = blockStore;
@@ -184,6 +187,7 @@ class BackupCommand extends AbstractCommand {
       this.clock = clock;
       this.pendingStoreRequests = new Semaphore(32);
       this.pendingStoreBytes = new Semaphore(64 << 20);
+      this.context = context;
     }
 
     @Override
@@ -246,7 +250,7 @@ class BackupCommand extends AbstractCommand {
                     try {
                       dirProtoBuilder.addEntry(Futures.getDone(entry.getValue()));
                     } catch (ExecutionException e) {
-                      observer.readFailure(entry.getKey());
+                      observer.readFailure(entry.getKey(), e.getCause());
                     }
                   }
 
@@ -306,13 +310,13 @@ class BackupCommand extends AbstractCommand {
 
     private ListenableFuture<List<PersistedBlock>> uploadFileContents(Path path) {
       List<ListenableFuture<PersistedBlock>> futures = new ArrayList<>();
-      try (InputStream is = Files.newInputStream(path)) {
+      try (InputStream is = context.readFile(path)) {
         Iterator<byte[]> parts = splitter.split(is);
         while (parts.hasNext()) {
           byte[] part = parts.next();
           futures.add(storeThrottled(part));
         }
-      } catch (IOException e) {
+      } catch (IOException | RuntimeException e) {
         return Futures.immediateFailedFuture(e);
       }
       return Futures.allAsList(futures);

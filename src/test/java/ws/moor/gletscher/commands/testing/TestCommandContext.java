@@ -25,22 +25,27 @@ import ws.moor.gletscher.cloud.CostTracker;
 import ws.moor.gletscher.commands.CommandContext;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 
 public class TestCommandContext implements CommandContext {
   public FileSystem fs;
   public CloudFileStorage cloudStorage;
+  public FileReadFailureInjector failureInjector = new FileReadFailureInjector.NoFailureInjector();
 
   public ListeningExecutorService executorService = MoreExecutors.newDirectExecutorService();
   public ByteArrayOutputStream stdOut = new ByteArrayOutputStream();
   public ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
   public Integer status = null;
 
-  public TestCommandContext() {}
+  public TestCommandContext() {
+  }
 
   public TestCommandContext(FileSystem fs, CloudFileStorage cloudStorage) {
     this.fs = fs;
@@ -86,6 +91,11 @@ public class TestCommandContext implements CommandContext {
   @Override
   public CloudFileStorage connectToCloud(Configuration config, CostTracker costTracker) {
     return cloudStorage;
+  }
+
+  @Override
+  public InputStream readFile(Path path) throws IOException {
+    return failureInjector.wrap(path, Files.newInputStream(path));
   }
 
   public String stdOutString() {

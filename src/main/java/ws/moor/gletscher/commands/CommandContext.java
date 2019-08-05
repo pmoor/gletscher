@@ -21,9 +21,11 @@ import ws.moor.gletscher.Configuration;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.cloud.CostTracker;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.file.FileSystem;
+import java.nio.file.Path;
 import java.time.Clock;
 
 public interface CommandContext {
@@ -42,4 +44,6 @@ public interface CommandContext {
   void exit(int status);
 
   CloudFileStorage connectToCloud(Configuration config, CostTracker costTracker);
+
+  InputStream readFile(Path path) throws IOException;
 }
