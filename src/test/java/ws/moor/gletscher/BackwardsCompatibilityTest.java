@@ -16,8 +16,8 @@
 
 package ws.moor.gletscher;
 
-import com.google.api.client.repackaged.com.google.common.base.Strings;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.MoreExecutors;

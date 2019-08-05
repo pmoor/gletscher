@@ -16,7 +16,7 @@
 
 package ws.moor.gletscher.commands;
 
-import com.google.api.client.repackaged.com.google.common.base.Strings;
+import com.google.common.base.Strings;
 import com.google.common.hash.Hashing;
 import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.MoreExecutors;

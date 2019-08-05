@@ -16,7 +16,7 @@
 
 package ws.moor.gletscher.files;
 
-import com.google.api.client.repackaged.com.google.common.base.Strings;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;

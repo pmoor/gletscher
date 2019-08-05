@@ -16,7 +16,7 @@
 
 package ws.moor.gletscher.cloud;
 
-import com.google.api.client.repackaged.com.google.common.base.Preconditions;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.ListenableFuture;
