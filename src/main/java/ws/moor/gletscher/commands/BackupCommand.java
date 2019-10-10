@@ -215,7 +215,9 @@ class BackupCommand extends AbstractCommand {
         if (entry.isRegularFile()) {
           @Nullable
           CatalogReader.FileInformation existingFile =
-              existingDirectory != null ? existingDirectory.findFileInformation(entry.path) : null;
+              existingDirectory != null
+                  ? existingDirectory.findFileInformation(entry.path.getFileName().toString())
+                  : null;
           entryMap.put(entry.path, handleRegularFile(entry, existingFile));
         } else if (entry.isSymbolicLink()) {
           entryMap.put(entry.path, handleSymbolicLink(entry));

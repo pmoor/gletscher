@@ -85,7 +85,7 @@ public class CatalogReader {
   public static final class DirectoryInformation {
 
     private final CacheEntry cacheEntry;
-    private final Map<Path, FileInformation> fileEntries = new TreeMap<>();
+    private final Map<String, FileInformation> fileEntries = new TreeMap<>();
 
     DirectoryInformation(Path path, CacheEntry cacheEntry) {
       this.cacheEntry = cacheEntry;
@@ -93,13 +93,13 @@ public class CatalogReader {
         if (entry.getTypeCase() == Gletscher.DirectoryEntry.TypeCase.FILE) {
           Gletscher.FileEntry fileProto = entry.getFile();
           Path filePath = path.resolve(fileProto.getName());
-          fileEntries.put(filePath, toFileInfo(filePath, fileProto));
+          fileEntries.put(fileProto.getName(), toFileInfo(filePath, fileProto));
         }
       }
     }
 
-    public FileInformation findFileInformation(Path path) {
-      return fileEntries.get(path);
+    public FileInformation findFileInformation(String fileName) {
+      return fileEntries.get(fileName);
     }
 
     public PersistedBlock getAddress() {
