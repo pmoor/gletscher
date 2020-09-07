@@ -25,6 +25,7 @@ import java.nio.file.FileSystem;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.google.common.jimfs.Configuration.unix;
 import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
@@ -32,7 +33,7 @@ public class ConfigurationTest {
 
   @Test
   public void testFromString() {
-    FileSystem fs = Jimfs.newFileSystem();
+    FileSystem fs = Jimfs.newFileSystem(unix());
     Configuration config =
         Configuration.fromLines(
             fs,

@@ -40,6 +40,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
+import static com.google.common.jimfs.Configuration.unix;
 import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
@@ -47,7 +48,7 @@ public class BackupRestoreIT {
 
   @Test
   public void testBackupAndRestore() throws Exception {
-    FileSystem fs = Jimfs.newFileSystem();
+    FileSystem fs = Jimfs.newFileSystem(unix());
     CloudFileStorage inMemoryStorage =
         new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
 

@@ -35,6 +35,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
 
+import static com.google.common.jimfs.Configuration.unix;
 import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
@@ -42,7 +43,7 @@ public class KVStoreRandomizedIT {
 
   @Test
   public void oneMillionKeys() throws Exception {
-    FileSystem fs = Jimfs.newFileSystem();
+    FileSystem fs = Jimfs.newFileSystem(unix());
     Path root = fs.getPath("/tmp/kv-store");
     Files.createDirectories(root);
 
@@ -77,7 +78,7 @@ public class KVStoreRandomizedIT {
 
   @Test
   public void randomized() throws Exception {
-    FileSystem fs = Jimfs.newFileSystem();
+    FileSystem fs = Jimfs.newFileSystem(unix());
     Path root = fs.getPath("/tmp/kv-store");
     Files.createDirectories(root);
 

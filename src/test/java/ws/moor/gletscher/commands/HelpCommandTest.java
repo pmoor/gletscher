@@ -24,6 +24,7 @@ import ws.moor.gletscher.GletscherMain;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.lang.System.lineSeparator;
 
 @RunWith(JUnit4.class)
 public class HelpCommandTest {
@@ -50,7 +51,7 @@ public class HelpCommandTest {
     main.run("help");
     assertThat(context.status).isEqualTo(0);
     assertThat(context.stdErrString()).isEmpty();
-    assertThat(context.stdOutString()).contains("Usage:\n  gletscher [command]\n");
+    assertThat(context.stdOutString()).contains("Usage:" + lineSeparator() + "  gletscher [command]" + lineSeparator());
   }
 
   @Test
@@ -66,6 +67,6 @@ public class HelpCommandTest {
     main.run("help", "backup");
     assertThat(context.status).isEqualTo(0);
     assertThat(context.stdErrString()).isEmpty();
-    assertThat(context.stdOutString()).contains("Usage:\n  gletscher backup\n");
+    assertThat(context.stdOutString()).contains("Usage:" + lineSeparator() + "  gletscher backup" + lineSeparator());
   }
 }
