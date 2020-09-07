@@ -188,6 +188,9 @@ public class CatalogReader {
     if (dir.getParent() == null) {
       Preconditions.checkState(dir.getRoot().equals(dir));
       PersistedBlock rootBlock = catalog.getRootBlock(dir.getRoot());
+      if (rootBlock == null) {
+        return new CacheEntry(null, NULL_DIR);
+      }
       return new CacheEntry(rootBlock, fetchDir(rootBlock));
     }
 
