@@ -70,7 +70,7 @@ public class GletscherMain {
       executor =
           MoreExecutors.listeningDecorator(
               new ThreadPoolExecutor(
-                  4, 32, 1, TimeUnit.MINUTES, new LinkedBlockingQueue<>(1024), threadFactory));
+                  8, 64, 1, TimeUnit.MINUTES, new LinkedBlockingQueue<>(1024), threadFactory));
     }
 
     @Override

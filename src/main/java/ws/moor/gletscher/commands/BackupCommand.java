@@ -49,6 +49,8 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.regex.Pattern;
 
@@ -170,6 +172,7 @@ class BackupCommand extends AbstractCommand {
     private final Semaphore pendingStoreRequests;
     private final Semaphore pendingStoreBytes;
     private final CommandContext context;
+    private final Executor executor = Executors.newSingleThreadExecutor();
 
     BackUpper(
         @Nullable CatalogReader catalogReader,
@@ -185,7 +188,7 @@ class BackupCommand extends AbstractCommand {
       this.skipPatterns = skipPatterns;
       this.observer = observer;
       this.clock = clock;
-      this.pendingStoreRequests = new Semaphore(32);
+      this.pendingStoreRequests = new Semaphore(64);
       this.pendingStoreBytes = new Semaphore(64 << 20);
       this.context = context;
     }
@@ -262,10 +265,10 @@ class BackupCommand extends AbstractCommand {
                   if (existingDirectory != null && !existingDirectory.hasChanged(dirProto)) {
                     return Futures.immediateFuture(existingDirectory.getAddress());
                   }
-                  return blockStore.store(dirProto.toByteArray(), true);
+                  return storeThrottled(dirProto.toByteArray(), /*cache=*/true);
                 }
               },
-              MoreExecutors.directExecutor());
+              executor);
     }
 
     private ListenableFuture<Gletscher.DirectoryEntry> handleRegularFile(
@@ -316,7 +319,7 @@ class BackupCommand extends AbstractCommand {
         Iterator<byte[]> parts = splitter.split(is);
         while (parts.hasNext()) {
           byte[] part = parts.next();
-          futures.add(storeThrottled(part));
+          futures.add(storeThrottled(part, false));
         }
       } catch (IOException | RuntimeException e) {
         return Futures.immediateFailedFuture(e);
@@ -338,10 +341,10 @@ class BackupCommand extends AbstractCommand {
       }
     }
 
-    private ListenableFuture<PersistedBlock> storeThrottled(byte[] part) {
+    private ListenableFuture<PersistedBlock> storeThrottled(byte[] part, boolean cache) {
       pendingStoreRequests.acquireUninterruptibly();
       pendingStoreBytes.acquireUninterruptibly(part.length);
-      ListenableFuture<PersistedBlock> future = blockStore.store(part, false);
+      ListenableFuture<PersistedBlock> future = blockStore.store(part, cache);
       releaseWhenDone(future, pendingStoreBytes, part.length);
       releaseWhenDone(future, pendingStoreRequests, 1);
       return future;
