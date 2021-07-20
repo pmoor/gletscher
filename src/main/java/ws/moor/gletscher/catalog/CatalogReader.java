@@ -29,6 +29,7 @@ import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.proto.Gletscher;
 
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -92,8 +93,13 @@ public class CatalogReader {
       for (Gletscher.DirectoryEntry entry : cacheEntry.directory.getEntryList()) {
         if (entry.getTypeCase() == Gletscher.DirectoryEntry.TypeCase.FILE) {
           Gletscher.FileEntry fileProto = entry.getFile();
-          Path filePath = path.resolve(fileProto.getName());
-          fileEntries.put(fileProto.getName(), toFileInfo(filePath, fileProto));
+          String fileName = fileProto.getName();
+          try {
+            Path filePath = path.resolve(fileName);
+            fileEntries.put(fileName, toFileInfo(filePath, fileProto));
+          } catch (InvalidPathException ipe) {
+            throw new IllegalArgumentException("tried to resolve \"" + fileName + "\" from \"" + path.toString() + "\"", ipe);
+          }
         }
       }
     }
