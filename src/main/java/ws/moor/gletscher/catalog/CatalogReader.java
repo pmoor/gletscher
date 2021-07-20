@@ -98,7 +98,7 @@ public class CatalogReader {
             Path filePath = path.resolve(fileName);
             fileEntries.put(fileName, toFileInfo(filePath, fileProto));
           } catch (InvalidPathException ipe) {
-            throw new IllegalArgumentException("tried to resolve \"" + fileName + "\" from \"" + path.toString() + "\"", ipe);
+            System.err.printf("failed to resolve \"%s\" from \"%s\": %s", fileName, path, ipe);
           }
         }
       }
