@@ -3,7 +3,7 @@ Gletscher
 
 Google Cloud Storage Backup Tool
 
-[![Build Status](https://travis-ci.org/pmoor/gletscher.svg?branch=master)](https://travis-ci.org/pmoor/gletscher)
+![Build Status](https://github.com/pmoor/gletscher/actions/workflows/maven.yml/badge.svg)
 
 Prerequisites
 -------------
