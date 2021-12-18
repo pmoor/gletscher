@@ -24,7 +24,7 @@ import com.google.api.client.http.HttpResponse;
 import com.google.api.client.http.HttpResponseException;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
-import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.storage.Storage;
 import com.google.api.services.storage.model.Objects;
 import com.google.api.services.storage.model.StorageObject;
@@ -82,7 +82,7 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
   public static Storage buildStorageWithCredentials(Path credentialFilePath) {
     try {
       HttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-      JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
+      JsonFactory jsonFactory = GsonFactory.getDefaultInstance();
       Credential credential =
           GoogleCredential.fromStream(
               Files.newInputStream(credentialFilePath), httpTransport, jsonFactory)
