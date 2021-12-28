@@ -16,9 +16,9 @@
 
 package ws.moor.gletscher.commands;
 
-import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -26,54 +26,58 @@ import ws.moor.gletscher.GletscherMain;
 import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
 import ws.moor.gletscher.commands.testing.FileReadFailureInjector;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
+import ws.moor.gletscher.testing.FileSystemTestRule;
 
-import java.nio.charset.StandardCharsets;
-import java.nio.file.FileSystem;
-import java.nio.file.Files;
-
-import static com.google.common.jimfs.Configuration.unix;
 import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class BackupCommandTest {
 
-  private FileSystem fs;
+  @Rule public FileSystemTestRule unix = FileSystemTestRule.unix();
+  @Rule public FileSystemTestRule windows = FileSystemTestRule.windows();
   private InMemoryCloudFileStorage inMemoryStorage;
 
   @Before
-  public void setUp() throws Exception {
-    fs = Jimfs.newFileSystem(unix());
+  public void setUp() {
     inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
-
-    Files.write(
-        fs.getPath("/config.properties"),
-        ("version: 1\n"
-            + "max_split_size: 65536\n"
-            + "disable_cache: true\n"
-            + "include:\n"
-            + "  - /home\n")
-            .getBytes(StandardCharsets.UTF_8));
-
-    // files to back-up
-    Files.createDirectories(fs.getPath("/home"));
-    Files.newBufferedWriter(fs.getPath("/home/file.txt")).append("Hello World").close();
-    Files.newBufferedWriter(fs.getPath("/home/ioerror.txt")).append("Irrelevant").close();
   }
 
   @Test
   public void testNoFailure() throws Exception {
-    TestCommandContext context = new TestCommandContext(fs, inMemoryStorage);
+    unix.writeFile("/config.properties","""
+            version: 1
+            max_split_size: 65536
+            disable_cache: true
+            include:
+              - /home
+            """);
+    unix.createDirectories("/home");
+    unix.writeFile("/home/file.txt", "Hello World");
+    unix.writeFile("/home/file2.txt", "Hello Two");
+
+    TestCommandContext context = new TestCommandContext(unix.getFileSystem(), inMemoryStorage);
     GletscherMain main = new GletscherMain(context);
     main.run("backup", "-c", "/config.properties");
     assertThat(context.status).isEqualTo(0);
     assertThat(context.stdOutString()).contains("new file: /home/file.txt");
-    assertThat(context.stdOutString()).contains("new file: /home/ioerror.txt");
+    assertThat(context.stdOutString()).contains("new file: /home/file2.txt");
     assertThat(context.stdErrString()).isEmpty();
   }
 
   @Test
   public void testFailure() throws Exception {
-    TestCommandContext context = new TestCommandContext(fs, inMemoryStorage);
+    unix.writeFile("/config.properties","""
+            version: 1
+            max_split_size: 65536
+            disable_cache: true
+            include:
+              - /home
+            """);
+    unix.createDirectories("/home");
+    unix.writeFile("/home/file.txt", "Hello World");
+    unix.writeFile("/home/ioerror.txt", "");
+
+    TestCommandContext context = new TestCommandContext(unix.getFileSystem(), inMemoryStorage);
     context.failureInjector = new FileReadFailureInjector.FailSpecificNamesInjector("ioerror.txt");
 
     GletscherMain main = new GletscherMain(context);
