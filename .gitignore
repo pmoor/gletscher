@@ -4,5 +4,6 @@
 /.idea/workspace.xml
 /.idea/uiDesigner.xml
 /cache
-/config.yaml
+/config.yaml*
 /backup.sh
+/backup.bat
