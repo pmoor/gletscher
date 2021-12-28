@@ -70,11 +70,18 @@ public class CatalogPathTest {
   public void testPrefixMapping() {
     CatalogPath src = CatalogPath.fromLocalPath(windows.getPath("A:\\Home\\Windows\\File.txt"));
 
-    // Unchanged if not a prefix.
-    assertThat(src.replacePrefix(CatalogPath.fromLocalPath(windows.getPath("C:\\Not\\A\\Prefix")), CatalogPath.fromLocalPath(windows.getPath("B:\\")))).isSameInstanceAs(src);
-
     assertThat(src.replacePrefix(CatalogPath.fromLocalPath(windows.getPath("A:\\Home")), CatalogPath.fromLocalPath(unix.getPath("/home"))))
         .isEqualTo(CatalogPath.fromLocalPath(unix.getPath("/home/Windows/File.txt")));
+  }
+
+  @Test
+  public void testPrefixMappingNotAPrefix() {
+    CatalogPath src = CatalogPath.fromLocalPath(unix.getPath("/"));
+    CatalogPath prefix = CatalogPath.fromLocalPath(unix.getPath("/home"));
+    CatalogPath replacementPrefix = CatalogPath.fromLocalPath(windows.getPath("C:\\Home"));
+
+    assertThat(prefix.isPrefixOf(src)).isFalse();
+    assertThat(src.replacePrefix(prefix, replacementPrefix)).isSameInstanceAs(src);
   }
 
   @Test

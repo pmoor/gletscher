@@ -17,6 +17,8 @@
 package ws.moor.gletscher.commands;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -275,18 +277,20 @@ class BackupCommand extends AbstractCommand {
         return true;
       }
 
-      Gletscher.Directory oldProto = existingDirectory.getProto();
-      if (oldProto.getEntryCount() != newProto.getEntryCount()) {
-          return true;
-      }
-      for (int i = 0; i < newProto.getEntryCount(); i++) {
-          Gletscher.DirectoryEntry oldEntry = oldProto.getEntry(i);
-          Gletscher.DirectoryEntry newEntry = newProto.getEntry(i);
-          if (!oldEntry.equals(newEntry)) {
-              return true;
-          }
-      }
-      return false;
+      // Compare entries regardless of order in proto. Paths may compare differently on windows vs. unix and therefore
+      // result in different orders.
+      ImmutableMap<String, Gletscher.DirectoryEntry> oldMap = mapEntriesByName(existingDirectory.getProto());
+      ImmutableMap<String, Gletscher.DirectoryEntry> newMap = mapEntriesByName(newProto);
+      return !newMap.equals(oldMap);
+    }
+
+    private static ImmutableMap<String, Gletscher.DirectoryEntry> mapEntriesByName(Gletscher.Directory proto) {
+      return Maps.uniqueIndex(proto.getEntryList(), entry -> switch (entry.getTypeCase()) {
+        case DIRECTORY -> entry.getDirectory().getName();
+        case FILE -> entry.getFile().getName();
+        case SYMLINK -> entry.getSymlink().getName();
+        default -> throw new AssertionError(entry);
+      });
     }
 
     private ListenableFuture<Gletscher.DirectoryEntry> handleRegularFile(
