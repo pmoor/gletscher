@@ -54,7 +54,10 @@ public class ConfigurationTest {
             "",
             "exclude:",
             " - \\.DS_Store$",
-            " - \\.fseventsd$");
+            " - \\.fseventsd$",
+            "mappings:",
+            "  a: b",
+            "  b: c");
 
     assertThat(config.getEncryptionKey().getEncoded()).isEqualTo(new byte[32]);
     assertThat(config.getSigningKey().getEncoded()).isEqualTo(new byte[32]);
@@ -69,5 +72,6 @@ public class ConfigurationTest {
         .containsExactly(fs.getPath("/Users/pmoor"), fs.getPath("/Volumes/External"));
     assertThat(config.getExcludes().stream().map(Pattern::pattern).collect(Collectors.toList()))
         .containsExactly("\\.DS_Store$", "\\.fseventsd$", "^\\Q/tmp/cache.dir\\E$");
+    assertThat(config.getCatalogPathMapping()).containsExactly("a", "b", "b", "c");
   }
 }

@@ -58,3 +58,9 @@ exclude:
   - /\.DS_Store$
   - /\.fseventsd$
   - ^/home/pmoor/Super Secret\.txt
+
+# (Optional) A set of path prefix mappings that are applied when looking up files in previous backups.
+# This can be helpful if Gletscher is used from Unix and Windows systems simultaneously, with many files appearing on
+# both systems but with different paths (network filers, source repositories, etc).
+mappings:
+  /Volumes/External: E:\

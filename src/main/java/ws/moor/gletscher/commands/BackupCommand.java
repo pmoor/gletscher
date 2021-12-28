@@ -89,6 +89,7 @@ class BackupCommand extends AbstractCommand {
     StreamSplitter splitter = config.getStreamSplitter();
     Optional<Catalog> latestCatalog = catalogStore.getLatestCatalog();
     CatalogReader catalogReader = latestCatalog.map(c -> CatalogReaders.fromBlockStore(blockStore, c)).orElse(CatalogReaders.empty());
+    catalogReader = CatalogReaders.mapping(config.getCatalogPathMapping(), catalogReader);
 
     Instant startTime = context.getClock().instant();
     BackupObserver observer = new BackupObserver(context.getStdOut(), context.getStdErr());

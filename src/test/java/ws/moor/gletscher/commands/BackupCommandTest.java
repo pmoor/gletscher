@@ -90,4 +90,44 @@ public class BackupCommandTest {
         + "java.lang.RuntimeException: java.io.IOException: Injected Failure");
   }
 
+  @Test
+  public void testBackupWindowsFollowedByUnix() throws Exception {
+    windows.writeFile("C:\\config.properties","""
+            version: 1
+            max_split_size: 65536
+            disable_cache: true
+            include:
+              - C:\\Home
+            """);
+    windows.createDirectories("C:\\Home");
+    windows.writeFile("C:\\Home\\file.txt", "Hello World");
+    windows.writeFile("C:\\Home\\file2.txt", "Hello Two");
+    windows.writeFile("C:\\Home\\file3.txt", "Hello Three");
+
+    TestCommandContext context = new TestCommandContext(windows.getFileSystem(), inMemoryStorage);
+    GletscherMain main = new GletscherMain(context);
+    main.run("backup", "-c", "C:\\config.properties");
+    assertThat(context.status).isEqualTo(0);
+    assertThat(inMemoryStorage.getFileCount()).isEqualTo(7);
+
+    // Now take a backup on unix with a home folder with matching contents.
+    unix.writeFile("/config.properties","""
+          version: 1
+          max_split_size: 65536
+          disable_cache: true
+          include:
+            - /home
+          mappings:
+            /home: C:\\Home
+          """);
+    windows.recursiveCopy("C:\\Home", unix.getFileSystem(), "/home");
+
+    context = new TestCommandContext(unix.getFileSystem(), inMemoryStorage);
+    main = new GletscherMain(context);
+    main.run("backup", "-c", "/config.properties");
+    assertThat(context.status).isEqualTo(0);
+
+    // Only 3 new files needed: new catalog reference, new catalog, new root directory. Everything else is re-used.
+    assertThat(inMemoryStorage.getFileCount()).isEqualTo(10);
+  }
 }

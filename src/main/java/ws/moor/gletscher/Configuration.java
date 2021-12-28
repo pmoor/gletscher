@@ -19,6 +19,7 @@ package ws.moor.gletscher;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 import ws.moor.gletscher.util.Cryptor;
@@ -142,5 +143,10 @@ public class Configuration {
       patterns.add(Pattern.compile("^" + Pattern.quote(getLocalCacheDir().toString()) + "$"));
     }
     return patterns;
+  }
+
+  @SuppressWarnings("unchecked")
+  public ImmutableMap<String, String> getCatalogPathMapping() {
+    return ImmutableMap.copyOf((Map<String, String>) yaml.getOrDefault("mappings", ImmutableMap.<String, String>of()));
   }
 }
