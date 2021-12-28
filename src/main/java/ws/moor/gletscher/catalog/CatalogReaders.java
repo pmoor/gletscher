@@ -16,6 +16,7 @@
 
 package ws.moor.gletscher.catalog;
 
+import com.google.common.collect.ImmutableMap;
 import ws.moor.gletscher.blocks.BlockStore;
 
 import javax.annotation.Nullable;
@@ -41,6 +42,14 @@ public final class CatalogReaders {
 
   public static CatalogReader fromBlockStore(BlockStore blockStore, Catalog catalog) {
     return new RealCatalogReader(blockStore, catalog);
+  }
+
+  public static CatalogReader mapping(ImmutableMap<String, String> catalogPathMapping, CatalogReader delegate) {
+    ImmutableMap.Builder<CatalogPath, CatalogPath> pojoPathMapBuilder = ImmutableMap.builder();
+    for (ImmutableMap.Entry<String, String> entry : catalogPathMapping.entrySet()) {
+      pojoPathMapBuilder.put(CatalogPath.fromHumanReadableString(entry.getKey()), CatalogPath.fromHumanReadableString(entry.getValue()));
+    }
+    return new MappingCatalogReader(pojoPathMapBuilder.build(), delegate);
   }
 
   private CatalogReaders() {}
