@@ -26,7 +26,9 @@ import org.apache.commons.cli.Options;
 import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.catalog.Catalog;
+import ws.moor.gletscher.catalog.CatalogPath;
 import ws.moor.gletscher.catalog.CatalogReader;
+import ws.moor.gletscher.catalog.CatalogReaders;
 import ws.moor.gletscher.files.FileSystemReader;
 import ws.moor.gletscher.proto.Gletscher;
 import ws.moor.gletscher.util.StreamSplitter;
@@ -84,8 +86,7 @@ class BackupCommand extends AbstractCommand {
 
     StreamSplitter splitter = config.getStreamSplitter();
     Optional<Catalog> latestCatalog = catalogStore.getLatestCatalog();
-    @Nullable
-    CatalogReader catalogReader = latestCatalog.map(c -> new CatalogReader(blockStore, c)).orElse(null);
+    CatalogReader catalogReader = latestCatalog.map(c -> CatalogReaders.fromBlockStore(blockStore, c)).orElse(CatalogReaders.empty());
 
     Instant startTime = context.getClock().instant();
     BackupObserver observer = new BackupObserver(context.getStdOut(), context.getStdErr());
@@ -144,7 +145,7 @@ class BackupCommand extends AbstractCommand {
       stdout.printf("new file: %s\n", entry.path);
     }
 
-    void changedFile(CatalogReader.FileInformation oldFile, FileSystemReader.Entry newFile) {
+    void changedFile(CatalogReader.CatalogFile oldFile, FileSystemReader.Entry newFile) {
       stdout.printf("changed file: %s\n", newFile.path);
     }
 
@@ -162,7 +163,6 @@ class BackupCommand extends AbstractCommand {
   private static class BackUpper
       implements FileSystemReader.Visitor<ListenableFuture<PersistedBlock>> {
 
-    @Nullable
     private final CatalogReader catalogReader;
     private final StreamSplitter splitter;
     private final BlockStore blockStore;
@@ -175,7 +175,7 @@ class BackupCommand extends AbstractCommand {
     private final Executor executor = Executors.newSingleThreadExecutor();
 
     BackUpper(
-        @Nullable CatalogReader catalogReader,
+        CatalogReader catalogReader,
         StreamSplitter splitter,
         BlockStore blockStore,
         Set<Pattern> skipPatterns,
@@ -199,8 +199,7 @@ class BackupCommand extends AbstractCommand {
         List<FileSystemReader.Entry> entries,
         FileSystemReader.Recursor<ListenableFuture<PersistedBlock>> recursor) {
       @Nullable
-      CatalogReader.DirectoryInformation existingDirectory =
-          catalogReader != null ? catalogReader.findDirectory(directory) : null;
+      CatalogReader.CatalogDirectory existingDirectory = catalogReader.findDirectory(CatalogPath.fromLocalPath(directory));
 
       Gletscher.Directory.Builder dirProtoBuilder = Gletscher.Directory.newBuilder();
       dirProtoBuilder.setStartTimeMillis(clock.millis());
@@ -217,7 +216,7 @@ class BackupCommand extends AbstractCommand {
 
         if (entry.isRegularFile()) {
           @Nullable
-          CatalogReader.FileInformation existingFile =
+          CatalogReader.CatalogFile existingFile =
               existingDirectory != null
                   ? existingDirectory.findFileInformation(entry.path.getFileName().toString())
                   : null;
@@ -249,7 +248,7 @@ class BackupCommand extends AbstractCommand {
           .callAsync(
               new AsyncCallable<PersistedBlock>() {
                 @Override
-                public ListenableFuture<PersistedBlock> call() throws Exception {
+                public ListenableFuture<PersistedBlock> call() {
                   for (Map.Entry<Path, ListenableFuture<Gletscher.DirectoryEntry>> entry :
                       entryMap.entrySet()) {
                     try {
@@ -262,7 +261,7 @@ class BackupCommand extends AbstractCommand {
                   dirProtoBuilder.setEndTimeMillis(clock.millis());
                   Gletscher.Directory dirProto = dirProtoBuilder.build();
 
-                  if (existingDirectory != null && !existingDirectory.hasChanged(dirProto)) {
+                  if (!hasBeenModified(existingDirectory, dirProto)) {
                     return Futures.immediateFuture(existingDirectory.getAddress());
                   }
                   return storeThrottled(dirProto.toByteArray(), /*cache=*/true);
@@ -271,8 +270,27 @@ class BackupCommand extends AbstractCommand {
               executor);
     }
 
+    private static boolean hasBeenModified(@Nullable CatalogReader.CatalogDirectory existingDirectory, Gletscher.Directory newProto) {
+      if (existingDirectory == null) {
+        return true;
+      }
+
+      Gletscher.Directory oldProto = existingDirectory.getProto();
+      if (oldProto.getEntryCount() != newProto.getEntryCount()) {
+          return true;
+      }
+      for (int i = 0; i < newProto.getEntryCount(); i++) {
+          Gletscher.DirectoryEntry oldEntry = oldProto.getEntry(i);
+          Gletscher.DirectoryEntry newEntry = newProto.getEntry(i);
+          if (!oldEntry.equals(newEntry)) {
+              return true;
+          }
+      }
+      return false;
+    }
+
     private ListenableFuture<Gletscher.DirectoryEntry> handleRegularFile(
-        FileSystemReader.Entry entry, CatalogReader.FileInformation existingFile) {
+        FileSystemReader.Entry entry, CatalogReader.CatalogFile existingFile) {
       Instant currentLastModifiedTime = entry.attributes.lastModifiedTime().toInstant().truncatedTo(ChronoUnit.MILLIS);
       if (existingFile == null
           || !existingFile.lastModifiedTime.equals(currentLastModifiedTime)

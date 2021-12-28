@@ -21,6 +21,7 @@ import org.apache.commons.cli.Options;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogReader;
+import ws.moor.gletscher.catalog.CatalogReaders;
 
 import java.util.Iterator;
 import java.util.List;
@@ -52,16 +53,16 @@ class VerifyCommand extends AbstractCommand {
       context.getStdErr().println("No existing backups found - nothing to verify.");
       return -1;
     }
-    CatalogReader reader = new CatalogReader(blockStore, catalog.get());
+    CatalogReader catalogReader = CatalogReaders.fromBlockStore(blockStore, catalog.get());
 
     boolean allFound = true;
     Set<PersistedBlock> allBlocks = blockStore.listAllBlocks();
-    Iterator<CatalogReader.FileInformation> it = reader.walk();
+    Iterator<CatalogReader.CatalogFile> it = catalogReader.walk();
     while (it.hasNext()) {
-      CatalogReader.FileInformation file = it.next();
+      CatalogReader.CatalogFile file = it.next();
       for (PersistedBlock block : file.blockList) {
         if (!allBlocks.contains(block)) {
-          context.getStdOut().printf("missing block: %s in %s", block, file.path);
+          context.getStdOut().printf("missing block: %s in %s", block, file.path.getHumanReadableString());
           allFound = false;
         }
       }

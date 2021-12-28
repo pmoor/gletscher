@@ -35,11 +35,11 @@ public class Catalog {
   PersistedBlock address;
   private final Instant startTime;
   private final Instant endTime;
-  private final Map<Path, PersistedBlock> roots;
+  private final Map<CatalogPath, PersistedBlock> roots;
   private final @Nullable
   PersistedBlock baseCatalog;
 
-  private Catalog(@Nullable PersistedBlock address, Instant startTime, Instant endTime, Map<Path, PersistedBlock> roots, @Nullable PersistedBlock baseCatalog) {
+  private Catalog(@Nullable PersistedBlock address, Instant startTime, Instant endTime, Map<CatalogPath, PersistedBlock> roots, @Nullable PersistedBlock baseCatalog) {
     this.address = address;
     this.startTime = startTime;
     this.endTime = endTime;
@@ -48,16 +48,20 @@ public class Catalog {
   }
 
   public static Catalog fromNewBackup(
-      Instant startTime, Instant endTime, Map<Path, PersistedBlock> roots, Catalog baseCatalog) {
-    return new Catalog(null, startTime, endTime, ImmutableMap.copyOf(roots), baseCatalog != null ? baseCatalog.getAddress() : null);
+          Instant startTime, Instant endTime, Map<Path, PersistedBlock> roots, Catalog baseCatalog) {
+    ImmutableMap.Builder<CatalogPath, PersistedBlock> catalogPathRootsBuilder = ImmutableMap.builder();
+    for (Map.Entry<Path, PersistedBlock> entry : roots.entrySet()) {
+      catalogPathRootsBuilder.put(CatalogPath.fromLocalPath(entry.getKey()), entry.getValue());
+    }
+    return new Catalog(null, startTime, endTime, catalogPathRootsBuilder.build(), baseCatalog != null ? baseCatalog.getAddress() : null);
   }
 
   static Catalog fromProto(PersistedBlock pb, FileSystem fs, Gletscher.Catalog catalog) {
     Instant startTime = Instant.ofEpochMilli(catalog.getStartTimeMillis());
     Instant endTime = Instant.ofEpochMilli(catalog.getEndTimeMillis());
-    ImmutableMap.Builder<Path, PersistedBlock> rootBuilder = ImmutableMap.builder();
+    ImmutableMap.Builder<CatalogPath, PersistedBlock> rootBuilder = ImmutableMap.builder();
     for (Map.Entry<String, Gletscher.PersistedBlock> entry : catalog.getRootsMap().entrySet()) {
-      rootBuilder.put(fs.getPath(entry.getKey()), PersistedBlock.fromProto(entry.getValue()));
+      rootBuilder.put(CatalogPath.fromRootName(entry.getKey()), PersistedBlock.fromProto(entry.getValue()));
     }
     PersistedBlock baseCatalog = catalog.hasBaseCatalog() ? PersistedBlock.fromProto(catalog.getBaseCatalog()) : null;
     return new Catalog(pb, startTime, endTime, rootBuilder.build(), baseCatalog);
@@ -67,8 +71,8 @@ public class Catalog {
     Gletscher.Catalog.Builder builder = Gletscher.Catalog.newBuilder();
     builder.setStartTimeMillis(startTime.toEpochMilli());
     builder.setEndTimeMillis(endTime.toEpochMilli());
-    for (Map.Entry<Path, PersistedBlock> entry : roots.entrySet()) {
-      builder.putRoots(entry.getKey().toString(), entry.getValue().toProto());
+    for (Map.Entry<CatalogPath, PersistedBlock> entry : roots.entrySet()) {
+      builder.putRoots(entry.getKey().asRootName(), entry.getValue().toProto());
     }
     if (baseCatalog != null) {
       builder.setBaseCatalog(baseCatalog.toProto());
@@ -80,11 +84,11 @@ public class Catalog {
     return startTime;
   }
 
-  public Map<Path, PersistedBlock> getRoots() {
+  public Map<CatalogPath, PersistedBlock> getRoots() {
     return roots;
   }
 
-  public PersistedBlock getRootBlock(Path root) {
+  public PersistedBlock getRootBlock(CatalogPath root) {
     return roots.get(root);
   }
 

@@ -22,6 +22,7 @@ import org.apache.commons.cli.Options;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogReader;
+import ws.moor.gletscher.catalog.CatalogReaders;
 import ws.moor.gletscher.util.Signer;
 import ws.moor.gletscher.util.StreamSplitter;
 
@@ -78,10 +79,10 @@ class ContainsCommand extends AbstractCommand {
 
     Optional<Catalog> catalog = catalogStore.getLatestCatalog();
     while (catalog.isPresent()) {
-      CatalogReader catalogReader = new CatalogReader(blockStore, catalog.get());
-      Iterator<CatalogReader.FileInformation> it = catalogReader.walk();
+      CatalogReader catalogReader = CatalogReaders.fromBlockStore(blockStore, catalog.get());
+      Iterator<CatalogReader.CatalogFile> it = catalogReader.walk();
       while (it.hasNext()) {
-        CatalogReader.FileInformation file = it.next();
+        CatalogReader.CatalogFile file = it.next();
         for (Map.Entry<Path, List<PersistedBlock>> entry : blocksByPath.entrySet()) {
           if (file.blockList.equals(entry.getValue())) {
             context.getStdOut().printf("match with %s in %s\n", file.path, catalog.get().getAddress());

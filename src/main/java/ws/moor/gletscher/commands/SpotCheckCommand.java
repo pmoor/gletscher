@@ -24,13 +24,14 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.catalog.Catalog;
+import ws.moor.gletscher.catalog.CatalogPath;
 import ws.moor.gletscher.catalog.CatalogReader;
+import ws.moor.gletscher.catalog.CatalogReaders;
 import ws.moor.gletscher.util.MoreArrays;
 
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 import java.util.List;
@@ -87,15 +88,15 @@ class SpotCheckCommand extends AbstractCommand {
       context.getStdErr().println("No existing backups found - nothing to verify.");
       return -1;
     }
-    CatalogReader reader = new CatalogReader(blockStore, catalog.get());
+    CatalogReader catalogReader = CatalogReaders.fromBlockStore(blockStore, catalog.get());
 
     PriorityQueue<Sample> pq =
         new PriorityQueue<>(
             (o1, o2) -> Double.compare(o2.score, o1.score)); // highest score in front
     long totalSize = 0;
-    Iterator<CatalogReader.FileInformation> it = reader.walk();
+    Iterator<CatalogReader.CatalogFile> it = catalogReader.walk();
     while (it.hasNext()) {
-      CatalogReader.FileInformation file = it.next();
+      CatalogReader.CatalogFile file = it.next();
       long offset = 0;
       for (PersistedBlock block : file.blockList) {
         Sample sample = new Sample(file.path, offset, block);
@@ -121,10 +122,10 @@ class SpotCheckCommand extends AbstractCommand {
           .getStdOut()
           .printf(
               "checking %s (offset %d, %d bytes): ",
-              sample.path, sample.offset, sample.block.getOriginalLength());
+              sample.path.getHumanReadableString(), sample.offset, sample.block.getOriginalLength());
 
       try (SeekableByteChannel channel =
-          Files.newByteChannel(sample.path, StandardOpenOption.READ)) {
+          Files.newByteChannel(sample.path.toNativePath(context.getFileSystem()), StandardOpenOption.READ)) {
         channel.position(sample.offset);
 
         ByteBuffer data = ByteBuffer.allocate(sample.block.getOriginalLength());
@@ -151,12 +152,12 @@ class SpotCheckCommand extends AbstractCommand {
   private class Sample {
 
     private final double score;
-    private final Path path;
+    private final CatalogPath path;
 
     private final long offset;
     private final PersistedBlock block;
 
-    Sample(Path path, long offset, PersistedBlock block) {
+    Sample(CatalogPath path, long offset, PersistedBlock block) {
       double adjustment = block.getOriginalLength() > (1 << 20) ? 4.0 : 1.0;
       this.score =
           adjustment
