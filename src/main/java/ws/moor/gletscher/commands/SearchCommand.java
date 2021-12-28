@@ -81,7 +81,7 @@ class SearchCommand extends AbstractCommand {
               .getStdOut()
               .printf(
                   "\t%s: %s (%d bytes)\n",
-                  file.path, file.lastModifiedTime, file.getOriginalSize());
+                  file.path.getHumanReadableString(), file.lastModifiedTime, file.getOriginalSize());
         }
       }
       context.getStdOut().println();
