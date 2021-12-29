@@ -82,4 +82,16 @@ public class SearchCommandTest {
     assertThat(context.stdOutString()).doesNotContain("/home/b.pdf");
     assertThat(context.stdOutString()).doesNotContain("/home/c.jpg");
   }
+
+  @Test
+  public void testSearchFullName() throws Exception {
+    TestCommandContext context = new TestCommandContext(fs.getFileSystem(), inMemoryStorage);
+    GletscherMain main = new GletscherMain(context);
+    main.run("search", "-c", "/config.properties", "^/home/c.jpg$");
+
+    assertThat(context.status).isEqualTo(0);
+    assertThat(context.stdOutString()).contains("/home/c.jpg");
+    assertThat(context.stdOutString()).doesNotContain("/home/a.txt");
+    assertThat(context.stdOutString()).doesNotContain("/home/b.pdf");
+  }
 }

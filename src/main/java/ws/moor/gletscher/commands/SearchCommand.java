@@ -61,16 +61,18 @@ class SearchCommand extends AbstractCommand {
       Iterator<CatalogReader.CatalogFile> iterator = catalogReader.walk();
       while (iterator.hasNext()) {
         CatalogReader.CatalogFile file = iterator.next();
+        String humanReadablePath = file.path.getHumanReadableString();
+
         boolean matches = true;
         for (Pattern pattern : positive) {
-          if (!pattern.matcher(file.path.toString()).find()) {
+          if (!pattern.matcher(humanReadablePath).find()) {
             matches = false;
             break;
           }
         }
         if (matches) {
           for (Pattern pattern : negative) {
-            if (pattern.matcher(file.path.toString()).find()) {
+            if (pattern.matcher(humanReadablePath).find()) {
               matches = false;
               break;
             }
@@ -81,7 +83,7 @@ class SearchCommand extends AbstractCommand {
               .getStdOut()
               .printf(
                   "\t%s: %s (%d bytes)\n",
-                  file.path.getHumanReadableString(), file.lastModifiedTime, file.getOriginalSize());
+                  humanReadablePath, file.lastModifiedTime, file.getOriginalSize());
         }
       }
       context.getStdOut().println();
