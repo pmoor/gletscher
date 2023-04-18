@@ -20,6 +20,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 import ws.moor.gletscher.util.Cryptor;
@@ -47,14 +48,14 @@ public class Configuration {
 
   @SuppressWarnings("unchecked")
   static Configuration fromLines(FileSystem fs, String... lines) {
-    Yaml yaml = new Yaml(new SafeConstructor());
+    Yaml yaml = new Yaml(new SafeConstructor(new LoaderOptions()));
     Map<String, Object> result = (Map<String, Object>) yaml.load(Joiner.on('\n').join(lines));
     return new Configuration(fs, result);
   }
 
   @SuppressWarnings("unchecked")
   public static Configuration fromFile(Path configFile) throws IOException {
-    Yaml yaml = new Yaml(new SafeConstructor());
+    Yaml yaml = new Yaml(new SafeConstructor(new LoaderOptions()));
     Map<String, Object> result =
         (Map<String, Object>)
             yaml.load(Files.newBufferedReader(configFile, StandardCharsets.UTF_8));
