@@ -86,6 +86,18 @@ public class StatsCommandTest {
     assertThat(context.stdOutString()).contains("jpg: 8 B");
     assertThat(context.stdOutString()).contains("<none>: 6 B");
     assertThat(context.stdOutString()).contains("gif: 5 B");
+    assertThat(context.stdOutString()).doesNotContain("File Blocks:");
+    assertThat(context.stdErrString()).isEmpty();
+  }
+
+  @Test
+  public void testVerbose() throws Exception {
+    takeBackup();
+
+    main.run("stats", "-c", "/config.properties", "-v");
+    assertThat(context.status).isEqualTo(0);
+    assertThat(context.stdOutString()).contains("File Blocks:");
+    assertThat(context.stdOutString()).contains("total count: 6  total sum: 30 B");
     assertThat(context.stdErrString()).isEmpty();
   }
 

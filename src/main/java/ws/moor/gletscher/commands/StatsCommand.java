@@ -17,6 +17,7 @@
 package ws.moor.gletscher.commands;
 
 import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogAnalyzer;
@@ -33,6 +34,11 @@ class StatsCommand extends AbstractCommand {
   @Override
   protected void addCommandLineOptions(Options options) {
     addConfigFileOption(options);
+    options.addOption(
+        Option.builder("v")
+            .longOpt("verbose")
+            .desc("Print more verbose statistics, including histograms.")
+            .build());
   }
 
   @Override
@@ -41,7 +47,7 @@ class StatsCommand extends AbstractCommand {
       throw new InvalidUsageException(this, "Command does not accept arguments.");
     }
 
-    CatalogAnalyzer analyzer = new CatalogAnalyzer(blockStore);
+    CatalogAnalyzer analyzer = new CatalogAnalyzer(blockStore, /* printHistograms= */commandLine.hasOption('v'));
     Optional<Catalog> catalog = catalogStore.getLatestCatalog();
     while (catalog.isPresent()) {
       analyzer.analyze(catalog.get(), context.getStdOut());

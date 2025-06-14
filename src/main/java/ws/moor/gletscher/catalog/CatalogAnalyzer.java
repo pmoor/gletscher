@@ -25,6 +25,7 @@ import ws.moor.gletscher.util.ByteSize;
 import ws.moor.gletscher.util.Histogram;
 
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -38,9 +39,11 @@ import java.util.stream.Collectors;
 public class CatalogAnalyzer {
 
   private final BlockStore blockStore;
+  private final boolean printHistograms;
 
-  public CatalogAnalyzer(BlockStore blockStore) {
+  public CatalogAnalyzer(BlockStore blockStore, boolean printHistograms) {
     this.blockStore = blockStore;
+    this.printHistograms = printHistograms;
   }
 
   public void analyze(Catalog catalog, PrintStream out) {
@@ -101,6 +104,20 @@ public class CatalogAnalyzer {
     out.println("    unique blocks: " + uniqueBlocks.size());
     out.println("unique block size: " + ByteSize.ofBytes(uniqueSize));
     out.println();
+
+    if (printHistograms) {
+      try (PrintWriter writer = new PrintWriter(out)) {
+        writer.println("File Blocks:");
+        blockSizes.write(it -> ByteSize.ofBytes(it).toString(), writer);
+        writer.println();
+        writer.println("Meta Blocks:");
+        metaSizes.write(it -> ByteSize.ofBytes(it).toString(), writer);
+        writer.println();
+        writer.println("Original File Sizes:");
+        fileSizes.write(it -> ByteSize.ofBytes(it).toString(), writer);
+        writer.println();
+      }
+    }
 
     if (!bytesByExtension.isEmpty()) {
       out.println("size by extension:");
