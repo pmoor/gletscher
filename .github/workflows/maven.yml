@@ -13,6 +13,5 @@ jobs:
       with:
         java-version: '21'
         distribution: 'zulu'
-        cache: maven
     - name: Run tests with Maven
       run: mvn --update-snapshots verify
