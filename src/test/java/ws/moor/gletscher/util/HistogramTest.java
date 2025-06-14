@@ -56,6 +56,16 @@ public class HistogramTest {
   }
 
   @Test
+  public void countAndSum() {
+    Histogram h = new Histogram(0, 10, 100);
+    h.add(5);
+    h.add(15);
+    h.add(105);
+    assertThat(h.count()).isEqualTo(3);
+    assertThat(h.sum()).isEqualTo(125);
+  }
+
+  @Test
   public void noBounds() {
     Histogram h = new Histogram();
     h.add(-15);

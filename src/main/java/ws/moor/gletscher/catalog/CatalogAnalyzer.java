@@ -22,6 +22,7 @@ import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.proto.Gletscher;
 import ws.moor.gletscher.util.ByteSize;
+import ws.moor.gletscher.util.Histogram;
 
 import java.io.PrintStream;
 import java.util.Comparator;
@@ -53,15 +54,15 @@ public class CatalogAnalyzer {
     int directories = 0;
     int files = 0;
     int symlinks = 0;
-    int totalBlocks = 0;
-    long totalBlockSize = 0;
-    long metaSize = 0;
+    Histogram blockSizes = new Histogram(0, 100, 1 << 10, 2 << 10, 4 << 10, 8 << 10, 16 << 10, 32 << 10, 64 << 10, 128 << 10, 256 << 10, 512 << 10, 1 << 20, 2 << 20, 4 << 20);
+    Histogram metaSizes = new Histogram(0, 100, 1 << 10, 2 << 10, 4 << 10, 8 << 10, 16 << 10, 32 << 10, 64 << 10, 128 << 10, 256 << 10, 512 << 10, 1 << 20, 2 << 20, 3 << 20, 4 << 20);
+    Histogram fileSizes = new Histogram(0, 1 << 10, 1 << 20, 1 << 30, 1L << 40);
     Set<PersistedBlock> uniqueBlocks = new HashSet<>();
     Map<String, AtomicLong> bytesByExtension = new HashMap<>();
     while (!stack.isEmpty()) {
       directories++;
       Gletscher.Directory dir = stack.pop();
-      metaSize += dir.getSerializedSize();
+      metaSizes.add(dir.getSerializedSize());
       for (Gletscher.DirectoryEntry entry : dir.getEntryList()) {
         switch (entry.getTypeCase()) {
           case FILE:
@@ -69,10 +70,10 @@ public class CatalogAnalyzer {
             long fileSize = 0;
             for (Gletscher.PersistedBlock block : entry.getFile().getBlockList()) {
               uniqueBlocks.add(PersistedBlock.fromProto(block));
-              totalBlocks++;
+              blockSizes.add(block.getOriginalSize());
               fileSize += block.getOriginalSize();
             }
-            totalBlockSize += fileSize;
+            fileSizes.add(fileSize);
             trackBytesByExtension(entry.getFile().getName(), fileSize, bytesByExtension);
             break;
           case DIRECTORY:
@@ -94,9 +95,9 @@ public class CatalogAnalyzer {
     out.println("      directories: " + directories);
     out.println("            files: " + files);
     out.println("         symlinks: " + symlinks);
-    out.println("        meta size: " + ByteSize.ofBytes(metaSize));
-    out.println("     total blocks: " + totalBlocks);
-    out.println(" total block size: " + ByteSize.ofBytes(totalBlockSize));
+    out.println("        meta size: " + ByteSize.ofBytes(metaSizes.sum()));
+    out.println("     total blocks: " + blockSizes.count());
+    out.println(" total block size: " + ByteSize.ofBytes(blockSizes.sum()));
     out.println("    unique blocks: " + uniqueBlocks.size());
     out.println("unique block size: " + ByteSize.ofBytes(uniqueSize));
     out.println();
@@ -104,15 +105,15 @@ public class CatalogAnalyzer {
     if (!bytesByExtension.isEmpty()) {
       out.println("size by extension:");
 
-      long remainingSize = totalBlockSize;
+      long remainingSize = blockSizes.sum();
       List<Map.Entry<String, AtomicLong>> sortedEntries =
           bytesByExtension.entrySet().stream()
               .sorted(
                   Map.Entry.<String, AtomicLong>comparingByValue(
                           Comparator.comparing(AtomicLong::get))
                       .reversed())
-              .collect(Collectors.toList());
-      for (int i = 0; i < 10 && i < sortedEntries.size(); i++) {
+              .toList();
+      for (int i = 0; i < 15 && i < sortedEntries.size(); i++) {
         out.printf(
             "%17s: %s\n",
             sortedEntries.get(i).getKey(), ByteSize.ofBytes(sortedEntries.get(i).getValue().get()));
@@ -147,6 +148,8 @@ public class CatalogAnalyzer {
       // Require at least one character before the last dot, and only consider extensions between 1 and 5 characters.
       String extension = fileName.substring(idx + 1).toLowerCase();
       bytesByExtension.computeIfAbsent(extension, unused -> new AtomicLong()).addAndGet(fileSize);
+    } else {
+      bytesByExtension.computeIfAbsent("<none>", unused -> new AtomicLong()).addAndGet(fileSize);
     }
   }
 

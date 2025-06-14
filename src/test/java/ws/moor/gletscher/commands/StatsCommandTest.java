@@ -84,8 +84,8 @@ public class StatsCommandTest {
     assertThat(context.stdOutString()).contains("unique block size: 25 B");
     assertThat(context.stdOutString()).contains("txt: 11 B");
     assertThat(context.stdOutString()).contains("jpg: 8 B");
+    assertThat(context.stdOutString()).contains("<none>: 6 B");
     assertThat(context.stdOutString()).contains("gif: 5 B");
-    assertThat(context.stdOutString()).contains("others: 6 B");
     assertThat(context.stdErrString()).isEmpty();
   }
 

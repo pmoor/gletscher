@@ -47,6 +47,14 @@ public final class Histogram {
     counts[index]++;
   }
 
+  public long count() {
+    return Arrays.stream(counts).sum();
+  }
+
+  public long sum() {
+    return Arrays.stream(sums).sum();
+  }
+
   public void write(Function<Long, String> formatter, PrintWriter out) {
     int firstBucket = -1;
     for (int i = 0; i < counts.length; i++) {
@@ -117,9 +125,5 @@ public final class Histogram {
     } else {
       return -(res + 1);
     }
-  }
-
-  public long sum() {
-    return Arrays.stream(sums).sum();
   }
 }
