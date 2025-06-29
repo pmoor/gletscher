@@ -106,17 +106,17 @@ public class CatalogAnalyzer {
     out.println();
 
     if (printHistograms) {
-      try (PrintWriter writer = new PrintWriter(out)) {
-        writer.println("File Blocks:");
-        blockSizes.write(it -> ByteSize.ofBytes(it).toString(), writer);
-        writer.println();
-        writer.println("Meta Blocks:");
-        metaSizes.write(it -> ByteSize.ofBytes(it).toString(), writer);
-        writer.println();
-        writer.println("Original File Sizes:");
-        fileSizes.write(it -> ByteSize.ofBytes(it).toString(), writer);
-        writer.println();
-      }
+      PrintWriter writer = new PrintWriter(out);
+      writer.println("File Blocks:");
+      blockSizes.write(it -> ByteSize.ofBytes(it).toString(), writer);
+      writer.println();
+      writer.println("Meta Blocks:");
+      metaSizes.write(it -> ByteSize.ofBytes(it).toString(), writer);
+      writer.println();
+      writer.println("Original File Sizes:");
+      fileSizes.write(it -> ByteSize.ofBytes(it).toString(), writer);
+      writer.println();
+      writer.flush();
     }
 
     if (!bytesByExtension.isEmpty()) {
