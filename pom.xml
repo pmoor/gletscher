@@ -29,6 +29,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <protobuf.version>4.36.2</protobuf.version>
     </properties>
 
     <licenses>
@@ -61,8 +62,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.16.0</version>
                 <configuration>
-                    <source>21</source>
-                    <target>21</target>
+                    <release>21</release>
                     <compilerArgs>
                         <arg>-Xlint:all</arg>
                     </compilerArgs>
@@ -124,7 +124,7 @@
                 <artifactId>protobuf-maven-plugin</artifactId>
                 <version>5.1.12</version>
                 <configuration>
-                    <protoc>4.31.1</protoc>
+                    <protoc>${protobuf.version}</protoc>
                 </configuration>
                 <executions>
                     <execution>
@@ -155,7 +155,7 @@
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
-            <version>4.36.2</version>
+            <version>${protobuf.version}</version>
         </dependency>
 
         <dependency>
@@ -181,7 +181,7 @@
         <dependency>
             <groupId>com.google.apis</groupId>
             <artifactId>google-api-services-storage</artifactId>
-            <version>v1-rev20250605-2.0.0</version>
+            <version>v1-rev20261107-2.9.2</version>
         </dependency>
 
         <dependency>
