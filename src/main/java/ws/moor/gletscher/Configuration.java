@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
+import ws.moor.gletscher.cloud.StorageClass;
 import ws.moor.gletscher.util.Cryptor;
 import ws.moor.gletscher.util.Signer;
 import ws.moor.gletscher.util.StreamSplitter;
@@ -35,6 +36,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -91,6 +93,28 @@ public class Configuration {
 
   public String getFilePrefix() {
     return (String) findGcsNode().get("object_prefix");
+  }
+
+  public Optional<StorageClass> getMetadataStorageClass() {
+    return getStorageClass("metadata_storage_class");
+  }
+
+  public Optional<StorageClass> getDataStorageClass() {
+    return getStorageClass("data_storage_class");
+  }
+
+  private Optional<StorageClass> getStorageClass(String key) {
+    Map<String, Object> gcs = findGcsNode();
+    if (gcs == null) {
+      return Optional.empty();
+    }
+    Object value = gcs.get(key);
+    if (value == null) {
+      return Optional.empty();
+    }
+    Preconditions.checkArgument(
+        value instanceof String, "%s must be a string, got: %s", key, value);
+    return Optional.of(StorageClass.parse((String) value));
   }
 
   public Path getLocalCacheDir() {

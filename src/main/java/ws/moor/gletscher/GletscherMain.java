@@ -83,7 +83,13 @@ public class GletscherMain {
       Storage storage =
           GoogleCloudFileStorage.buildStorageWithCredentials(config.getCredentialFilePath());
       return new GoogleCloudFileStorage(
-          storage, config.getBucketName(), config.getFilePrefix(), executor, costTracker);
+          storage,
+          config.getBucketName(),
+          config.getFilePrefix(),
+          executor,
+          costTracker,
+          config.getMetadataStorageClass(),
+          config.getDataStorageClass());
     }
 
     @Override

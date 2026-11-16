@@ -20,6 +20,7 @@ import com.google.common.jimfs.Jimfs;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import ws.moor.gletscher.cloud.StorageClass;
 
 import java.nio.file.FileSystem;
 import java.util.regex.Pattern;
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.jimfs.Configuration.unix;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 @RunWith(JUnit4.class)
 public class ConfigurationTest {
@@ -73,5 +75,40 @@ public class ConfigurationTest {
     assertThat(config.getExcludes().stream().map(Pattern::pattern).collect(Collectors.toList()))
         .containsExactly("\\.DS_Store$", "\\.fseventsd$", "^\\Q/tmp/cache.dir\\E$");
     assertThat(config.getCatalogPathMapping()).containsExactly("a", "b", "b", "c");
+    assertThat(config.getMetadataStorageClass()).isEmpty();
+    assertThat(config.getDataStorageClass()).isEmpty();
+  }
+
+  @Test
+  public void testStorageClasses() {
+    FileSystem fs = Jimfs.newFileSystem(unix());
+    Configuration config =
+        Configuration.fromLines(
+            fs,
+            "version: 1",
+            "gcs:",
+            "  credentials: /credential/file.json",
+            "  bucket_name: bucket-name",
+            "  object_prefix: prefix/",
+            "  metadata_storage_class: standard",
+            "  data_storage_class: Archive");
+
+    assertThat(config.getMetadataStorageClass()).hasValue(StorageClass.STANDARD);
+    assertThat(config.getDataStorageClass()).hasValue(StorageClass.ARCHIVE);
+  }
+
+  @Test
+  public void testInvalidStorageClass() {
+    FileSystem fs = Jimfs.newFileSystem(unix());
+    Configuration config =
+        Configuration.fromLines(
+            fs,
+            "version: 1",
+            "gcs:",
+            "  credentials: /credential/file.json",
+            "  bucket_name: bucket-name",
+            "  data_storage_class: GLACIER");
+
+    assertThrows(IllegalArgumentException.class, config::getDataStorageClass);
   }
 }

@@ -23,6 +23,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import ws.moor.gletscher.GletscherMain;
+import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
 import ws.moor.gletscher.commands.testing.FileReadFailureInjector;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
@@ -62,6 +63,11 @@ public class BackupCommandTest {
     assertThat(context.stdOutString()).contains("new file: /home/file.txt");
     assertThat(context.stdOutString()).contains("new file: /home/file2.txt");
     assertThat(context.stdErrString()).isEmpty();
+
+    // 1 backup pointer + 1 catalog block + 2 directory blocks (/, /home) = 4 metadata objects
+    assertThat(inMemoryStorage.getFileNames(CloudFileStorage.ObjectType.METADATA)).hasSize(4);
+    // 2 file content blocks = 2 data objects
+    assertThat(inMemoryStorage.getFileNames(CloudFileStorage.ObjectType.DATA)).hasSize(2);
   }
 
   @Test

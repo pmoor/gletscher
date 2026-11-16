@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -64,6 +65,8 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
   private final String filePrefix;
   private final ListeningExecutorService executor;
   private final CostTracker costTracker;
+  private final Optional<StorageClass> metadataStorageClass;
+  private final Optional<StorageClass> dataStorageClass;
 
   public GoogleCloudFileStorage(
       Storage client,
@@ -71,12 +74,32 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
       String filePrefix,
       ListeningExecutorService executor,
       CostTracker costTracker) {
+    this(
+        client,
+        bucket,
+        filePrefix,
+        executor,
+        costTracker,
+        Optional.empty(),
+        Optional.empty());
+  }
+
+  public GoogleCloudFileStorage(
+      Storage client,
+      String bucket,
+      String filePrefix,
+      ListeningExecutorService executor,
+      CostTracker costTracker,
+      Optional<StorageClass> metadataStorageClass,
+      Optional<StorageClass> dataStorageClass) {
     Preconditions.checkArgument(filePrefix.endsWith("/"));
     this.client = client;
     this.bucket = bucket;
     this.filePrefix = filePrefix;
     this.executor = executor;
     this.costTracker = costTracker;
+    this.metadataStorageClass = metadataStorageClass;
+    this.dataStorageClass = dataStorageClass;
   }
 
   public static Storage buildStorageWithCredentials(Path credentialFilePath) {
@@ -108,6 +131,8 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
                         .setName(filePrefix + name)
                         .setMd5Hash(BaseEncoding.base64().encode(md5.asBytes()))
                         .setMetadata(metadata);
+                storageClassFor(options.objectType)
+                    .ifPresent(sc -> sob.setStorageClass(sc.name()));
                 ByteArrayContent content =
                     new ByteArrayContent("application/octet-stream", data);
 
@@ -251,6 +276,13 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
   @Override
   public void close() {
     // no-op
+  }
+
+  private Optional<StorageClass> storageClassFor(ObjectType objectType) {
+    return switch (objectType) {
+      case METADATA -> metadataStorageClass;
+      case DATA -> dataStorageClass;
+    };
   }
 
   private FileHeader toFile(StorageObject object) {

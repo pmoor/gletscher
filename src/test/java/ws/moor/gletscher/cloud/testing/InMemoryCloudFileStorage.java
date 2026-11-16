@@ -31,8 +31,10 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 public class InMemoryCloudFileStorage implements CloudFileStorage {
 
@@ -91,7 +93,9 @@ public class InMemoryCloudFileStorage implements CloudFileStorage {
             }
             FileHeader header =
                 new FileHeader(name, md5, data.length, ImmutableMap.copyOf(metadata));
-            files.put(name, new Entry(name, header, ByteString.copyFrom(data)));
+            files.put(
+                name,
+                new Entry(name, header, ByteString.copyFrom(data), options.objectType));
             return null;
           }
         });
@@ -113,6 +117,15 @@ public class InMemoryCloudFileStorage implements CloudFileStorage {
   public long getTotalSize() {
     synchronized (lock) {
       return files.values().stream().mapToInt(e -> e.data.size()).sum();
+    }
+  }
+
+  public Set<String> getFileNames(ObjectType objectType) {
+    synchronized (lock) {
+      return files.values().stream()
+          .filter(e -> e.objectType == objectType)
+          .map(e -> e.name)
+          .collect(Collectors.toSet());
     }
   }
 
@@ -139,11 +152,13 @@ public class InMemoryCloudFileStorage implements CloudFileStorage {
     final String name;
     final FileHeader header;
     final ByteString data;
+    final ObjectType objectType;
 
-    private Entry(String name, FileHeader header, ByteString data) {
+    private Entry(String name, FileHeader header, ByteString data, ObjectType objectType) {
       this.name = name;
       this.header = header;
       this.data = data;
+      this.objectType = objectType;
     }
 
     Testing.File toProto() {
@@ -161,7 +176,7 @@ public class InMemoryCloudFileStorage implements CloudFileStorage {
               LegacyHashing.md5().hashBytes(proto.getContents().toByteArray()),
               proto.getContents().size(),
               proto.getMetaMap());
-      return new Entry(proto.getName(), header, proto.getContents());
+      return new Entry(proto.getName(), header, proto.getContents(), ObjectType.DATA);
     }
   }
 }
