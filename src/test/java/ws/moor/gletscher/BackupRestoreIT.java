@@ -34,7 +34,8 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.FileTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -158,8 +159,10 @@ public class BackupRestoreIT {
         return false;
       }
 
-      FileTime lastModifiedTime1 = Files.getLastModifiedTime(path1);
-      FileTime lastModifiedTime2 = Files.getLastModifiedTime(path2);
+      Instant lastModifiedTime1 =
+          Files.getLastModifiedTime(path1).toInstant().truncatedTo(ChronoUnit.MILLIS);
+      Instant lastModifiedTime2 =
+          Files.getLastModifiedTime(path2).toInstant().truncatedTo(ChronoUnit.MILLIS);
       if (!lastModifiedTime1.equals(lastModifiedTime2)) {
         System.out.printf(
             "last modified times do not match for %s (%s): %s vs. %s\n",
