@@ -122,8 +122,9 @@
             <plugin>
                 <groupId>io.github.ascopes</groupId>
                 <artifactId>protobuf-maven-plugin</artifactId>
+                <version>5.1.12</version>
                 <configuration>
-                    <protocVersion>4.31.1</protocVersion>
+                    <protoc>4.31.1</protoc>
                 </configuration>
                 <executions>
                     <execution>
