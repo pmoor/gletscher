@@ -38,7 +38,7 @@ class StatsCommand extends AbstractCommand {
         Option.builder("v")
             .longOpt("verbose")
             .desc("Print more verbose statistics, including histograms.")
-            .build());
+            .get());
   }
 
   @Override
