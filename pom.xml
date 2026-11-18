@@ -143,6 +143,7 @@
                         </goals>
                         <configuration>
                             <programFile>gletscher</programFile>
+                            <scriptFile>${project.basedir}/src/main/scripts/launcher.sh</scriptFile>
                         </configuration>
                     </execution>
                 </executions>
