@@ -16,18 +16,18 @@
 
 package ws.moor.gletscher.cloud;
 
-import com.google.api.client.auth.oauth2.Credential;
-import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.ByteArrayContent;
 import com.google.api.client.http.HttpResponse;
 import com.google.api.client.http.HttpResponseException;
 import com.google.api.client.http.HttpTransport;
+import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.storage.Storage;
 import com.google.api.services.storage.model.Objects;
 import com.google.api.services.storage.model.StorageObject;
+import com.google.auth.http.HttpCredentialsAdapter;
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.AbstractIterator;
@@ -42,9 +42,9 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import ws.moor.gletscher.util.LegacyHashing;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.GeneralSecurityException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -103,18 +103,18 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
   }
 
   public static Storage buildStorageWithCredentials(Path credentialFilePath) {
-    try {
-      HttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-      JsonFactory jsonFactory = GsonFactory.getDefaultInstance();
-      Credential credential =
-          GoogleCredential.fromStream(
-              Files.newInputStream(credentialFilePath), httpTransport, jsonFactory)
+    HttpTransport httpTransport = new NetHttpTransport();
+    JsonFactory jsonFactory = GsonFactory.getDefaultInstance();
+    try (InputStream credentialsStream = Files.newInputStream(credentialFilePath)) {
+      GoogleCredentials credentials =
+          GoogleCredentials.fromStream(credentialsStream, () -> httpTransport)
               .createScoped(
                   ImmutableSet.of("https://www.googleapis.com/auth/devstorage.read_write"));
-      return new Storage.Builder(httpTransport, jsonFactory, credential)
+      return new Storage.Builder(
+              httpTransport, jsonFactory, new HttpCredentialsAdapter(credentials))
           .setApplicationName("Gletscher/1.0")
           .build();
-    } catch (GeneralSecurityException | IOException e) {
+    } catch (IOException e) {
       throw new IllegalStateException(e);
     }
   }

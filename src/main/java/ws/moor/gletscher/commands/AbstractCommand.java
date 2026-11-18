@@ -102,7 +102,7 @@ abstract class AbstractCommand {
   final void addConfigFileOption(Options options) {
     hasConfigArg = true;
     options.addOption(
-        Option.builder("c").longOpt("config").required().hasArg().argName("FILE").build());
+        Option.builder("c").longOpt("config").required().hasArg().argName("FILE").get());
   }
 
   private CloudFileStorage buildCloudFileStorage(Configuration config, CostTracker costTracker) {

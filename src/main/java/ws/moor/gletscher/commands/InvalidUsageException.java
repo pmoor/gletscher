@@ -19,24 +19,24 @@ package ws.moor.gletscher.commands;
 class InvalidUsageException extends Exception {
   private static final long serialVersionUID = 8946953028986605714L;
 
-  private final AbstractCommand command;
-  private final String format;
-  private final Object[] args;
+  private final transient AbstractCommand command;
 
   InvalidUsageException(AbstractCommand command, String format, Object... args) {
+    super(formatMessage(format, args));
     this.command = command;
-    this.format = format;
-    this.args = args;
   }
 
   InvalidUsageException(String format, Object... args) {
+    super(formatMessage(format, args));
     this.command = null;
-    this.format = format;
-    this.args = args;
+  }
+
+  private static String formatMessage(String format, Object... args) {
+    return args.length == 0 ? format : String.format(format, args);
   }
 
   void emit(CommandContext context) {
-    context.getStdErr().printf("Invalid Usage: " + format + "\n\n", args);
+    context.getStdErr().printf("Invalid Usage: %s\n\n", getMessage());
     if (command != null) {
       command.printUsage(context.getStdErr());
     } else {

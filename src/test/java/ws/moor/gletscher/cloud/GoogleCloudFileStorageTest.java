@@ -26,6 +26,8 @@ import com.google.api.services.storage.Storage;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.common.io.BaseEncoding;
+import com.google.common.jimfs.Configuration;
+import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,7 +37,13 @@ import ws.moor.gletscher.util.LegacyHashing;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystem;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 
@@ -114,6 +122,33 @@ public class GoogleCloudFileStorageTest {
 
     assertThat(requestBodies).hasSize(1);
     assertThat(requestBodies.get(0)).doesNotContain("storageClass");
+  }
+
+  @Test
+  public void testBuildStorageWithCredentials() throws Exception {
+    KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+    generator.initialize(2048);
+    KeyPair keyPair = generator.generateKeyPair();
+    String pkcs8Base64 = Base64.getEncoder().encodeToString(keyPair.getPrivate().getEncoded());
+    String json =
+        "{\n"
+            + "  \"type\": \"service_account\",\n"
+            + "  \"project_id\": \"test-project\",\n"
+            + "  \"private_key_id\": \"key-id\",\n"
+            + "  \"private_key\": \"-----BEGIN PRIVATE KEY-----\\n"
+            + pkcs8Base64
+            + "\\n-----END PRIVATE KEY-----\\n\",\n"
+            + "  \"client_email\": \"test@test-project.iam.gserviceaccount.com\",\n"
+            + "  \"client_id\": \"123456789\",\n"
+            + "  \"token_uri\": \"https://oauth2.googleapis.com/token\"\n"
+            + "}\n";
+
+    try (FileSystem fs = Jimfs.newFileSystem(Configuration.unix())) {
+      Path credentialsPath = fs.getPath("/credentials.json");
+      Files.writeString(credentialsPath, json);
+      Storage storage = GoogleCloudFileStorage.buildStorageWithCredentials(credentialsPath);
+      assertThat(storage.getApplicationName()).isEqualTo("Gletscher/1.0");
+    }
   }
 
   private static Storage createMockStorage(List<String> requestBodies) {

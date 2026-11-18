@@ -61,14 +61,14 @@ class SpotCheckCommand extends AbstractCommand {
             .hasArg()
             .type(Integer.class)
             .argName("BLOCK_COUNT")
-            .build());
+            .get());
     options.addOption(
         Option.builder()
             .longOpt("max_bytes")
             .hasArg()
             .type(Long.class)
             .argName("BYTE_COUNT")
-            .build());
+            .get());
   }
 
   @Override
