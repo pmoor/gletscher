@@ -8,8 +8,7 @@ Google Cloud Storage Backup Tool
 Prerequisites
 -------------
 
-* [JRE 1.8 or higher](https://java.com/download/)
-* [Java Cryptography Extension (JCE) Unlimited Strength Jurisdiction Policy Files](http://www.oracle.com/technetwork/java/javase/downloads/jce8-download-2133166.html)
+* Java 21 or higher
 * [git](https://git-scm.com/downloads)
 * [Maven](https://maven.apache.org/download.cgi)
 * A [Google Cloud Storage](https://cloud.google.com/storage/) bucket with "Storage Object Creator" role service account.
@@ -30,8 +29,7 @@ $ mvn verify
 
 Try running the command:
 ```
-$ java -jar target/gletscher-*-jar-with-dependencies.jar \
-    help
+$ ./target/gletscher help
 ```
 
 Create your first backup config file by copying the sample and adjusting the relevant options:
@@ -42,12 +40,10 @@ $ ${EDITOR} config.yaml
 
 Take a backup:
 ```
-$ java -jar target/gletscher-*-jar-with-dependencies.jar \
-    backup -c config.yaml
+$ ./target/gletscher backup -c config.yaml
 ```
 
 To restore the latest backup:
 ```
-$ java -jar target/gletscher-*-jar-with-dependencies.jar \
-    restore -c config.yaml "My Restore Directory"
+$ ./target/gletscher restore -c config.yaml "My Restore Directory"
 ```
