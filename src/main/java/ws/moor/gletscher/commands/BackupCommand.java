@@ -31,6 +31,7 @@ import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogPath;
 import ws.moor.gletscher.catalog.CatalogReader;
 import ws.moor.gletscher.catalog.CatalogReaders;
+import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.files.FileSystemReader;
 import ws.moor.gletscher.proto.Gletscher;
 import ws.moor.gletscher.util.StreamSplitter;
@@ -267,7 +268,10 @@ class BackupCommand extends AbstractCommand {
                   if (!hasBeenModified(existingDirectory, dirProto)) {
                     return Futures.immediateFuture(existingDirectory.getAddress());
                   }
-                  return storeThrottled(dirProto.toByteArray(), /*cache=*/true);
+                  return storeThrottled(
+                      dirProto.toByteArray(),
+                      /*cache=*/ true,
+                      CloudFileStorage.ObjectType.METADATA);
                 }
               },
               executor);
@@ -342,7 +346,7 @@ class BackupCommand extends AbstractCommand {
         Iterator<byte[]> parts = splitter.split(is);
         while (parts.hasNext()) {
           byte[] part = parts.next();
-          futures.add(storeThrottled(part, false));
+          futures.add(storeThrottled(part, false, CloudFileStorage.ObjectType.DATA));
         }
       } catch (IOException | RuntimeException e) {
         return Futures.immediateFailedFuture(e);
@@ -364,10 +368,11 @@ class BackupCommand extends AbstractCommand {
       }
     }
 
-    private ListenableFuture<PersistedBlock> storeThrottled(byte[] part, boolean cache) {
+    private ListenableFuture<PersistedBlock> storeThrottled(
+        byte[] part, boolean cache, CloudFileStorage.ObjectType objectType) {
       pendingStoreRequests.acquireUninterruptibly();
       pendingStoreBytes.acquireUninterruptibly(part.length);
-      ListenableFuture<PersistedBlock> future = blockStore.store(part, cache);
+      ListenableFuture<PersistedBlock> future = blockStore.store(part, cache, objectType);
       releaseWhenDone(future, pendingStoreBytes, part.length);
       releaseWhenDone(future, pendingStoreRequests, 1);
       return future;

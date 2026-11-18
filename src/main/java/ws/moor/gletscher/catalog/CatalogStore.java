@@ -54,14 +54,19 @@ public class CatalogStore {
     String fileName = createFileName(catalog.getStartTime());
     byte[] data = catalog.toProto().toByteArray();
 
-    PersistedBlock pb = Futures.getUnchecked(blockStore.store(data, true));
+    PersistedBlock pb =
+        Futures.getUnchecked(
+            blockStore.store(data, true, CloudFileStorage.ObjectType.METADATA));
     byte[] bytes = pb.toProto().toByteArray();
     Futures.getUnchecked(storage.store(
         fileName,
         bytes,
         LegacyHashing.md5().hashBytes(bytes),
         ImmutableMap.of(VERSION_META_KEY, "1"),
-        CloudFileStorage.StoreOptions.builder().setCacheContentsOnUpload(true).build()));
+        CloudFileStorage.StoreOptions.builder()
+            .setCacheContentsOnUpload(true)
+            .setObjectType(CloudFileStorage.ObjectType.METADATA)
+            .build()));
     return pb;
   }
 
@@ -97,7 +102,9 @@ public class CatalogStore {
       } else {
         Gletscher.Catalog proto = Gletscher.Catalog.parseFrom(catalogFileBytes);
         // Store this old-style catalog as a block as well, and use its address.
-        PersistedBlock pb = Futures.getUnchecked(blockStore.store(catalogFileBytes, true));
+        PersistedBlock pb =
+            Futures.getUnchecked(
+                blockStore.store(catalogFileBytes, true, CloudFileStorage.ObjectType.METADATA));
         return Optional.of(Catalog.fromProto(pb, fs, proto));
       }
     } catch (InvalidProtocolBufferException e) {

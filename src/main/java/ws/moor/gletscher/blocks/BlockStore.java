@@ -44,7 +44,8 @@ public class BlockStore {
     this.signer = signer;
   }
 
-  public ListenableFuture<PersistedBlock> store(byte[] block, boolean cache) {
+  public ListenableFuture<PersistedBlock> store(
+      byte[] block, boolean cache, CloudFileStorage.ObjectType objectType) {
     HashCode md5 = LegacyHashing.md5().hashBytes(block);
 
     int length = block.length;
@@ -65,7 +66,10 @@ public class BlockStore {
                     block,
                     md5,
                     ImmutableMap.of(),
-                    CloudFileStorage.StoreOptions.builder().setCacheContentsOnUpload(cache).build());
+                    CloudFileStorage.StoreOptions.builder()
+                        .setCacheContentsOnUpload(cache)
+                        .setObjectType(objectType)
+                        .build());
             ListenableFuture<PersistedBlock> transformed =
                 Futures.transform(
                     future, Functions.constant(persisted), MoreExecutors.directExecutor());

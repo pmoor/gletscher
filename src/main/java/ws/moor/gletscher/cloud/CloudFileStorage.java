@@ -57,6 +57,11 @@ public interface CloudFileStorage extends AutoCloseable {
     }
   }
 
+  enum ObjectType {
+    DATA,
+    METADATA
+  }
+
   final class StoreOptions {
     public static final StoreOptions DEFAULT = StoreOptions.builder().build();
 
@@ -67,6 +72,7 @@ public interface CloudFileStorage extends AutoCloseable {
     public static final class StoreOptionsBuilder {
       private boolean cacheContentsOnUpload = false;
       private boolean allowOverwriting = false;
+      private ObjectType objectType = ObjectType.DATA;
 
       private StoreOptionsBuilder() {
       }
@@ -81,17 +87,25 @@ public interface CloudFileStorage extends AutoCloseable {
         return this;
       }
 
+      public StoreOptionsBuilder setObjectType(ObjectType objectType) {
+        this.objectType = objectType;
+        return this;
+      }
+
       public StoreOptions build() {
-        return new StoreOptions(cacheContentsOnUpload, allowOverwriting);
+        return new StoreOptions(cacheContentsOnUpload, allowOverwriting, objectType);
       }
     }
 
     public final boolean cacheContentsOnUpload;
     public final boolean allowOverwriting;
+    public final ObjectType objectType;
 
-    private StoreOptions(boolean cacheContentsOnUpload, boolean allowOverwriting) {
+    private StoreOptions(
+        boolean cacheContentsOnUpload, boolean allowOverwriting, ObjectType objectType) {
       this.cacheContentsOnUpload = cacheContentsOnUpload;
       this.allowOverwriting = allowOverwriting;
+      this.objectType = objectType;
     }
   }
 }

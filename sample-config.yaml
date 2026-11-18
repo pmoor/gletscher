@@ -33,6 +33,14 @@ gcs:
   # (Optional) Prefix within the bucket, default "".
   # object_prefix: /Backup-A
 
+  # (Optional) GCS storage class for metadata objects (catalogs and directory entries).
+  # Valid values: STANDARD, NEARLINE, COLDLINE, ARCHIVE. Defaults to bucket default.
+  # metadata_storage_class: STANDARD
+
+  # (Optional) GCS storage class for file data blocks.
+  # Valid values: STANDARD, NEARLINE, COLDLINE, ARCHIVE. Defaults to bucket default.
+  # data_storage_class: ARCHIVE
+
 # Where to cache retrieved blocks.
 cache_dir: /tmp/gletscher/cache
 
