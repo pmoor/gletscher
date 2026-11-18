@@ -47,3 +47,8 @@ To restore the latest backup:
 ```
 $ ./target/gletscher restore -c config.yaml "My Restore Directory"
 ```
+
+JVM arguments can be passed via `GLETSCHER_JAVA_OPTS`:
+```
+$ GLETSCHER_JAVA_OPTS="-Xmx4g" ./target/gletscher backup -c config.yaml
+```
