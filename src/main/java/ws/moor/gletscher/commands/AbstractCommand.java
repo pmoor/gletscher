@@ -112,7 +112,7 @@ abstract class AbstractCommand {
     cloudFileStorage = counting;
     if (!config.disableCache()) {
       cloudFileStorage =
-          new CachingCloudFileStorage(counting, config.getLocalCacheDir(), context.getClock());
+          new CachingCloudFileStorage(counting, config.getLocalCacheDir());
     }
     cloudFileStorage =
         new SigningCloudFileStorage(cloudFileStorage, new Signer(config.getSigningKey()));
