@@ -52,7 +52,7 @@ abstract class AbstractCommand {
   private final CostTracker costTracker = new CostTracker();
 
   protected Configuration config;
-  private CloudFileStorage cloudFileStorage;
+  protected CloudFileStorage cloudFileStorage;
   protected BlockStore blockStore;
   protected CatalogStore catalogStore;
 
@@ -103,6 +103,38 @@ abstract class AbstractCommand {
     hasConfigArg = true;
     options.addOption(
         Option.builder("c").longOpt("config").required().hasArg().argName("FILE").get());
+  }
+
+  protected static void addSnapshotsOption(Options options, String description) {
+    options.addOption(
+        Option.builder("n")
+            .longOpt("snapshots")
+            .hasArg()
+            .argName("count|all")
+            .desc(description)
+            .get());
+  }
+
+  protected static int parseSnapshotsOption(
+      AbstractCommand command, CommandLine commandLine, int defaultValue)
+      throws InvalidUsageException {
+    if (!commandLine.hasOption("snapshots")) {
+      return defaultValue;
+    }
+    String rawSnapshots = commandLine.getOptionValue("snapshots").trim();
+    if ("all".equalsIgnoreCase(rawSnapshots)) {
+      return Integer.MAX_VALUE;
+    }
+    int snapshots;
+    try {
+      snapshots = Integer.parseInt(rawSnapshots);
+    } catch (NumberFormatException e) {
+      throw new InvalidUsageException(command, "Invalid --snapshots value: " + rawSnapshots);
+    }
+    if (snapshots < 0) {
+      throw new InvalidUsageException(command, "--snapshots must be non-negative: " + snapshots);
+    }
+    return snapshots;
   }
 
   private CloudFileStorage buildCloudFileStorage(Configuration config, CostTracker costTracker) {

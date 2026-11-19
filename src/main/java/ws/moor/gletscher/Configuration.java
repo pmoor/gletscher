@@ -84,7 +84,8 @@ public class Configuration {
   }
 
   public String getBucketName() {
-    return (String) findGcsNode().get("bucket_name");
+    Map<String, Object> gcs = findGcsNode();
+    return gcs != null ? (String) gcs.get("bucket_name") : null;
   }
 
   public Path getCredentialFilePath() {
@@ -92,7 +93,8 @@ public class Configuration {
   }
 
   public String getFilePrefix() {
-    return (String) findGcsNode().get("object_prefix");
+    Map<String, Object> gcs = findGcsNode();
+    return gcs != null ? (String) gcs.get("object_prefix") : null;
   }
 
   public Optional<StorageClass> getMetadataStorageClass() {
