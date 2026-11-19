@@ -42,6 +42,7 @@ public class TestCommandContext implements CommandContext {
   public ListeningExecutorService executorService = MoreExecutors.newDirectExecutorService();
   public ByteArrayOutputStream stdOut = new ByteArrayOutputStream();
   public ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
+  public Clock clock = Clock.systemDefaultZone();
   public Integer status = null;
 
   public TestCommandContext() {
@@ -74,7 +75,7 @@ public class TestCommandContext implements CommandContext {
 
   @Override
   public Clock getClock() {
-    return Clock.systemDefaultZone();
+    return clock;
   }
 
   @Override
