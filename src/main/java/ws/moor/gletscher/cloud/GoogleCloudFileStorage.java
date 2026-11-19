@@ -31,6 +31,7 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.FluentLogger;
 import com.google.common.hash.HashCode;
@@ -46,6 +47,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -190,7 +192,8 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
                     Storage.Objects.List list = client.objects().list(bucket);
                     list.setPrefix(filePrefix + prefix);
                     list.setMaxResults(Math.min(1000, remaining));
-                    list.setFields("nextPageToken,items(name,size,md5Hash,metadata/*)");
+                    list.setFields(
+                        "nextPageToken,items(name,size,md5Hash,storageClass,timeCreated,metadata/*)");
                     if (nextPageToken != null) {
                       list.setPageToken(nextPageToken);
                     }
@@ -202,16 +205,18 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
 
         Preconditions.checkNotNull(result);
         List<FileHeader> batch = new ArrayList<>();
-        for (StorageObject object : result.getItems()) {
-          batch.add(toFile(object));
+        if (result.getItems() != null) {
+          for (StorageObject object : result.getItems()) {
+            batch.add(toFile(object));
+          }
         }
         remaining -= batch.size();
         currentBatch = batch.iterator();
-        if (batch.size() < 1000 || remaining <= 0) {
+        if (result.getNextPageToken() == null || remaining <= 0) {
           done = true;
           nextPageToken = null;
         } else {
-          nextPageToken = Preconditions.checkNotNull(result.getNextPageToken());
+          nextPageToken = result.getNextPageToken();
         }
         return computeNext();
       }
@@ -293,7 +298,11 @@ public class GoogleCloudFileStorage implements CloudFileStorage {
         name,
         HashCode.fromBytes(BaseEncoding.base64().decode(object.getMd5Hash())),
         object.getSize().intValueExact(),
-        object.getMetadata());
+        object.getMetadata() != null ? object.getMetadata() : ImmutableMap.of(),
+        object.getStorageClass(),
+        object.getTimeCreated() != null
+            ? Instant.ofEpochMilli(object.getTimeCreated().getValue())
+            : null);
   }
 
   private static <R> Callable<R> retryingCallable(Callable<R> callable) {

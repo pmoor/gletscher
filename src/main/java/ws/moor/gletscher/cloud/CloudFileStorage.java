@@ -19,6 +19,8 @@ package ws.moor.gletscher.cloud;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import javax.annotation.Nullable;
+import java.time.Instant;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -48,12 +50,26 @@ public interface CloudFileStorage extends AutoCloseable {
     public final HashCode md5;
     public final int size;
     public final Map<String, String> metadata;
+    @Nullable public final String storageClass;
+    @Nullable public final Instant createdTime;
 
     public FileHeader(String name, HashCode md5, int size, Map<String, String> metadata) {
+      this(name, md5, size, metadata, null, null);
+    }
+
+    public FileHeader(
+        String name,
+        HashCode md5,
+        int size,
+        Map<String, String> metadata,
+        @Nullable String storageClass,
+        @Nullable Instant createdTime) {
       this.name = name;
       this.md5 = md5;
       this.size = size;
       this.metadata = metadata;
+      this.storageClass = storageClass;
+      this.createdTime = createdTime;
     }
   }
 

@@ -27,6 +27,8 @@ import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.proto.testing.Testing;
 import ws.moor.gletscher.util.LegacyHashing;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -39,11 +41,17 @@ import java.util.stream.Collectors;
 public class InMemoryCloudFileStorage implements CloudFileStorage {
 
   private final ListeningExecutorService executor;
+  private final Clock clock;
   private final Object lock = new Object();
   private final SortedMap<String, Entry> files = new TreeMap<>();
 
   public InMemoryCloudFileStorage(ListeningExecutorService executor) {
+    this(executor, Clock.systemUTC());
+  }
+
+  public InMemoryCloudFileStorage(ListeningExecutorService executor, Clock clock) {
     this.executor = executor;
+    this.clock = clock;
   }
 
   @Override
@@ -92,13 +100,51 @@ public class InMemoryCloudFileStorage implements CloudFileStorage {
               throw new FileAlreadyExistsException(name);
             }
             FileHeader header =
-                new FileHeader(name, md5, data.length, ImmutableMap.copyOf(metadata));
+                new FileHeader(
+                    name,
+                    md5,
+                    data.length,
+                    ImmutableMap.copyOf(metadata),
+                    "STANDARD",
+                    clock.instant());
             files.put(
                 name,
                 new Entry(name, header, ByteString.copyFrom(data), options.objectType));
             return null;
           }
         });
+  }
+
+  public void setCreatedTime(String name, Instant createdTime) {
+    synchronized (lock) {
+      Entry existing = files.get(name);
+      Preconditions.checkArgument(existing != null, "file does not exist: %s", name);
+      FileHeader updated =
+          new FileHeader(
+              existing.header.name,
+              existing.header.md5,
+              existing.header.size,
+              existing.header.metadata,
+              existing.header.storageClass,
+              createdTime);
+      files.put(name, new Entry(existing.name, updated, existing.data, existing.objectType));
+    }
+  }
+
+  public void setStorageClass(String name, String storageClass) {
+    synchronized (lock) {
+      Entry existing = files.get(name);
+      Preconditions.checkArgument(existing != null, "file does not exist: %s", name);
+      FileHeader updated =
+          new FileHeader(
+              existing.header.name,
+              existing.header.md5,
+              existing.header.size,
+              existing.header.metadata,
+              storageClass,
+              existing.header.createdTime);
+      files.put(name, new Entry(existing.name, updated, existing.data, existing.objectType));
+    }
   }
 
   public void delete(String name) {
