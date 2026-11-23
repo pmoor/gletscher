@@ -19,6 +19,7 @@ package ws.moor.gletscher.cloud;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.flogger.FluentLogger;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -53,6 +54,7 @@ import java.util.concurrent.TimeUnit;
 
 public class CachingCloudFileStorage implements CloudFileStorage {
 
+  private static final FluentLogger logger = FluentLogger.forEnclosingClass();
   private static final String CACHE_FILE_NAME = "cache.mv";
   private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
   private static final ImmutableMap<String, Cache.StorageClass> STORAGE_CLASS_TO_PROTO =
@@ -193,7 +195,7 @@ public class CachingCloudFileStorage implements CloudFileStorage {
         && entry.getStorageClass() != Cache.StorageClass.UNRECOGNIZED) {
       return entry.getStorageClass().name();
     }
-    return entry.hasOtherStorageClass() ? entry.getOtherStorageClass() : null;
+    return null;
   }
 
   private void storeListing(String prefix, Instant retrievedAt, List<FileHeader> headers) {
@@ -212,7 +214,10 @@ public class CachingCloudFileStorage implements CloudFileStorage {
         if (protoClass != null) {
           entryBuilder.setStorageClass(protoClass);
         } else {
-          entryBuilder.setOtherStorageClass(header.storageClass);
+          logger.atSevere().log(
+              "Unknown storage class '%s' for %s; storing as UNKNOWN",
+              header.storageClass, header.name);
+          entryBuilder.setStorageClass(Cache.StorageClass.UNKNOWN);
         }
       }
       if (header.createdTime != null) {
