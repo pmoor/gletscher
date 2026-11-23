@@ -61,6 +61,7 @@ class SpotCheckCommand extends AbstractCommand {
             .hasArg()
             .type(Integer.class)
             .argName("BLOCK_COUNT")
+            .desc("Maximum number of blocks to check (default: 128).")
             .get());
     options.addOption(
         Option.builder()
@@ -68,6 +69,7 @@ class SpotCheckCommand extends AbstractCommand {
             .hasArg()
             .type(Long.class)
             .argName("BYTE_COUNT")
+            .desc("Maximum total bytes to check (default: 536870912).")
             .get());
   }
 

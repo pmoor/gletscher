@@ -67,6 +67,73 @@ public class HelpCommandTest {
     main.run("help", "backup");
     assertThat(context.status).isEqualTo(0);
     assertThat(context.stdErrString()).isEmpty();
-    assertThat(context.stdOutString()).contains("Usage:" + lineSeparator() + "  gletscher backup" + lineSeparator());
+    assertThat(context.stdOutString())
+        .isEqualTo(
+            "Usage:"
+                + lineSeparator()
+                + "  gletscher backup [options]"
+                + lineSeparator()
+                + lineSeparator()
+                + "Backup local files remotely."
+                + lineSeparator()
+                + lineSeparator()
+                + "Options:"
+                + lineSeparator()
+                + "  -c, --config <FILE>  Path to the configuration file. (required)"
+                + lineSeparator());
+  }
+
+  @Test
+  public void testHelpWithListObjectsOptions() throws Exception {
+    main.run("help", "list_objects");
+    assertThat(context.status).isEqualTo(0);
+    assertThat(context.stdErrString()).isEmpty();
+    String out = context.stdOutString();
+    assertThat(out).contains("Usage:" + lineSeparator() + "  gletscher list_objects [options]");
+    assertThat(out).contains(lineSeparator() + "Options:" + lineSeparator());
+    assertThat(out).contains("  -c, --config <FILE>");
+    assertThat(out).contains("      --min-size <size>");
+    assertThat(out).contains("      --gs-uri");
+    assertThat(out).contains("      --max-listing-age <duration>");
+  }
+
+  @Test
+  public void testHelpWithCommandWithoutOptions() throws Exception {
+    main.run("help", "version");
+    assertThat(context.status).isEqualTo(0);
+    assertThat(context.stdErrString()).isEmpty();
+    assertThat(context.stdOutString())
+        .isEqualTo(
+            "Usage:"
+                + lineSeparator()
+                + "  gletscher version"
+                + lineSeparator()
+                + lineSeparator()
+                + "Returns the current Gletscher version."
+                + lineSeparator());
+  }
+
+  @Test
+  public void testHelpForAllCommands() throws Exception {
+    for (Command command : Commands.getCommandMeta()) {
+      TestCommandContext cmdContext = new TestCommandContext();
+      new GletscherMain(cmdContext).run("help", command.name());
+      assertThat(cmdContext.status).isEqualTo(0);
+      assertThat(cmdContext.stdErrString()).isEmpty();
+      assertThat(cmdContext.stdOutString()).contains("Usage:");
+      assertThat(cmdContext.stdOutString()).doesNotContain("null");
+    }
+  }
+
+  @Test
+  public void testMissingRequiredOptionPrintsOptions() throws Exception {
+    main.run("list_objects");
+    assertThat(context.status).isEqualTo(-1);
+    assertThat(context.stdOutString()).isEmpty();
+    String err = context.stdErrString();
+    assertThat(err).contains("Invalid Usage:");
+    assertThat(err).contains("Options:");
+    assertThat(err).contains("  -c, --config <FILE>");
+    assertThat(err).contains("      --max-listing-age <duration>");
   }
 }
