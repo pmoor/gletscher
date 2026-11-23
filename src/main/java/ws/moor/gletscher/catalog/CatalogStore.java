@@ -16,6 +16,7 @@
 
 package ws.moor.gletscher.catalog;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -29,11 +30,16 @@ import java.nio.file.FileSystem;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 
 public class CatalogStore {
 
@@ -112,6 +118,109 @@ public class CatalogStore {
   /** Loads and parses a single snapshot pointer without modifying remote storage. */
   public Snapshot loadSnapshot(CloudFileStorage.FileHeader header) {
     return loadSnapshot(header, false);
+  }
+
+  /**
+   * Lists up to {@code limit} snapshots from newest to oldest without modifying remote storage.
+   */
+  public List<Snapshot> listSnapshots(int limit) {
+    Preconditions.checkArgument(limit >= 0, "limit must be non-negative: %s", limit);
+    if (limit == 0) {
+      return List.of();
+    }
+    List<CloudFileStorage.FileHeader> headers = listSnapshotHeaders(limit);
+    List<Snapshot> snapshots = new ArrayList<>(headers.size());
+    for (CloudFileStorage.FileHeader header : headers) {
+      snapshots.add(loadSnapshot(header));
+    }
+    return snapshots;
+  }
+
+  /**
+   * Collects all remote metadata object names belonging to {@code snapshots}: backup pointers,
+   * catalog blocks, and all reachable directory blocks (deduplicated across snapshots).
+   */
+  public Set<String> collectMetadataObjectNames(
+      List<Snapshot> snapshots, boolean followBaseCatalogs) {
+    return collectReachableObjectNames(snapshots, false, followBaseCatalogs);
+  }
+
+  /**
+   * Collects all remote object names reachable from {@code snapshots}: backup pointers, catalog
+   * blocks, directory blocks, and referenced file data blocks (deduplicated across snapshots).
+   */
+  public Set<String> collectAllReachableObjectNames(
+      List<Snapshot> snapshots, boolean followBaseCatalogs) {
+    return collectReachableObjectNames(snapshots, true, followBaseCatalogs);
+  }
+
+  private Set<String> collectReachableObjectNames(
+      List<Snapshot> snapshots, boolean includeDataBlocks, boolean followBaseCatalogs) {
+    Set<String> names = new LinkedHashSet<>();
+    Set<PersistedBlock> visitedCatalogs = new HashSet<>();
+    Set<PersistedBlock> visitedDirectories = new HashSet<>();
+    Deque<Catalog> catalogQueue = new ArrayDeque<>();
+    Deque<PersistedBlock> dirQueue = new ArrayDeque<>();
+
+    for (Snapshot snapshot : snapshots) {
+      names.add(snapshot.pointerName());
+      snapshot
+          .catalogBlock()
+          .ifPresent(
+              pb -> {
+                names.add(BlockStore.toFileName(pb));
+                visitedCatalogs.add(pb);
+              });
+      catalogQueue.push(snapshot.catalog());
+    }
+
+    while (!catalogQueue.isEmpty()) {
+      Catalog catalog = catalogQueue.pop();
+      for (PersistedBlock rootBlock : catalog.getRoots().values()) {
+        if (visitedDirectories.add(rootBlock)) {
+          dirQueue.push(rootBlock);
+        }
+      }
+      if (followBaseCatalogs) {
+        catalog
+            .getBaseCatalog()
+            .ifPresent(
+                baseBlock -> {
+                  String fileName = BlockStore.toFileName(baseBlock);
+                  if (visitedCatalogs.add(baseBlock)
+                      && Boolean.TRUE.equals(Futures.getUnchecked(storage.exists(fileName)))) {
+                    names.add(fileName);
+                    catalogQueue.push(load(baseBlock));
+                  }
+                });
+      }
+    }
+
+    while (!dirQueue.isEmpty()) {
+      PersistedBlock dirBlock = dirQueue.pop();
+      names.add(BlockStore.toFileName(dirBlock));
+      byte[] bytes = Futures.getUnchecked(blockStore.retrieve(dirBlock));
+      try {
+        Gletscher.Directory dir = Gletscher.Directory.parseFrom(bytes);
+        for (Gletscher.DirectoryEntry entry : dir.getEntryList()) {
+          if (entry.getTypeCase() == Gletscher.DirectoryEntry.TypeCase.DIRECTORY) {
+            PersistedBlock childBlock = PersistedBlock.fromProto(entry.getDirectory().getBlock());
+            if (visitedDirectories.add(childBlock)) {
+              dirQueue.push(childBlock);
+            }
+          } else if (includeDataBlocks
+              && entry.getTypeCase() == Gletscher.DirectoryEntry.TypeCase.FILE) {
+            for (Gletscher.PersistedBlock fileBlock : entry.getFile().getBlockList()) {
+              names.add(BlockStore.toFileName(PersistedBlock.fromProto(fileBlock)));
+            }
+          }
+        }
+      } catch (InvalidProtocolBufferException e) {
+        throw new IllegalArgumentException("Failed to parse directory block: " + dirBlock, e);
+      }
+    }
+
+    return names;
   }
 
   private static boolean isVersion1(CloudFileStorage.FileHeader header) {

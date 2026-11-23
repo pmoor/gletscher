@@ -42,8 +42,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
@@ -122,6 +124,117 @@ public class GoogleCloudFileStorageTest {
 
     assertThat(requestBodies).hasSize(1);
     assertThat(requestBodies.get(0)).doesNotContain("storageClass");
+  }
+
+  @Test
+  public void listFilesParsesStorageClassTimeCreatedAndPagination() {
+    List<String> requestedUrls = new ArrayList<>();
+    MockHttpTransport transport =
+        new MockHttpTransport() {
+          @Override
+          public LowLevelHttpRequest buildRequest(String method, String url) {
+            requestedUrls.add(url);
+            return new MockLowLevelHttpRequest() {
+              @Override
+              public LowLevelHttpResponse execute() {
+                MockLowLevelHttpResponse response = new MockLowLevelHttpResponse();
+                response.setStatusCode(200);
+                response.setContentType("application/json");
+                if (!url.contains("pageToken=page2")) {
+                  response.setContent(
+                      "{"
+                          + "\"nextPageToken\":\"page2\","
+                          + "\"items\":[{"
+                          + "\"name\":\"prefix/blocks/aa/bb/obj1:12\","
+                          + "\"size\":\"12\","
+                          + "\"md5Hash\":\""
+                          + PAYLOAD_MD5_BASE64
+                          + "\","
+                          + "\"storageClass\":\"MULTI_REGIONAL\","
+                          + "\"timeCreated\":\"2024-01-15T10:20:30.000Z\","
+                          + "\"metadata\":{\"version\":\"1\"}"
+                          + "}]"
+                          + "}");
+                } else {
+                  response.setContent(
+                      "{"
+                          + "\"items\":[{"
+                          + "\"name\":\"prefix/blocks/cc/dd/obj2:34\","
+                          + "\"size\":\"34\","
+                          + "\"md5Hash\":\""
+                          + PAYLOAD_MD5_BASE64
+                          + "\","
+                          + "\"storageClass\":\"ARCHIVE\","
+                          + "\"timeCreated\":\"2023-05-01T00:00:00.000Z\""
+                          + "}]"
+                          + "}");
+                }
+                return response;
+              }
+            };
+          }
+        };
+
+    Storage mockStorage = new Storage.Builder(transport, GsonFactory.getDefaultInstance(), null).build();
+    GoogleCloudFileStorage storage =
+        new GoogleCloudFileStorage(
+            mockStorage,
+            "my-bucket",
+            "prefix/",
+            MoreExecutors.newDirectExecutorService(),
+            new CostTracker());
+
+    Iterator<CloudFileStorage.FileHeader> it = storage.listFiles("blocks/", 10);
+    List<CloudFileStorage.FileHeader> results = new ArrayList<>();
+    while (it.hasNext()) {
+      results.add(it.next());
+    }
+
+    assertThat(results).hasSize(2);
+    assertThat(results.get(0).name).isEqualTo("blocks/aa/bb/obj1:12");
+    assertThat(results.get(0).size).isEqualTo(12);
+    assertThat(results.get(0).storageClass).isEqualTo("MULTI_REGIONAL");
+    assertThat(results.get(0).createdTime).isEqualTo(Instant.parse("2024-01-15T10:20:30Z"));
+    assertThat(results.get(0).metadata).containsExactly("version", "1");
+
+    assertThat(results.get(1).name).isEqualTo("blocks/cc/dd/obj2:34");
+    assertThat(results.get(1).storageClass).isEqualTo("ARCHIVE");
+    assertThat(results.get(1).createdTime).isEqualTo(Instant.parse("2023-05-01T00:00:00Z"));
+    assertThat(results.get(1).metadata).isEmpty();
+    assertThat(requestedUrls.get(0)).contains("storageClass");
+    assertThat(requestedUrls.get(0)).contains("timeCreated");
+  }
+
+  @Test
+  public void listFilesHandlesEmptyResponseWithoutItems() {
+    MockHttpTransport transport =
+        new MockHttpTransport() {
+          @Override
+          public LowLevelHttpRequest buildRequest(String method, String url) {
+            return new MockLowLevelHttpRequest() {
+              @Override
+              public LowLevelHttpResponse execute() {
+                MockLowLevelHttpResponse response = new MockLowLevelHttpResponse();
+                response.setStatusCode(200);
+                response.setContentType("application/json");
+                response.setContent("{}");
+                return response;
+              }
+            };
+          }
+        };
+
+    Storage mockStorage = new Storage.Builder(transport, GsonFactory.getDefaultInstance(), null).build();
+    GoogleCloudFileStorage storage =
+        new GoogleCloudFileStorage(
+            mockStorage,
+            "my-bucket",
+            "prefix/",
+            MoreExecutors.newDirectExecutorService(),
+            new CostTracker());
+
+    Iterator<CloudFileStorage.FileHeader> it = storage.listFiles("blocks/", 10);
+    assertThat(it.hasNext()).isFalse();
   }
 
   @Test

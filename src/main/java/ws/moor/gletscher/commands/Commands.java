@@ -30,6 +30,7 @@ public final class Commands {
           .add(BackupCommand.class)
           .add(ContainsCommand.class)
           .add(HelpCommand.class)
+          .add(ListObjectsCommand.class)
           .add(RestoreCommand.class)
           .add(SearchCommand.class)
           .add(SpotCheckCommand.class)

@@ -52,7 +52,7 @@ abstract class AbstractCommand {
   private final CostTracker costTracker = new CostTracker();
 
   protected Configuration config;
-  private CloudFileStorage cloudFileStorage;
+  protected CloudFileStorage cloudFileStorage;
   protected BlockStore blockStore;
   protected CatalogStore catalogStore;
 
