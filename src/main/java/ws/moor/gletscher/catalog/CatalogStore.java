@@ -29,7 +29,9 @@ import java.nio.file.FileSystem;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -85,27 +87,55 @@ public class CatalogStore {
     }
   }
 
+  /** A stored backup snapshot pointer together with its catalog block (for v1) and parsed catalog. */
+  public record Snapshot(
+      String pointerName, Optional<PersistedBlock> catalogBlock, Catalog catalog) {}
+
   public Optional<Catalog> getLatestCatalog() {
     Iterator<CloudFileStorage.FileHeader> it = storage.listFiles("backups/", 1);
     if (!it.hasNext()) {
       return Optional.empty();
     }
+    return Optional.of(loadSnapshot(it.next(), true).catalog());
+  }
 
-    CloudFileStorage.FileHeader header = it.next();
+  /** Lists up to {@code limit} snapshot pointer headers from newest to oldest. */
+  public List<CloudFileStorage.FileHeader> listSnapshotHeaders(int limit) {
+    List<CloudFileStorage.FileHeader> headers = new ArrayList<>();
+    Iterator<CloudFileStorage.FileHeader> it = storage.listFiles("backups/", limit);
+    while (it.hasNext()) {
+      headers.add(it.next());
+    }
+    return headers;
+  }
+
+  /** Loads and parses a single snapshot pointer without modifying remote storage. */
+  public Snapshot loadSnapshot(CloudFileStorage.FileHeader header) {
+    return loadSnapshot(header, false);
+  }
+
+  private static boolean isVersion1(CloudFileStorage.FileHeader header) {
+    return header.metadata.containsKey(VERSION_META_KEY)
+        && Integer.parseInt(header.metadata.get(VERSION_META_KEY)) == 1;
+  }
+
+  private Snapshot loadSnapshot(CloudFileStorage.FileHeader header, boolean persistLegacyCatalog) {
     try {
       byte[] catalogFileBytes = Futures.getUnchecked(storage.get(header.name));
-      if (header.metadata.containsKey(VERSION_META_KEY)
-          && Integer.parseInt(header.metadata.get(VERSION_META_KEY)) == 1) {
+      if (isVersion1(header)) {
         Gletscher.PersistedBlock pbProto = Gletscher.PersistedBlock.parseFrom(catalogFileBytes);
         PersistedBlock pb = PersistedBlock.fromProto(pbProto);
-        return Optional.of(load(pb));
+        return new Snapshot(header.name, Optional.of(pb), load(pb));
       } else {
         Gletscher.Catalog proto = Gletscher.Catalog.parseFrom(catalogFileBytes);
-        // Store this old-style catalog as a block as well, and use its address.
-        PersistedBlock pb =
-            Futures.getUnchecked(
-                blockStore.store(catalogFileBytes, true, CloudFileStorage.ObjectType.METADATA));
-        return Optional.of(Catalog.fromProto(pb, fs, proto));
+        PersistedBlock pb = null;
+        if (persistLegacyCatalog) {
+          // Store this old-style catalog as a block as well, and use its address.
+          pb =
+              Futures.getUnchecked(
+                  blockStore.store(catalogFileBytes, true, CloudFileStorage.ObjectType.METADATA));
+        }
+        return new Snapshot(header.name, Optional.ofNullable(pb), Catalog.fromProto(pb, fs, proto));
       }
     } catch (InvalidProtocolBufferException e) {
       throw new IllegalArgumentException(e);
