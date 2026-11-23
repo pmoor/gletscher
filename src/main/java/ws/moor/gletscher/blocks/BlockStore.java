@@ -27,11 +27,14 @@ import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.util.LegacyHashing;
 import ws.moor.gletscher.util.Signer;
 
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 public class BlockStore {
@@ -87,7 +90,7 @@ public class BlockStore {
     return cloudFileStorage.get(toFileName(block));
   }
 
-  private static String toFileName(PersistedBlock block) {
+  public static String toFileName(PersistedBlock block) {
     Signature signature = block.getSignature();
     return String.format(
         "blocks/%02x/%02x/%s:%d",
@@ -97,27 +100,40 @@ public class BlockStore {
         block.getOriginalLength());
   }
 
-  public Set<PersistedBlock> listAllBlocks() {
-    final Set<PersistedBlock> all = new TreeSet<>();
-
+  /** Lists all remote block headers under {@code blocks/} in parallel across hex prefixes. */
+  public List<CloudFileStorage.FileHeader> listAllBlockHeaders() {
     ExecutorService executor = Executors.newFixedThreadPool(8);
+    List<Future<List<CloudFileStorage.FileHeader>>> futures = new ArrayList<>(16);
     for (int i = 0; i < 16; i++) {
       final String prefix = String.format("blocks/%x", i);
-      executor.execute(
-          () -> {
-            Set<PersistedBlock> set = new TreeSet<>();
-            Iterator<CloudFileStorage.FileHeader> it =
-                cloudFileStorage.listFiles(prefix, Integer.MAX_VALUE);
-            while (it.hasNext()) {
-              CloudFileStorage.FileHeader header = it.next();
-              set.add(parseFileName(header.name));
-            }
-            synchronized (all) {
-              all.addAll(set);
-            }
-          });
+      futures.add(
+          executor.submit(
+              () -> {
+                List<CloudFileStorage.FileHeader> list = new ArrayList<>();
+                Iterator<CloudFileStorage.FileHeader> it =
+                    cloudFileStorage.listFiles(prefix, Integer.MAX_VALUE);
+                while (it.hasNext()) {
+                  list.add(it.next());
+                }
+                return list;
+              }));
     }
-    MoreExecutors.shutdownAndAwaitTermination(executor, 1, TimeUnit.HOURS);
+    List<CloudFileStorage.FileHeader> all = new ArrayList<>();
+    try {
+      for (Future<List<CloudFileStorage.FileHeader>> future : futures) {
+        all.addAll(Futures.getUnchecked(future));
+      }
+    } finally {
+      MoreExecutors.shutdownAndAwaitTermination(executor, 1, TimeUnit.HOURS);
+    }
+    return all;
+  }
+
+  public Set<PersistedBlock> listAllBlocks() {
+    Set<PersistedBlock> all = new TreeSet<>();
+    for (CloudFileStorage.FileHeader header : listAllBlockHeaders()) {
+      all.add(parseFileName(header.name));
+    }
     return all;
   }
 
