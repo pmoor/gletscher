@@ -17,10 +17,14 @@
 package ws.moor.gletscher.commands;
 
 import com.google.common.collect.Sets;
+import com.google.common.hash.HashCode;
 import com.google.common.jimfs.Jimfs;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import ws.moor.gletscher.Configuration;
@@ -36,14 +40,19 @@ import ws.moor.gletscher.util.Signer;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static com.google.common.jimfs.Configuration.unix;
@@ -51,6 +60,8 @@ import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class ListObjectsCommandTest {
+
+  @Rule public TemporaryFolder tempFolder = new TemporaryFolder();
 
   private FileSystem fs;
   private InMemoryCloudFileStorage storage;
@@ -352,6 +363,107 @@ public class ListObjectsCommandTest {
   }
 
   @Test
+  public void maxListingAgeReusesPersistentCacheAcrossInvocations() throws Exception {
+    Path cacheDir = tempFolder.newFolder("cache").toPath();
+    Path configPath = tempFolder.newFile("config.properties").toPath();
+    Path rootDir = tempFolder.newFolder("home").toPath();
+    Files.writeString(rootDir.resolve("one.txt"), "first-file-payload");
+    Files.writeString(
+        configPath,
+        "version: 1\n"
+            + "max_split_size: 65536\n"
+            + "disable_cache: false\n"
+            + "cache_dir: "
+            + cacheDir.toAbsolutePath()
+            + "\n"
+            + "include:\n"
+            + "  - "
+            + rootDir.toAbsolutePath()
+            + "\n");
+
+    AtomicInteger listCalls = new AtomicInteger();
+    CloudFileStorage countingStorage =
+        new CloudFileStorage() {
+          @Override
+          public ListenableFuture<?> store(
+              String name,
+              byte[] data,
+              HashCode md5,
+              Map<String, String> metadata,
+              StoreOptions options) {
+            return storage.store(name, data, md5, metadata, options);
+          }
+
+          @Override
+          public Iterator<FileHeader> listFiles(String prefix, int limit) {
+            listCalls.incrementAndGet();
+            return storage.listFiles(prefix, limit);
+          }
+
+          @Override
+          public ListenableFuture<Boolean> exists(String name) {
+            return storage.exists(name);
+          }
+
+          @Override
+          public ListenableFuture<byte[]> get(String name) {
+            return storage.get(name);
+          }
+
+          @Override
+          public void close() {
+            storage.close();
+          }
+        };
+
+    Instant t0 = Instant.parse("2026-06-01T00:00:00Z");
+    TestCommandContext backupCtx = new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    backupCtx.clock = Clock.fixed(t0, ZoneOffset.UTC);
+    new GletscherMain(backupCtx).run("backup", "-c", configPath.toString());
+    assertThat(backupCtx.status).isEqualTo(0);
+
+    // First list_objects (live) scans GCS and warms cache.mv.
+    TestCommandContext liveCtx = new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    liveCtx.clock = Clock.fixed(t0, ZoneOffset.UTC);
+    new GletscherMain(liveCtx).run("list_objects", "-c", configPath.toString(), "--type", "data");
+    assertThat(liveCtx.status).isEqualTo(0);
+    int callsAfterLive = listCalls.get();
+    assertThat(callsAfterLive).isGreaterThan(0);
+
+    // Second list_objects with --max-listing-age 1h at t0 + 30m makes 0 live list calls.
+    TestCommandContext cachedCtx = new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    cachedCtx.clock = Clock.fixed(t0.plusSeconds(1800), ZoneOffset.UTC);
+    new GletscherMain(cachedCtx)
+        .run(
+            "list_objects",
+            "-c",
+            configPath.toString(),
+            "--type",
+            "data",
+            "--max-listing-age",
+            "1h");
+    assertThat(cachedCtx.status).isEqualTo(0);
+    assertThat(cachedCtx.stdOutString()).isEqualTo(liveCtx.stdOutString());
+    assertThat(listCalls.get()).isEqualTo(callsAfterLive);
+
+    // Past max-listing-age (t0 + 30m > 15m), it refreshes from GCS cleanly.
+    TestCommandContext expiredCtx =
+        new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    expiredCtx.clock = Clock.fixed(t0.plusSeconds(1800), ZoneOffset.UTC);
+    new GletscherMain(expiredCtx)
+        .run(
+            "list_objects",
+            "-c",
+            configPath.toString(),
+            "--type",
+            "data",
+            "--max-listing-age",
+            "15m");
+    assertThat(expiredCtx.status).isEqualTo(0);
+    assertThat(listCalls.get()).isGreaterThan(callsAfterLive);
+  }
+
+  @Test
   public void invalidUsageReturnsError() throws Exception {
     assertInvalidUsage(
         "Invalid --type value",
@@ -409,6 +521,24 @@ public class ListObjectsCommandTest {
         "/config.properties",
         "--min-age",
         "soon");
+    assertInvalidUsage(
+        "Invalid --max-listing-age duration",
+        "-c",
+        "/config.properties",
+        "--max-listing-age",
+        "soon");
+    assertInvalidUsage(
+        "Invalid --max-listing-age duration",
+        "-c",
+        "/config.properties",
+        "--max-listing-age",
+        "-1h");
+    assertInvalidUsage(
+        "--max-listing-age must be non-negative",
+        "-c",
+        "/config.properties",
+        "--max-listing-age",
+        "-PT1H");
     assertInvalidUsage(
         "Command does not accept positional arguments",
         "-c",

@@ -48,6 +48,7 @@ class VerifyCommand extends AbstractCommand {
     addSnapshotsOption(
         options,
         "Verify the last N snapshots, or 'all' including parent links (default: all).");
+    addMaxListingAgeOption(options);
   }
 
   @Override
