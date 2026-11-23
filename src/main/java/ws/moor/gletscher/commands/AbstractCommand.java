@@ -131,8 +131,9 @@ abstract class AbstractCommand {
     } catch (NumberFormatException e) {
       throw new InvalidUsageException(command, "Invalid --snapshots value: " + rawSnapshots);
     }
-    if (snapshots < 0) {
-      throw new InvalidUsageException(command, "--snapshots must be non-negative: " + snapshots);
+    if (snapshots <= 0) {
+      throw new InvalidUsageException(
+          command, "--snapshots must be at least 1 or 'all': " + snapshots);
     }
     return snapshots;
   }

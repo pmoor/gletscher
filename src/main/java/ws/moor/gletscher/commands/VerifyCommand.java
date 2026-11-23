@@ -57,27 +57,23 @@ class VerifyCommand extends AbstractCommand {
     }
 
     int snapshotLimit = parseSnapshotsOption(this, commandLine, Integer.MAX_VALUE);
-    if (snapshotLimit == 0) {
-      throw new InvalidUsageException(this, "--snapshots must be at least 1 or 'all'.");
-    }
 
-    List<CloudFileStorage.FileHeader> headers = catalogStore.listSnapshotHeaders();
+    List<CloudFileStorage.FileHeader> headers = catalogStore.listSnapshotHeaders(snapshotLimit);
     if (headers.isEmpty()) {
       context.getStdErr().println("No existing backups found - nothing to verify.");
       return -1;
     }
 
     Set<PersistedBlock> allBlocks = blockStore.listAllBlocks();
-    int targetCount = Math.min(snapshotLimit, headers.size());
     boolean followParentLinks = snapshotLimit == Integer.MAX_VALUE;
     Verifier verifier = new Verifier(allBlocks, followParentLinks);
-    for (int i = 0; i < targetCount; i++) {
-      verifier.verifySnapshotHeader(headers.get(i));
+    for (CloudFileStorage.FileHeader header : headers) {
+      verifier.verifySnapshotHeader(header);
     }
     verifier.drain();
 
     if (verifier.errors == 0) {
-      context.getStdOut().printf("Verified %d snapshot(s): Catalog is complete.%n", targetCount);
+      context.getStdOut().printf("Verified %d snapshot(s): Catalog is complete.%n", headers.size());
       return 0;
     } else {
       context.getStdOut().printf("Verification failed with %d error(s).%n", verifier.errors);

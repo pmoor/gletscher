@@ -181,6 +181,10 @@ public class VerifyCommandTest {
     assertThat(context.status).isEqualTo(-1);
     assertThat(context.stdErrString()).contains("--snapshots must be at least 1 or 'all'");
 
+    runVerify("-c", "/config.properties", "--snapshots", "-1");
+    assertThat(context.status).isEqualTo(-1);
+    assertThat(context.stdErrString()).contains("--snapshots must be at least 1 or 'all'");
+
     runVerify("-c", "/config.properties", "--snapshots", "bogus");
     assertThat(context.status).isEqualTo(-1);
     assertThat(context.stdErrString()).contains("Invalid --snapshots value");
