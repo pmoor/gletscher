@@ -17,6 +17,7 @@
 package ws.moor.gletscher.commands;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -42,6 +43,7 @@ import java.io.PrintStream;
 import java.time.Duration;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -123,7 +125,13 @@ abstract class AbstractCommand {
   final void addConfigFileOption(Options options) {
     hasConfigArg = true;
     options.addOption(
-        Option.builder("c").longOpt("config").required().hasArg().argName("FILE").get());
+        Option.builder("c")
+            .longOpt("config")
+            .required()
+            .hasArg()
+            .argName("FILE")
+            .desc("Path to the configuration file.")
+            .get());
   }
 
   final void addMaxListingAgeOption(Options options) {
@@ -225,11 +233,72 @@ abstract class AbstractCommand {
   }
 
   void printUsage(PrintStream out) {
-    // TODO(pmoor): customize further
+    Options options = new Options();
+    addCommandLineOptions(options);
+    Collection<Option> registeredOptions = options.getOptions();
+
     out.println("Usage:");
-    out.println("  gletscher " + getCommandName());
+    out.println(
+        "  gletscher " + getCommandName() + (registeredOptions.isEmpty() ? "" : " [options]"));
     out.println();
     out.println(getCommandDescription());
+
+    if (!registeredOptions.isEmpty()) {
+      out.println();
+      out.println("Options:");
+      printOptions(out, registeredOptions);
+    }
+  }
+
+  private static void printOptions(PrintStream out, Collection<Option> options) {
+    boolean hasAnyShortOpt = options.stream().anyMatch(option -> option.getOpt() != null);
+    List<String> formattedFlags = new ArrayList<>(options.size());
+    int longestFlagLength = 0;
+    for (Option option : options) {
+      String formatted = formatOptionFlags(option, hasAnyShortOpt);
+      formattedFlags.add(formatted);
+      longestFlagLength = Math.max(longestFlagLength, formatted.length());
+    }
+
+    int index = 0;
+    for (Option option : options) {
+      String formatted = formattedFlags.get(index++);
+      String description = Strings.nullToEmpty(option.getDescription());
+      if (option.isRequired()) {
+        description = description.isEmpty() ? "(required)" : description + " (required)";
+      }
+      if (description.isEmpty()) {
+        out.println("  " + formatted);
+      } else {
+        out.printf("  %-" + longestFlagLength + "s  %s%n", formatted, description);
+      }
+    }
+  }
+
+  private static String formatOptionFlags(Option option, boolean hasAnyShortOpt) {
+    StringBuilder sb = new StringBuilder();
+    if (option.getOpt() != null) {
+      sb.append('-').append(option.getOpt());
+      if (option.hasLongOpt()) {
+        sb.append(", --").append(option.getLongOpt());
+      }
+    } else {
+      if (hasAnyShortOpt) {
+        sb.append("    ");
+      }
+      if (option.hasLongOpt()) {
+        sb.append("--").append(option.getLongOpt());
+      }
+    }
+    if (option.hasArg()) {
+      String argName = option.hasArgName() ? option.getArgName() : "arg";
+      if (option.hasOptionalArg()) {
+        sb.append(" [<").append(argName).append(">]");
+      } else {
+        sb.append(" <").append(argName).append('>');
+      }
+    }
+    return sb.toString();
   }
 
   private Configuration loadConfig(CommandLine commandLine) throws IOException {
