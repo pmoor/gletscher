@@ -158,7 +158,7 @@ public class CachingCloudFileStorage implements CloudFileStorage {
 
   @Nullable
   private List<FileHeader> tryReadCachedListing(String prefix) {
-    byte[] raw = Futures.getUnchecked(executor.submit(() -> listingsMap.get(prefix)));
+    byte[] raw = listingsMap.get(prefix);
     if (raw == null) {
       return null;
     }
@@ -214,9 +214,11 @@ public class CachingCloudFileStorage implements CloudFileStorage {
         if (protoClass != null) {
           entryBuilder.setStorageClass(protoClass);
         } else {
-          logger.atSevere().log(
-              "Unknown storage class '%s' for %s; storing as UNKNOWN",
-              header.storageClass, header.name);
+          logger
+              .atSevere()
+              .atMostEvery(10, TimeUnit.SECONDS)
+              .log("Unknown storage class '%s' for %s; storing as UNKNOWN",
+                  header.storageClass, header.name);
           entryBuilder.setStorageClass(Cache.StorageClass.UNKNOWN);
         }
       }
@@ -225,8 +227,7 @@ public class CachingCloudFileStorage implements CloudFileStorage {
       }
       listingBuilder.addFile(entryBuilder.build());
     }
-    byte[] encoded = listingBuilder.build().toByteArray();
-    executor.execute(() -> listingsMap.put(prefix, encoded));
+    listingsMap.put(prefix, listingBuilder.build().toByteArray());
   }
 
   @Override
