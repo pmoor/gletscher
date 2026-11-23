@@ -16,13 +16,25 @@ syntax = "proto3";
 
 package ws.moor.gletscher.proto;
 
+enum StorageClass {
+  UNKNOWN = 0;
+  STANDARD = 1;
+  NEARLINE = 2;
+  COLDLINE = 3;
+  ARCHIVE = 4;
+  MULTI_REGIONAL = 5;
+  REGIONAL = 6;
+  DURABLE_REDUCED_AVAILABILITY = 7;
+}
+
 message CachedFileHeader {
   string name = 1;
   bytes md5 = 2;
   int32 size = 3;
   map<string, string> metadata = 4;
-  optional string storage_class = 5;
+  StorageClass storage_class = 5;
   optional int64 created_time_millis = 6;
+  optional string other_storage_class = 7;
 }
 
 message CachedListing {

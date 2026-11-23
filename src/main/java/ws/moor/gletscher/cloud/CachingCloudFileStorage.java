@@ -43,8 +43,10 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -53,6 +55,10 @@ public class CachingCloudFileStorage implements CloudFileStorage {
 
   private static final String CACHE_FILE_NAME = "cache.mv";
   private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+  private static final ImmutableMap<String, Cache.StorageClass> STORAGE_CLASS_TO_PROTO =
+      Arrays.stream(Cache.StorageClass.values())
+          .filter(c -> c != Cache.StorageClass.UNKNOWN && c != Cache.StorageClass.UNRECOGNIZED)
+          .collect(ImmutableMap.toImmutableMap(Enum::name, c -> c));
 
   private static final MVMap.Builder<String, byte[]> MAP_BUILDER =
       new MVMap.Builder<String, byte[]>()
@@ -173,12 +179,21 @@ public class CachingCloudFileStorage implements CloudFileStorage {
               HashCode.fromBytes(entry.getMd5().toByteArray()),
               entry.getSize(),
               ImmutableMap.copyOf(entry.getMetadataMap()),
-              entry.hasStorageClass() ? entry.getStorageClass() : null,
+              decodeStorageClass(entry),
               entry.hasCreatedTimeMillis()
                   ? Instant.ofEpochMilli(entry.getCreatedTimeMillis())
                   : null));
     }
     return headers;
+  }
+
+  @Nullable
+  private static String decodeStorageClass(Cache.CachedFileHeader entry) {
+    if (entry.getStorageClass() != Cache.StorageClass.UNKNOWN
+        && entry.getStorageClass() != Cache.StorageClass.UNRECOGNIZED) {
+      return entry.getStorageClass().name();
+    }
+    return entry.hasOtherStorageClass() ? entry.getOtherStorageClass() : null;
   }
 
   private void storeListing(String prefix, Instant retrievedAt, List<FileHeader> headers) {
@@ -192,7 +207,13 @@ public class CachingCloudFileStorage implements CloudFileStorage {
               .setSize(header.size)
               .putAllMetadata(header.metadata);
       if (header.storageClass != null) {
-        entryBuilder.setStorageClass(header.storageClass);
+        Cache.StorageClass protoClass =
+            STORAGE_CLASS_TO_PROTO.get(header.storageClass.toUpperCase(Locale.ROOT));
+        if (protoClass != null) {
+          entryBuilder.setStorageClass(protoClass);
+        } else {
+          entryBuilder.setOtherStorageClass(header.storageClass);
+        }
       }
       if (header.createdTime != null) {
         entryBuilder.setCreatedTimeMillis(header.createdTime.toEpochMilli());

@@ -185,6 +185,7 @@ public class CachingCloudFileStorageTest {
         .get();
     backing.setStorageClass("blocks/aa/1", "COLDLINE");
     backing.setCreatedTime("blocks/aa/1", Instant.parse("2025-01-01T00:00:00Z"));
+    backing.setStorageClass("blocks/bb/2", "MULTI_REGIONAL");
 
     // Initial live listing with maxListingAge = ZERO writes to cache.mv.
     try (CachingCloudFileStorage cache =
@@ -212,6 +213,7 @@ public class CachingCloudFileStorageTest {
       List<CloudFileStorage.FileHeader> cachedHeaders = listAll(cache, "blocks/", Integer.MAX_VALUE);
       assertThat(cachedHeaders).hasSize(2);
       assertThat(cachedHeaders.get(0).storageClass).isEqualTo("COLDLINE");
+      assertThat(cachedHeaders.get(1).storageClass).isEqualTo("MULTI_REGIONAL");
       assertThat(cachedHeaders.get(0).createdTime)
           .isEqualTo(Instant.parse("2025-01-01T00:00:00Z"));
       assertThat(cachedHeaders.get(0).metadata).containsExactly("sig", "s1");
