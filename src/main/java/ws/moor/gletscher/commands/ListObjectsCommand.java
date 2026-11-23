@@ -275,10 +275,10 @@ class ListObjectsCommand extends AbstractCommand {
   private ListingResult findMatchingObjects(FilterOptions filters, Instant now) {
     if (filters.type() == ObjectTypeFilter.METADATA) {
       int limit = filters.snapshots() != null ? filters.snapshots() : Integer.MAX_VALUE;
-      boolean followBaseCatalogs = limit == Integer.MAX_VALUE;
+      boolean followParentLinks = limit == Integer.MAX_VALUE;
       List<CatalogStore.Snapshot> snapshots = listSnapshots(limit);
       Set<String> metadataNames =
-          collectReachableObjectNames(snapshots, false, followBaseCatalogs);
+          collectReachableObjectNames(snapshots, false, followParentLinks);
       if (!filters.hasHeaderFilter()) {
         return new ListingResult(new ArrayList<>(new TreeSet<>(metadataNames)), Optional.empty());
       }
@@ -290,10 +290,10 @@ class ListObjectsCommand extends AbstractCommand {
 
     if (filters.type() == ObjectTypeFilter.ORPHANED) {
       int limit = filters.snapshots() != null ? filters.snapshots() : Integer.MAX_VALUE;
-      boolean followBaseCatalogs = limit == Integer.MAX_VALUE;
+      boolean followParentLinks = limit == Integer.MAX_VALUE;
       List<CatalogStore.Snapshot> snapshots = listSnapshots(limit);
       Set<String> reachableNames =
-          collectReachableObjectNames(snapshots, true, followBaseCatalogs);
+          collectReachableObjectNames(snapshots, true, followParentLinks);
       return filterHeaders(
           listAllHeaders(),
           header -> !reachableNames.contains(header.name),
@@ -323,15 +323,17 @@ class ListObjectsCommand extends AbstractCommand {
     return snapshots;
   }
 
+  private record DirVisit(PersistedBlock block, boolean optionalParentLink) {}
+
   private Set<String> collectReachableObjectNames(
       List<CatalogStore.Snapshot> snapshots,
       boolean includeDataBlocks,
-      boolean followBaseCatalogs) {
+      boolean followParentLinks) {
     Set<String> names = new LinkedHashSet<>();
     Set<PersistedBlock> visitedCatalogs = new HashSet<>();
     Set<PersistedBlock> visitedDirectories = new HashSet<>();
     Deque<Catalog> catalogQueue = new ArrayDeque<>();
-    Deque<PersistedBlock> dirQueue = new ArrayDeque<>();
+    Deque<DirVisit> dirQueue = new ArrayDeque<>();
 
     for (CatalogStore.Snapshot snapshot : snapshots) {
       names.add(snapshot.pointerName());
@@ -349,10 +351,10 @@ class ListObjectsCommand extends AbstractCommand {
       Catalog catalog = catalogQueue.pop();
       for (PersistedBlock rootBlock : catalog.getRoots().values()) {
         if (visitedDirectories.add(rootBlock)) {
-          dirQueue.push(rootBlock);
+          dirQueue.addFirst(new DirVisit(rootBlock, false));
         }
       }
-      if (followBaseCatalogs) {
+      if (followParentLinks) {
         catalog
             .getBaseCatalog()
             .ifPresent(
@@ -369,16 +371,29 @@ class ListObjectsCommand extends AbstractCommand {
     }
 
     while (!dirQueue.isEmpty()) {
-      PersistedBlock dirBlock = dirQueue.pop();
-      names.add(BlockStore.toFileName(dirBlock));
+      DirVisit visit = dirQueue.removeFirst();
+      PersistedBlock dirBlock = visit.block();
       byte[] bytes = Futures.getUnchecked(blockStore.retrieve(dirBlock));
+      if (bytes == null) {
+        if (visit.optionalParentLink()) {
+          continue;
+        }
+        throw new IllegalStateException("Missing directory block: " + dirBlock);
+      }
+      names.add(BlockStore.toFileName(dirBlock));
       try {
         Gletscher.Directory dir = Gletscher.Directory.parseFrom(bytes);
+        if (followParentLinks && dir.hasPreviousVersion()) {
+          PersistedBlock previousBlock = PersistedBlock.fromProto(dir.getPreviousVersion());
+          if (visitedDirectories.add(previousBlock)) {
+            dirQueue.addLast(new DirVisit(previousBlock, true));
+          }
+        }
         for (Gletscher.DirectoryEntry entry : dir.getEntryList()) {
           if (entry.getTypeCase() == Gletscher.DirectoryEntry.TypeCase.DIRECTORY) {
             PersistedBlock childBlock = PersistedBlock.fromProto(entry.getDirectory().getBlock());
             if (visitedDirectories.add(childBlock)) {
-              dirQueue.push(childBlock);
+              dirQueue.addFirst(new DirVisit(childBlock, false));
             }
           } else if (includeDataBlocks
               && entry.getTypeCase() == Gletscher.DirectoryEntry.TypeCase.FILE) {

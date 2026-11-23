@@ -363,6 +363,71 @@ public class ListObjectsCommandTest {
   }
 
   @Test
+  public void directoryPreviousVersionLinksPreserveHistoryWhenCatalogPointerMissing()
+      throws Exception {
+    // Snapshot 1 has unique files at root and in a nested directory.
+    Files.writeString(fs.getPath("/home/snap1-root.txt"), "snap1-root-unique-payload");
+    Files.writeString(fs.getPath("/home/sub/snap1-nested.txt"), "snap1-nested-unique-payload");
+    String snap1CatalogSig = takeBackupAt(Instant.parse("2025-01-01T00:00:00Z"));
+    Set<String> snap1Meta = storage.getFileNames(CloudFileStorage.ObjectType.METADATA);
+    Set<String> snap1Data = storage.getFileNames(CloudFileStorage.ObjectType.DATA);
+
+    // Snapshot 2 deletes the snapshot-1-only files so /home and /home/sub get new directory blocks
+    // with previous_version pointing back to snapshot 1's directory blocks.
+    Files.delete(fs.getPath("/home/snap1-root.txt"));
+    Files.delete(fs.getPath("/home/sub/snap1-nested.txt"));
+    Files.writeString(fs.getPath("/home/snap2-only.txt"), "snap2-unique-payload");
+    takeBackupAt(Instant.parse("2026-01-01T00:00:00Z"));
+
+    // Delete snapshot 1's backups/ pointer and catalog block so snapshot 1's directories and
+    // data blocks are reachable ONLY via Directory.previous_version links from snapshot 2.
+    String snap1Pointer =
+        snap1Meta.stream().filter(n -> n.startsWith("backups/")).findFirst().orElseThrow();
+    String snap1CatalogBlock =
+        snap1Meta.stream()
+            .filter(n -> n.contains("/" + snap1CatalogSig + ":"))
+            .findFirst()
+            .orElseThrow();
+    storage.delete(snap1Pointer);
+    storage.delete(snap1CatalogBlock);
+
+    Set<String> remainingSnap1Dirs =
+        snap1Meta.stream()
+            .filter(n -> !n.equals(snap1Pointer) && !n.equals(snap1CatalogBlock))
+            .collect(Collectors.toSet());
+    assertThat(remainingSnap1Dirs).hasSize(3); // /, /home, and /home/sub from snapshot 1
+
+    // Under default / --snapshots all, previous_version links keep all snapshot 1 directories
+    // and data blocks reachable (not orphaned), classify them as metadata, and exclude them from
+    // --type data.
+    assertThat(runListObjects("-c", "/config.properties", "--type", "orphaned")).isEmpty();
+    assertThat(
+            runListObjects("-c", "/config.properties", "--type", "orphaned", "--snapshots", "all"))
+        .isEmpty();
+    assertThat(runListObjects("-c", "/config.properties", "--type", "metadata"))
+        .containsAtLeastElementsIn(remainingSnap1Dirs);
+    assertThat(runListObjects("-c", "/config.properties", "--type", "data"))
+        .containsAtLeastElementsIn(snap1Data);
+    assertThat(runListObjects("-c", "/config.properties", "--type", "data"))
+        .containsNoneIn(remainingSnap1Dirs);
+
+    // With --snapshots 1, parent links (base_catalog and previous_version) are NOT followed.
+    List<String> snap1ScopedOrphans =
+        runListObjects("-c", "/config.properties", "--type", "orphaned", "--snapshots", "1");
+    assertThat(snap1ScopedOrphans).containsAtLeastElementsIn(remainingSnap1Dirs);
+    assertThat(runListObjects("-c", "/config.properties", "--type", "metadata", "--snapshots", "1"))
+        .containsNoneIn(remainingSnap1Dirs);
+
+    // Deleting a previous_version target (dangling parent link) does not fail list_objects and
+    // omits the missing block from --type metadata.
+    String deletedPrevDir = remainingSnap1Dirs.iterator().next();
+    storage.delete(deletedPrevDir);
+    assertThat(runListObjects("-c", "/config.properties", "--type", "metadata"))
+        .doesNotContain(deletedPrevDir);
+    runListObjects("-c", "/config.properties", "--type", "orphaned");
+  }
+
+  @Test
   public void maxListingAgeReusesPersistentCacheAcrossInvocations() throws Exception {
     Path cacheDir = tempFolder.newFolder("cache").toPath();
     Path configPath = tempFolder.newFile("config.properties").toPath();
@@ -546,12 +611,17 @@ public class ListObjectsCommandTest {
         "extra");
   }
 
-  private void takeBackupAt(Instant when) throws Exception {
+  private String takeBackupAt(Instant when) throws Exception {
     TestCommandContext backupContext = new TestCommandContext(fs, storage);
     backupContext.clock = Clock.fixed(when, ZoneOffset.UTC);
     GletscherMain main = new GletscherMain(backupContext);
     main.run("backup", "-c", "/config.properties");
     assertThat(backupContext.status).isEqualTo(0);
+    return Arrays.stream(backupContext.stdOutString().split("\\R"))
+        .filter(line -> line.startsWith("new catalog: "))
+        .map(line -> line.substring("new catalog: ".length()).trim())
+        .findFirst()
+        .orElseThrow();
   }
 
   private List<String> runListObjects(String... args) throws Exception {
