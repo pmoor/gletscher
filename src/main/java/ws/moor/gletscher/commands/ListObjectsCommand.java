@@ -33,7 +33,6 @@ import ws.moor.gletscher.util.ByteSize;
 import java.io.PrintStream;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -48,17 +47,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /** Lists remote object names (or gs:// URIs) matching object type, snapshot, size, age, and storage class filters. */
 @Command(
     name = "list_objects",
     description = "List remote GCS object names matching metadata/data/orphaned, size, age, and storage class filters.")
 class ListObjectsCommand extends AbstractCommand {
-
-  private static final Pattern COMPACT_DURATION_PATTERN =
-      Pattern.compile("^([0-9]+)\\s*([dDhHmMsS])$");
 
   private enum ObjectTypeFilter {
     ALL,
@@ -196,6 +190,7 @@ class ListObjectsCommand extends AbstractCommand {
             .longOpt("gs-uri")
             .desc("Output full gs://<bucket>/<prefix><name> URIs instead of relative names.")
             .get());
+    addMaxListingAgeOption(options);
   }
 
   @Override
@@ -451,8 +446,8 @@ class ListObjectsCommand extends AbstractCommand {
 
     Long minSizeBytes = parseSizeOption(commandLine, "min-size");
     Long maxSizeBytes = parseSizeOption(commandLine, "max-size");
-    Duration minAge = parseDurationOption(commandLine, "min-age");
-    Duration maxAge = parseDurationOption(commandLine, "max-age");
+    Duration minAge = parseDurationOption(this, commandLine, "min-age");
+    Duration maxAge = parseDurationOption(this, commandLine, "max-age");
     Set<String> includeStorageClasses = parseStorageClassOptions(commandLine, "storage-class");
     Set<String> excludeStorageClasses =
         parseStorageClassOptions(commandLine, "exclude-storage-class");
@@ -480,39 +475,6 @@ class ListObjectsCommand extends AbstractCommand {
     } catch (IllegalArgumentException e) {
       throw new InvalidUsageException(this, "Invalid --" + option + ": " + e.getMessage());
     }
-  }
-
-  private Duration parseDurationOption(CommandLine commandLine, String option)
-      throws InvalidUsageException {
-    if (!commandLine.hasOption(option)) {
-      return null;
-    }
-    String raw = commandLine.getOptionValue(option);
-    try {
-      Duration duration = parseDuration(raw);
-      if (duration.isNegative()) {
-        throw new InvalidUsageException(this, "--" + option + " must be non-negative: " + raw);
-      }
-      return duration;
-    } catch (IllegalArgumentException | DateTimeParseException e) {
-      throw new InvalidUsageException(this, "Invalid --" + option + " duration: " + raw);
-    }
-  }
-
-  private static Duration parseDuration(String input) {
-    String trimmed = input.trim();
-    Matcher matcher = COMPACT_DURATION_PATTERN.matcher(trimmed);
-    if (matcher.matches()) {
-      long amount = Long.parseLong(matcher.group(1));
-      return switch (matcher.group(2).toLowerCase(Locale.ROOT)) {
-        case "d" -> Duration.ofDays(amount);
-        case "h" -> Duration.ofHours(amount);
-        case "m" -> Duration.ofMinutes(amount);
-        case "s" -> Duration.ofSeconds(amount);
-        default -> throw new IllegalArgumentException("Unsupported duration unit: " + input);
-      };
-    }
-    return Duration.parse(trimmed.toUpperCase(Locale.ROOT));
   }
 
   private Set<String> parseStorageClassOptions(CommandLine commandLine, String option)

@@ -35,9 +35,17 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -131,10 +139,126 @@ public class CachingCloudFileStorageTest {
     }
   }
 
+  @Test
+  public void testCachesUnlimitedListingsAcrossReopenAndRespectsMaxAge() throws Exception {
+    Path cacheDir = tempFolder.newFolder("listing-cache").toPath();
+    AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-06-01T00:00:00Z"));
+    Clock clock =
+        new Clock() {
+          @Override
+          public ZoneId getZone() {
+            return ZoneOffset.UTC;
+          }
+
+          @Override
+          public Clock withZone(ZoneId zone) {
+            return this;
+          }
+
+          @Override
+          public Instant instant() {
+            return now.get();
+          }
+        };
+
+    InMemoryCloudFileStorage backing =
+        new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService(), clock);
+    CountingDelegate delegate = new CountingDelegate(backing);
+
+    byte[] payload1 = "block-1".getBytes(StandardCharsets.UTF_8);
+    byte[] payload2 = "block-2-longer".getBytes(StandardCharsets.UTF_8);
+    backing
+        .store(
+            "blocks/aa/1",
+            payload1,
+            LegacyHashing.md5().hashBytes(payload1),
+            ImmutableMap.of("sig", "s1"),
+            CloudFileStorage.StoreOptions.DEFAULT)
+        .get();
+    backing
+        .store(
+            "blocks/bb/2",
+            payload2,
+            LegacyHashing.md5().hashBytes(payload2),
+            ImmutableMap.of("sig", "s2"),
+            CloudFileStorage.StoreOptions.DEFAULT)
+        .get();
+    backing.setStorageClass("blocks/aa/1", "COLDLINE");
+    backing.setCreatedTime("blocks/aa/1", Instant.parse("2025-01-01T00:00:00Z"));
+    backing.setStorageClass("blocks/bb/2", "MULTI_REGIONAL"); // unrecognized -> cached as UNKNOWN (null)
+
+    // Initial live listing with maxListingAge = ZERO writes to cache.mv.
+    try (CachingCloudFileStorage cache =
+        new CachingCloudFileStorage(delegate, cacheDir, Duration.ZERO, clock)) {
+      List<CloudFileStorage.FileHeader> headers = listAll(cache, "blocks/", Integer.MAX_VALUE);
+      assertThat(headers).hasSize(2);
+      assertThat(delegate.listCalls.get()).isEqualTo(1);
+    }
+
+    // Mutate backing storage after the snapshot was cached.
+    now.set(Instant.parse("2026-06-01T00:30:00Z")); // +30m
+    byte[] payload3 = "block-3".getBytes(StandardCharsets.UTF_8);
+    backing
+        .store(
+            "blocks/cc/3",
+            payload3,
+            LegacyHashing.md5().hashBytes(payload3),
+            ImmutableMap.of(),
+            CloudFileStorage.StoreOptions.DEFAULT)
+        .get();
+
+    // With maxListingAge = 1h, unlimited listing reads from cache (0 delegate calls).
+    try (CachingCloudFileStorage cache =
+        new CachingCloudFileStorage(delegate, cacheDir, Duration.ofHours(1), clock)) {
+      List<CloudFileStorage.FileHeader> cachedHeaders = listAll(cache, "blocks/", Integer.MAX_VALUE);
+      assertThat(cachedHeaders).hasSize(2);
+      assertThat(cachedHeaders.get(0).storageClass).isEqualTo("COLDLINE");
+      assertThat(cachedHeaders.get(1).storageClass).isNull();
+      assertThat(cachedHeaders.get(0).createdTime)
+          .isEqualTo(Instant.parse("2025-01-01T00:00:00Z"));
+      assertThat(cachedHeaders.get(0).metadata).containsExactly("sig", "s1");
+      assertThat(delegate.listCalls.get()).isEqualTo(1);
+
+      // Bounded listing bypasses the cache and hits the delegate.
+      List<CloudFileStorage.FileHeader> bounded = listAll(cache, "blocks/", 1);
+      assertThat(bounded).hasSize(1);
+      assertThat(delegate.listCalls.get()).isEqualTo(2);
+
+      // Partial unlimited iteration (not exhausted) must not overwrite the cached entry.
+      now.set(Instant.parse("2026-06-01T01:05:00Z")); // expired (> 1h)
+      Iterator<CloudFileStorage.FileHeader> partial = cache.listFiles("blocks/", Integer.MAX_VALUE);
+      assertThat(partial.hasNext()).isTrue();
+      partial.next();
+      assertThat(delegate.listCalls.get()).isEqualTo(3);
+
+      // Because partial didn't finish, previous entry is still older -> full call still refreshes.
+      List<CloudFileStorage.FileHeader> refreshed = listAll(cache, "blocks/", Integer.MAX_VALUE);
+      assertThat(refreshed).hasSize(3);
+      assertThat(delegate.listCalls.get()).isEqualTo(4);
+
+      // Calling again right away (now at 1h05m, within 1h of refresh) hits cache cleanly!
+      List<CloudFileStorage.FileHeader> cachedAfterRefresh =
+          listAll(cache, "blocks/", Integer.MAX_VALUE);
+      assertThat(cachedAfterRefresh).hasSize(3);
+      assertThat(delegate.listCalls.get()).isEqualTo(4);
+    }
+  }
+
+  private static List<CloudFileStorage.FileHeader> listAll(
+      CloudFileStorage storage, String prefix, int limit) {
+    List<CloudFileStorage.FileHeader> result = new ArrayList<>();
+    Iterator<CloudFileStorage.FileHeader> it = storage.listFiles(prefix, limit);
+    while (it.hasNext()) {
+      result.add(it.next());
+    }
+    return result;
+  }
+
   private static final class CountingDelegate implements CloudFileStorage {
     private final CloudFileStorage delegate;
     final AtomicInteger existsCalls = new AtomicInteger();
     final AtomicInteger getCalls = new AtomicInteger();
+    final AtomicInteger listCalls = new AtomicInteger();
 
     CountingDelegate(CloudFileStorage delegate) {
       this.delegate = delegate;
@@ -148,6 +272,7 @@ public class CachingCloudFileStorageTest {
 
     @Override
     public Iterator<FileHeader> listFiles(String prefix, int limit) {
+      listCalls.incrementAndGet();
       return delegate.listFiles(prefix, limit);
     }
 

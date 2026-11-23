@@ -39,16 +39,25 @@ import ws.moor.gletscher.util.Signer;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.time.Duration;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 abstract class AbstractCommand {
+
+  private static final Pattern COMPACT_DURATION_PATTERN =
+      Pattern.compile("^([0-9]+)\\s*([dDhHmMsS])$");
 
   final CommandContext context;
   final AtomicBoolean hasRun = new AtomicBoolean(false);
 
   private boolean hasConfigArg = false;
+  private boolean hasMaxListingAgeArg = false;
   private final CostTracker costTracker = new CostTracker();
 
   protected Configuration config;
@@ -76,7 +85,19 @@ abstract class AbstractCommand {
 
     if (hasConfigArg) {
       config = loadConfig(commandLine);
-      cloudFileStorage = buildCloudFileStorage(config, costTracker);
+      Duration maxListingAge = Duration.ZERO;
+      if (hasMaxListingAgeArg) {
+        Duration parsed = parseDurationOption(this, commandLine, "max-listing-age");
+        if (parsed != null) {
+          maxListingAge = parsed;
+        }
+      }
+      if (config.disableCache() && !maxListingAge.isZero()) {
+        context
+            .getStdErr()
+            .println("Warning: --max-listing-age ignored because disable_cache is true.");
+      }
+      cloudFileStorage = buildCloudFileStorage(config, costTracker, maxListingAge);
       blockStore = new BlockStore(cloudFileStorage, new Signer(config.getSigningKey()));
       catalogStore = new CatalogStore(context.getFileSystem(), cloudFileStorage, blockStore);
     }
@@ -103,6 +124,51 @@ abstract class AbstractCommand {
     hasConfigArg = true;
     options.addOption(
         Option.builder("c").longOpt("config").required().hasArg().argName("FILE").get());
+  }
+
+  final void addMaxListingAgeOption(Options options) {
+    hasMaxListingAgeArg = true;
+    options.addOption(
+        Option.builder()
+            .longOpt("max-listing-age")
+            .hasArg()
+            .argName("duration")
+            .desc("Allow using cached remote file listings up to this age (e.g. 1h, 24h, 7d).")
+            .get());
+  }
+
+  protected static Duration parseDurationOption(
+      AbstractCommand command, CommandLine commandLine, String option)
+      throws InvalidUsageException {
+    if (!commandLine.hasOption(option)) {
+      return null;
+    }
+    String raw = commandLine.getOptionValue(option);
+    try {
+      Duration duration = parseDuration(raw);
+      if (duration.isNegative()) {
+        throw new InvalidUsageException(command, "--" + option + " must be non-negative: " + raw);
+      }
+      return duration;
+    } catch (IllegalArgumentException | DateTimeParseException e) {
+      throw new InvalidUsageException(command, "Invalid --" + option + " duration: " + raw);
+    }
+  }
+
+  private static Duration parseDuration(String input) {
+    String trimmed = input.trim();
+    Matcher matcher = COMPACT_DURATION_PATTERN.matcher(trimmed);
+    if (matcher.matches()) {
+      long amount = Long.parseLong(matcher.group(1));
+      return switch (matcher.group(2).toLowerCase(Locale.ROOT)) {
+        case "d" -> Duration.ofDays(amount);
+        case "h" -> Duration.ofHours(amount);
+        case "m" -> Duration.ofMinutes(amount);
+        case "s" -> Duration.ofSeconds(amount);
+        default -> throw new IllegalArgumentException("Unsupported duration unit: " + input);
+      };
+    }
+    return Duration.parse(trimmed.toUpperCase(Locale.ROOT));
   }
 
   protected static void addSnapshotsOption(Options options, String description) {
@@ -138,14 +204,16 @@ abstract class AbstractCommand {
     return snapshots;
   }
 
-  private CloudFileStorage buildCloudFileStorage(Configuration config, CostTracker costTracker) {
+  private CloudFileStorage buildCloudFileStorage(
+      Configuration config, CostTracker costTracker, Duration maxListingAge) {
     CloudFileStorage cloudFileStorage = context.connectToCloud(config, costTracker);
 
     CountingCloudFileStorage counting = new CountingCloudFileStorage(cloudFileStorage);
     cloudFileStorage = counting;
     if (!config.disableCache()) {
       cloudFileStorage =
-          new CachingCloudFileStorage(counting, config.getLocalCacheDir());
+          new CachingCloudFileStorage(
+              counting, config.getLocalCacheDir(), maxListingAge, context.getClock());
     }
     cloudFileStorage =
         new SigningCloudFileStorage(cloudFileStorage, new Signer(config.getSigningKey()));
