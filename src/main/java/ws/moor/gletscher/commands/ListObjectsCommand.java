@@ -30,6 +30,7 @@ import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.proto.Gletscher;
 import ws.moor.gletscher.util.ByteSize;
 
+import java.io.PrintStream;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
@@ -42,7 +43,10 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -211,14 +215,69 @@ class ListObjectsCommand extends AbstractCommand {
     }
 
     Instant now = context.getClock().instant();
-    List<String> matchingNames = findMatchingNames(filters, now);
-    for (String name : matchingNames) {
+    ListingResult result = findMatchingObjects(filters, now);
+    for (String name : result.names()) {
       context.getStdOut().println(uriPrefix + name);
     }
+    printSummary(result, context.getStdErr());
     return 0;
   }
 
-  private List<String> findMatchingNames(FilterOptions filters, Instant now) {
+  private record ListingResult(
+      List<String> names, Optional<List<CloudFileStorage.FileHeader>> headers) {}
+
+  private static final class ClassSummary {
+    long count = 0;
+    long bytes = 0;
+
+    void add(long size) {
+      count++;
+      bytes += size;
+    }
+  }
+
+  private void printSummary(ListingResult result, PrintStream err) {
+    if (result.names().isEmpty()) {
+      return;
+    }
+    if (result.headers().isEmpty()) {
+      int count = result.names().size();
+      err.printf(
+          "%d %s (sizes and storage classes omitted; pass --min-size 0 to include)%n",
+          count,
+          count == 1 ? "object" : "objects");
+      return;
+    }
+
+    Map<String, ClassSummary> byClass = new TreeMap<>();
+    long totalCount = 0;
+    long totalBytes = 0;
+    for (CloudFileStorage.FileHeader header : result.headers().get()) {
+      String storageClass = header.storageClass != null ? header.storageClass : "UNKNOWN";
+      byClass.computeIfAbsent(storageClass, ignored -> new ClassSummary()).add(header.size);
+      totalCount++;
+      totalBytes += header.size;
+    }
+
+    for (Map.Entry<String, ClassSummary> entry : byClass.entrySet()) {
+      ClassSummary summary = entry.getValue();
+      err.printf(
+          "%s: %d %s, %s%n",
+          entry.getKey(),
+          summary.count,
+          summary.count == 1 ? "object" : "objects",
+          ByteSize.ofBytes(summary.bytes));
+    }
+    if (byClass.size() > 1) {
+      err.printf(
+          "Total: %d %s, %s%n",
+          totalCount,
+          totalCount == 1 ? "object" : "objects",
+          ByteSize.ofBytes(totalBytes));
+    }
+  }
+
+  private ListingResult findMatchingObjects(FilterOptions filters, Instant now) {
     if (filters.type() == ObjectTypeFilter.METADATA) {
       int limit = filters.snapshots() != null ? filters.snapshots() : Integer.MAX_VALUE;
       boolean followBaseCatalogs = limit == Integer.MAX_VALUE;
@@ -226,10 +285,10 @@ class ListObjectsCommand extends AbstractCommand {
       Set<String> metadataNames =
           collectReachableObjectNames(snapshots, false, followBaseCatalogs);
       if (!filters.hasHeaderFilter()) {
-        return new ArrayList<>(new TreeSet<>(metadataNames));
+        return new ListingResult(new ArrayList<>(new TreeSet<>(metadataNames)), Optional.empty());
       }
       if (metadataNames.isEmpty()) {
-        return List.of();
+        return new ListingResult(List.of(), Optional.of(List.of()));
       }
       return filterHeaders(listAllHeaders(), header -> metadataNames.contains(header.name), filters, now);
     }
@@ -352,19 +411,23 @@ class ListObjectsCommand extends AbstractCommand {
     return all;
   }
 
-  private static List<String> filterHeaders(
+  private static ListingResult filterHeaders(
       List<CloudFileStorage.FileHeader> headers,
       java.util.function.Predicate<CloudFileStorage.FileHeader> membershipFilter,
       FilterOptions filters,
       Instant now) {
-    List<String> result = new ArrayList<>();
+    List<CloudFileStorage.FileHeader> matched = new ArrayList<>();
     for (CloudFileStorage.FileHeader header : headers) {
       if (membershipFilter.test(header) && filters.matches(header, now)) {
-        result.add(header.name);
+        matched.add(header);
       }
     }
-    result.sort(Comparator.naturalOrder());
-    return result;
+    matched.sort(Comparator.comparing(h -> h.name));
+    List<String> names = new ArrayList<>(matched.size());
+    for (CloudFileStorage.FileHeader header : matched) {
+      names.add(header.name);
+    }
+    return new ListingResult(names, Optional.of(matched));
   }
 
   private FilterOptions parseOptions(CommandLine commandLine) throws InvalidUsageException {

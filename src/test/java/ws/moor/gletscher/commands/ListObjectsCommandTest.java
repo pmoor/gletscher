@@ -210,21 +210,47 @@ public class ListObjectsCommandTest {
                 "--storage-class",
                 "multi_regional,archive"))
         .containsExactly(largeBlock, smallBlocks.get(1));
-    assertThat(
-            runListObjectsAt(
-                now,
-                "-c",
-                "/config.properties",
-                "--type",
-                "data",
-                "--min-age",
-                "90d",
-                "--exclude-storage-class",
-                "ARCHIVE",
-                "--gs-uri"))
+
+    ListingResult multiClass =
+        runListObjectsDetailed(
+            now,
+            "-c",
+            "/config.properties",
+            "--type",
+            "data",
+            "--min-age",
+            "90d",
+            "--exclude-storage-class",
+            "ARCHIVE",
+            "--gs-uri");
+    assertThat(multiClass.lines())
         .containsExactly(
             "gs://my-backup-bucket/prod/" + largeBlock,
             "gs://my-backup-bucket/prod/" + smallBlocks.get(0));
+    assertThat(multiClass.stdErr()).contains("MULTI_REGIONAL: 1 object, ");
+    assertThat(multiClass.stdErr()).contains("STANDARD: 1 object, ");
+    assertThat(multiClass.stdErr()).contains("Total: 2 objects, ");
+
+    // Single storage class emits that class line without a redundant Total line.
+    ListingResult singleClass =
+        runListObjectsDetailed(
+            now,
+            "-c",
+            "/config.properties",
+            "--type",
+            "data",
+            "--storage-class",
+            "ARCHIVE");
+    assertThat(singleClass.lines()).containsExactly(smallBlocks.get(1));
+    assertThat(singleClass.stdErr()).contains("ARCHIVE: 1 object, ");
+    assertThat(singleClass.stdErr()).doesNotContain("Total:");
+
+    // Unfiltered --type metadata omits size/class breakdown and emits object count.
+    ListingResult metadataOnly =
+        runListObjectsDetailed(now, "-c", "/config.properties", "--type", "metadata");
+    assertThat(metadataOnly.lines()).isNotEmpty();
+    assertThat(metadataOnly.stdErr())
+        .contains(metadataOnly.lines().size() + " objects (sizes and storage classes omitted");
   }
 
   @Test
@@ -402,7 +428,17 @@ public class ListObjectsCommandTest {
     return runListObjectsAt(Instant.parse("2026-06-01T00:00:00Z"), args);
   }
 
+  private record ListingResult(List<String> lines, String stdErr) {}
+
   private List<String> runListObjectsAt(Instant now, String... args) throws Exception {
+    ListingResult result = runListObjectsDetailed(now, args);
+    if (result.lines().isEmpty()) {
+      assertThat(result.stdErr()).isEmpty();
+    }
+    return result.lines();
+  }
+
+  private ListingResult runListObjectsDetailed(Instant now, String... args) throws Exception {
     TestCommandContext context = new TestCommandContext(fs, storage);
     context.clock = Clock.fixed(now, ZoneOffset.UTC);
     GletscherMain main = new GletscherMain(context);
@@ -411,12 +447,9 @@ public class ListObjectsCommandTest {
     System.arraycopy(args, 0, fullArgs, 1, args.length);
     main.run(fullArgs);
     assertThat(context.status).isEqualTo(0);
-    assertThat(context.stdErrString()).isEmpty();
     String out = context.stdOutString();
-    if (out.isEmpty()) {
-      return List.of();
-    }
-    return Arrays.asList(out.split("\\R"));
+    List<String> lines = out.isEmpty() ? List.of() : Arrays.asList(out.split("\\R"));
+    return new ListingResult(lines, context.stdErrString());
   }
 
   private void assertInvalidUsage(String expectedMessage, String... args) throws Exception {
