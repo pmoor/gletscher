@@ -93,12 +93,27 @@ class VerifyCommand extends AbstractCommand {
     }
 
     Set<PersistedBlock> allBlocks = blockStore.listAllBlocks();
+    context
+        .getStdOut()
+        .printf(
+            "Discovered %d object(s) in GCS (%d snapshot(s), %d block(s)).%n",
+            headers.size() + allBlocks.size(), headers.size(), allBlocks.size());
+
     boolean followParentLinks = snapshotLimit == Integer.MAX_VALUE;
     Verifier verifier = new Verifier(allBlocks, followParentLinks);
     for (CloudFileStorage.FileHeader header : headers) {
       verifier.verifySnapshotHeader(header);
     }
     verifier.drain();
+
+    context
+        .getStdOut()
+        .printf(
+            "Verified %d unique catalog(s) and %d unique %s; checked %d unique data block(s).%n",
+            verifier.verifiedCatalogs,
+            verifier.verifiedDirectories,
+            verifier.verifiedDirectories == 1 ? "directory" : "directories",
+            verifier.checkedDataBlocks.size());
 
     if (verifier.errors == 0) {
       context.getStdOut().printf("Verified %d snapshot(s): Catalog is complete.%n", headers.size());
@@ -190,8 +205,11 @@ class VerifyCommand extends AbstractCommand {
     private final boolean followParentLinks;
     private final Set<PersistedBlock> visitedCatalogs = new HashSet<>();
     private final Set<PersistedBlock> visitedDirectories = new HashSet<>();
+    private final Set<PersistedBlock> checkedDataBlocks = new HashSet<>();
     private final Deque<CatalogCheck> catalogQueue = new ArrayDeque<>();
     private final Deque<DirCheck> dirQueue = new ArrayDeque<>();
+    private int verifiedCatalogs = 0;
+    private int verifiedDirectories = 0;
     private int errors = 0;
 
     Verifier(Set<PersistedBlock> allBlocks, boolean followParentLinks) {
@@ -202,16 +220,21 @@ class VerifyCommand extends AbstractCommand {
     void verifySnapshotHeader(CloudFileStorage.FileHeader header) {
       try {
         CatalogStore.Snapshot snapshot = catalogStore.loadSnapshot(header);
-        snapshot
-            .catalogBlock()
-            .ifPresent(
-                pb -> {
-                  visitedCatalogs.add(pb);
-                  if (!allBlocks.contains(pb)) {
-                    reportError("missing catalog block: %s for %s", pb, header.name);
-                  }
-                });
-        catalogQueue.add(new CatalogCheck(snapshot.catalog(), header.name));
+        if (snapshot.catalogBlock().isPresent()) {
+          PersistedBlock pb = snapshot.catalogBlock().get();
+          boolean isNew = visitedCatalogs.add(pb);
+          if (!allBlocks.contains(pb)) {
+            reportError("missing catalog block: %s for %s", pb, header.name);
+          } else if (isNew) {
+            verifiedCatalogs++;
+          }
+          if (isNew) {
+            catalogQueue.add(new CatalogCheck(snapshot.catalog(), header.name));
+          }
+        } else {
+          verifiedCatalogs++;
+          catalogQueue.add(new CatalogCheck(snapshot.catalog(), header.name));
+        }
       } catch (Exception e) {
         reportError("broken snapshot %s: %s", header.name, describeError(e));
       }
@@ -250,6 +273,7 @@ class VerifyCommand extends AbstractCommand {
       }
       try {
         Catalog baseCatalog = catalogStore.load(baseBlock);
+        verifiedCatalogs++;
         catalogQueue.add(new CatalogCheck(baseCatalog, "base_catalog of " + source));
       } catch (Exception e) {
         reportError(
@@ -279,6 +303,7 @@ class VerifyCommand extends AbstractCommand {
             describeError(e));
         return;
       }
+      verifiedDirectories++;
 
       if (followParentLinks && dir.hasPreviousVersion()) {
         PersistedBlock previous = PersistedBlock.fromProto(dir.getPreviousVersion());
@@ -310,6 +335,7 @@ class VerifyCommand extends AbstractCommand {
               : dirPath.getHumanReadableString() + "/" + file.getName();
       for (Gletscher.PersistedBlock pb : file.getBlockList()) {
         PersistedBlock block = PersistedBlock.fromProto(pb);
+        checkedDataBlocks.add(block);
         if (!allBlocks.contains(block)) {
           reportError("missing block: %s in %s", block, pathLabel);
         }
