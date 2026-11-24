@@ -81,8 +81,8 @@ public class StatsCommandTest {
     assertThat(context.stdOutString()).contains("directories: 2");
     assertThat(context.stdOutString()).contains("files: 6");
     assertThat(context.stdOutString()).contains("symlinks: 0");
-    assertThat(context.stdOutString()).contains("total meta blocks: 3");
-    assertThat(context.stdOutString()).contains("unique meta blocks: 3");
+    assertThat(context.stdOutString()).contains("meta blocks: 3");
+    assertThat(context.stdOutString()).doesNotContain("unique meta blocks:");
     assertThat(context.stdOutString()).contains("total data blocks: 6");
     assertThat(context.stdOutString()).contains("unique data blocks: 5");
     assertThat(context.stdOutString()).contains("total data block size: 30 B");

@@ -89,12 +89,11 @@ public class CatalogAnalyzer {
             10L << 40,
             100L << 40);
     Set<PersistedBlock> uniqueDataBlocks = new HashSet<>();
-    Set<PersistedBlock> uniqueMetaBlocks = new HashSet<>();
     Map<String, AtomicLong> bytesByExtension = new HashMap<>();
 
     if (catalogBlock.isPresent()) {
       PersistedBlock cb = catalogBlock.get();
-      uniqueMetaBlocks.add(cb);
+      allUniqueMetaBlocks.add(cb);
       metaSizes.add(cb.getOriginalLength());
     }
 
@@ -106,7 +105,7 @@ public class CatalogAnalyzer {
     while (!dirStack.isEmpty()) {
       directories++;
       PersistedBlock dirBlock = dirStack.pop();
-      uniqueMetaBlocks.add(dirBlock);
+      allUniqueMetaBlocks.add(dirBlock);
       Gletscher.Directory dir = fetchDirectory(dirBlock);
       metaSizes.add(dirBlock.getOriginalLength());
       for (Gletscher.DirectoryEntry entry : dir.getEntryList()) {
@@ -136,20 +135,16 @@ public class CatalogAnalyzer {
     }
 
     snapshotsAnalyzed++;
-    allUniqueMetaBlocks.addAll(uniqueMetaBlocks);
     allUniqueDataBlocks.addAll(uniqueDataBlocks);
 
-    long uniqueMetaSize = sumOriginalLength(uniqueMetaBlocks);
     long uniqueDataSize = sumOriginalLength(uniqueDataBlocks);
 
     out.println("                 roots: " + catalog.getRoots().size());
     out.println("           directories: " + directories);
     out.println("                 files: " + files);
     out.println("              symlinks: " + symlinks);
-    out.println("     total meta blocks: " + metaSizes.count());
-    out.println(" total meta block size: " + ByteSize.ofBytes(metaSizes.sum()));
-    out.println("    unique meta blocks: " + uniqueMetaBlocks.size());
-    out.println("unique meta block size: " + ByteSize.ofBytes(uniqueMetaSize));
+    out.println("           meta blocks: " + metaSizes.count());
+    out.println("       meta block size: " + ByteSize.ofBytes(metaSizes.sum()));
     out.println("     total data blocks: " + blockSizes.count());
     out.println(" total data block size: " + ByteSize.ofBytes(blockSizes.sum()));
     out.println("    unique data blocks: " + uniqueDataBlocks.size());
