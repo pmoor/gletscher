@@ -22,9 +22,19 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import ws.moor.gletscher.Configuration;
 import ws.moor.gletscher.GletscherMain;
+import ws.moor.gletscher.blocks.BlockStore;
+import ws.moor.gletscher.catalog.CatalogStore;
+import ws.moor.gletscher.cloud.CloudFileStorage;
+import ws.moor.gletscher.cloud.CompressingCloudFileStorage;
+import ws.moor.gletscher.cloud.EncryptingCloudFileStorage;
+import ws.moor.gletscher.cloud.SigningCloudFileStorage;
 import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
+import ws.moor.gletscher.util.Compressor;
+import ws.moor.gletscher.util.Cryptor;
+import ws.moor.gletscher.util.Signer;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
@@ -32,6 +42,7 @@ import java.nio.file.Files;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Set;
 
 import static com.google.common.jimfs.Configuration.unix;
@@ -190,6 +201,240 @@ public class VerifyCommandTest {
     assertThat(context.stdErrString()).contains("Invalid --snapshots value");
   }
 
+  @Test
+  public void testPretendMissingOrphanedBlocksPassesWithoutModifyingStorage() throws Exception {
+    takeBackup();
+
+    // Add an unreferenced/aborted block.
+    Signer signer =
+        new Signer(Configuration.fromFile(fs.getPath("/config.properties")).getSigningKey());
+    BlockStore blockStore =
+        new BlockStore(new SigningCloudFileStorage(inMemoryStorage, signer), signer);
+    byte[] orphanPayload = "aborted-upload-data".getBytes(StandardCharsets.UTF_8);
+    String orphanBlock =
+        BlockStore.toFileName(
+            blockStore.store(orphanPayload, false, CloudFileStorage.ObjectType.DATA).get());
+    int countBefore = inMemoryStorage.getFileCount();
+
+    Files.writeString(
+        fs.getPath("/candidates.txt"),
+        "# deletion candidates\n\n  " + orphanBlock + "  \n");
+
+    runVerify("-c", "/config.properties", "--pretend-missing", "/candidates.txt");
+    assertThat(context.status).isEqualTo(0);
+    assertThat(context.stdOutString()).contains("Pretending 1 object(s) do not exist.");
+    assertThat(context.stdOutString()).contains("Verified 1 snapshot(s): Catalog is complete.");
+    assertThat(context.stdErrString()).isEmpty();
+    assertThat(inMemoryStorage.getFileCount()).isEqualTo(countBefore);
+    assertThat(inMemoryStorage.exists(orphanBlock).get()).isTrue();
+  }
+
+  @Test
+  public void testPretendMissingReferencedBlocksFails() throws Exception {
+    takeBackup();
+    String dataBlock =
+        "blocks/50/08/50082da69e7e4780c867be198e795b9cd5e94e739ee9485aa95a70f60e36e73f:11";
+    Files.writeString(fs.getPath("/candidates.txt"), dataBlock + "\n");
+
+    runVerify("-c", "/config.properties", "--pretend-missing", "/candidates.txt");
+    assertThat(context.status).isEqualTo(-1);
+    assertThat(context.stdOutString())
+        .contains(
+            "missing block: 50082da69e7e4780c867be198e795b9cd5e94e739ee9485aa95a70f60e36e73f:11 in /home/file.txt");
+    assertThat(inMemoryStorage.exists(dataBlock).get()).isTrue();
+
+    // Also test pretending the snapshot's directory block, catalog block, and pointer are missing.
+    Configuration cfg = Configuration.fromFile(fs.getPath("/config.properties"));
+    Signer signer = new Signer(cfg.getSigningKey());
+    CloudFileStorage stacked =
+        new CompressingCloudFileStorage(
+            new EncryptingCloudFileStorage(
+                new SigningCloudFileStorage(inMemoryStorage, signer),
+                new Cryptor(cfg.getEncryptionKey(), cfg.getSigningKey())),
+            new Compressor());
+    BlockStore blockStore = new BlockStore(stacked, signer);
+    CatalogStore catalogStore = new CatalogStore(fs, stacked, blockStore);
+    CatalogStore.Snapshot snapshot =
+        catalogStore.loadSnapshot(catalogStore.listSnapshotHeaders(1).get(0));
+
+    String dirBlock = BlockStore.toFileName(snapshot.catalog().getOnlyRootBlock());
+    Files.writeString(fs.getPath("/candidates.txt"), dirBlock + "\n");
+    runVerify("-c", "/config.properties", "--pretend-missing", "/candidates.txt");
+    assertThat(context.status).isEqualTo(-1);
+    assertThat(context.stdOutString()).contains("missing directory block:");
+
+    String catalogBlock = BlockStore.toFileName(snapshot.catalogBlock().orElseThrow());
+    Files.writeString(fs.getPath("/candidates.txt"), catalogBlock + "\n");
+    runVerify("-c", "/config.properties", "--pretend-missing", "/candidates.txt");
+    assertThat(context.status).isEqualTo(-1);
+    assertThat(context.stdOutString()).contains("broken snapshot " + snapshot.pointerName());
+
+    Files.writeString(fs.getPath("/candidates.txt"), snapshot.pointerName() + "\n");
+    runVerify("-c", "/config.properties", "--pretend-missing", "/candidates.txt");
+    assertThat(context.status).isEqualTo(-1);
+    assertThat(context.stdErrString()).contains("No existing backups found");
+  }
+
+  @Test
+  public void testPretendMissingWithListObjectsOrphanedWorkflow() throws Exception {
+    Files.write(
+        fs.getPath("/gcs-config.properties"),
+        ("version: 1\n"
+                + "max_split_size: 65536\n"
+                + "disable_cache: true\n"
+                + "gcs:\n"
+                + "  bucket_name: my-backup-bucket\n"
+                + "  object_prefix: prod/\n"
+                + "include:\n"
+                + "  - /home\n")
+            .getBytes(StandardCharsets.UTF_8));
+
+    Files.writeString(fs.getPath("/home/old-only.txt"), "unique-old-only-content");
+    takeBackupAt(Instant.parse("2025-01-01T00:00:00Z"), "/gcs-config.properties");
+
+    Files.delete(fs.getPath("/home/old-only.txt"));
+    Files.writeString(fs.getPath("/home/new.txt"), "brand-new-content");
+    takeBackupAt(Instant.parse("2026-01-01T00:00:00Z"), "/gcs-config.properties");
+
+    // Generate deletion candidates as gs:// URIs for pruning down to the last 1 snapshot.
+    TestCommandContext listContext = new TestCommandContext(fs, inMemoryStorage);
+    new GletscherMain(listContext)
+        .run(
+            "list_objects",
+            "-c",
+            "/gcs-config.properties",
+            "--type",
+            "orphaned",
+            "--snapshots",
+            "1",
+            "--gs-uri");
+    assertThat(listContext.status).isEqualTo(0);
+    String candidates = listContext.stdOutString();
+    assertThat(candidates).contains("gs://my-backup-bucket/prod/backups/");
+    Files.writeString(fs.getPath("/candidates.txt"), candidates);
+
+    // Verifying --snapshots 1 with those candidates pretended missing succeeds.
+    runVerify(
+        "-c",
+        "/gcs-config.properties",
+        "--snapshots",
+        "1",
+        "--pretend-missing",
+        "/candidates.txt");
+    assertThat(context.status).isEqualTo(0);
+    assertThat(context.stdOutString()).contains("Verified 1 snapshot(s): Catalog is complete.");
+
+    // Verifying --snapshots all catches the broken parent links to snapshot 1!
+    runVerify("-c", "/gcs-config.properties", "--pretend-missing", "/candidates.txt");
+    assertThat(context.status).isEqualTo(-1);
+    assertThat(context.stdOutString()).contains("missing base_catalog block:");
+    assertThat(context.stdOutString()).contains("missing previous_version directory block:");
+  }
+
+  @Test
+  public void testPretendMissingMultipleFilesAndWithLocalCacheEnabled() throws Exception {
+    Files.createDirectories(fs.getPath("/cache"));
+    Files.write(
+        fs.getPath("/cached-config.properties"),
+        ("version: 1\n"
+                + "max_split_size: 65536\n"
+                + "disable_cache: false\n"
+                + "cache_dir: /cache\n"
+                + "include:\n"
+                + "  - /home\n")
+            .getBytes(StandardCharsets.UTF_8));
+
+    takeBackupAt(Instant.parse("2025-01-01T00:00:00Z"), "/cached-config.properties");
+    // Prime cache with a verify pass.
+    runVerify("-c", "/cached-config.properties");
+    assertThat(context.status).isEqualTo(0);
+
+    String dataBlock =
+        "blocks/50/08/50082da69e7e4780c867be198e795b9cd5e94e739ee9485aa95a70f60e36e73f:11";
+    Files.writeString(fs.getPath("/part2.txt"), dataBlock + "\n");
+    runVerify("-c", "/cached-config.properties", "--pretend-missing", "/part2.txt");
+    assertThat(context.status).isEqualTo(-1);
+    assertThat(context.stdOutString()).contains("Pretending 1 object(s) do not exist.");
+    assertThat(context.stdOutString()).contains("missing block:");
+
+    // Empty file and multiple files work cleanly.
+    Files.writeString(fs.getPath("/empty.txt"), "\n# comment only\n");
+    runVerify(
+        "-c",
+        "/cached-config.properties",
+        "--pretend-missing",
+        "/empty.txt");
+    assertThat(context.status).isEqualTo(0);
+    assertThat(context.stdOutString()).contains("Pretending 0 object(s) do not exist.");
+
+    runVerify(
+        "-c",
+        "/cached-config.properties",
+        "--pretend-missing",
+        "/empty.txt",
+        "--pretend-missing",
+        "/part2.txt");
+    assertThat(context.status).isEqualTo(-1);
+    assertThat(context.stdOutString()).contains("Pretending 1 object(s) do not exist.");
+  }
+
+  @Test
+  public void testPretendMissingInvalidUsage() throws Exception {
+    takeBackup();
+
+    // Missing file.
+    runVerify("-c", "/config.properties", "--pretend-missing", "/does-not-exist.txt");
+    assertThat(context.status).isEqualTo(-1);
+    assertThat(context.stdErrString()).contains("File not found for --pretend-missing");
+
+    // Directory instead of file.
+    runVerify("-c", "/config.properties", "--pretend-missing", "/home");
+    assertThat(context.status).isEqualTo(-1);
+    assertThat(context.stdErrString()).contains("--pretend-missing path is a directory");
+
+    // gs:// URI without gcs.bucket_name in config.
+    Files.writeString(fs.getPath("/gs.txt"), "gs://some-bucket/blocks/00/00/aa:1\n");
+    runVerify("-c", "/config.properties", "--pretend-missing", "/gs.txt");
+    assertThat(context.status).isEqualTo(-1);
+    assertThat(context.stdErrString()).contains("gcs.bucket_name is required");
+
+    // gs:// URI with mismatched bucket or prefix.
+    Files.write(
+        fs.getPath("/gcs-config.properties"),
+        ("version: 1\n"
+                + "max_split_size: 65536\n"
+                + "disable_cache: true\n"
+                + "gcs:\n"
+                + "  bucket_name: my-backup-bucket\n"
+                + "  object_prefix: prod/\n"
+                + "include:\n"
+                + "  - /home\n")
+            .getBytes(StandardCharsets.UTF_8));
+    Files.writeString(
+        fs.getPath("/wrong-prefix.txt"),
+        "gs://my-backup-bucket/staging/blocks/00/00/aa:1\n");
+    runVerify("-c", "/gcs-config.properties", "--pretend-missing", "/wrong-prefix.txt");
+    assertThat(context.status).isEqualTo(-1);
+    assertThat(context.stdErrString())
+        .contains("expected prefix 'gs://my-backup-bucket/prod/'");
+
+    // gs:// URI with empty relative name.
+    Files.writeString(fs.getPath("/empty-rel.txt"), "gs://my-backup-bucket/prod/\n");
+    runVerify("-c", "/gcs-config.properties", "--pretend-missing", "/empty-rel.txt");
+    assertThat(context.status).isEqualTo(-1);
+    assertThat(context.stdErrString())
+        .contains("expected prefix 'gs://my-backup-bucket/prod/'");
+
+    // Non-blocks/backups entries emit a warning on stderr.
+    Files.writeString(fs.getPath("/unexpected-entry.txt"), "unexpected/object/name\n");
+    runVerify("-c", "/config.properties", "--pretend-missing", "/unexpected-entry.txt");
+    assertThat(context.status).isEqualTo(0);
+    assertThat(context.stdErrString())
+        .contains(
+            "Warning: --pretend-missing entry 'unexpected/object/name' at /unexpected-entry.txt:1 "
+                + "does not start with 'blocks/' or 'backups/'.");
+  }
+
   private void runVerify(String... args) throws Exception {
     context = new TestCommandContext(fs, inMemoryStorage);
     main = new GletscherMain(context);
@@ -204,10 +449,14 @@ public class VerifyCommandTest {
   }
 
   private void takeBackupAt(Instant when) throws Exception {
+    takeBackupAt(when, "/config.properties");
+  }
+
+  private void takeBackupAt(Instant when, String configPath) throws Exception {
     TestCommandContext context = new TestCommandContext(fs, inMemoryStorage);
     context.clock = Clock.fixed(when, ZoneOffset.UTC);
     GletscherMain main = new GletscherMain(context);
-    main.run("backup", "-c", "/config.properties");
+    main.run("backup", "-c", configPath);
     assertThat(context.status).isEqualTo(0);
   }
 }
