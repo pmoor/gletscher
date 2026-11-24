@@ -84,6 +84,10 @@ public class VerifyCommandTest {
 
     main.run("verify", "-c", "/config.properties");
     assertThat(context.status).isEqualTo(0);
+    assertThat(context.stdOutString())
+        .contains("Discovered 5 object(s) in GCS (1 snapshot(s), 4 block(s)).");
+    assertThat(context.stdOutString())
+        .contains("Verified 1 unique catalog(s) and 2 unique directories; checked 1 unique data block(s).");
     assertThat(context.stdOutString()).contains("Catalog is complete.");
     assertThat(context.stdErrString()).isEmpty();
   }
@@ -97,9 +101,45 @@ public class VerifyCommandTest {
     main.run("verify", "-c", "/config.properties");
     assertThat(context.status).isEqualTo(-1);
     assertThat(context.stdOutString())
+        .contains("Discovered 4 object(s) in GCS (1 snapshot(s), 3 block(s)).");
+    assertThat(context.stdOutString())
+        .contains("Verified 1 unique catalog(s) and 2 unique directories; checked 1 unique data block(s).");
+    assertThat(context.stdOutString())
         .contains(
             "missing block: 50082da69e7e4780c867be198e795b9cd5e94e739ee9485aa95a70f60e36e73f:11 in /home/file.txt");
     assertThat(context.stdErrString()).isEmpty();
+  }
+
+  @Test
+  public void testVerifyStatsDeduplicateSharedDirectoriesAndDataBlocks() throws Exception {
+    Files.createDirectories(fs.getPath("/home/unchanged"));
+    Files.writeString(fs.getPath("/home/unchanged/a.txt"), "shared");
+    Files.writeString(fs.getPath("/home/unchanged/b.txt"), "shared");
+    takeBackupAt(Instant.parse("2025-01-01T00:00:00Z"));
+
+    Files.writeString(fs.getPath("/home/second.txt"), "second");
+    takeBackupAt(Instant.parse("2026-01-01T00:00:00Z"));
+
+    // Snapshot 1: catalog1 + /, /home, /home/unchanged (4 meta) + "Hello World", "shared" (2 data).
+    // Snapshot 2: catalog2 + /, /home (3 new meta; reuses /home/unchanged) + "second" (1 new data).
+    // Total in GCS: 2 snapshots + 10 blocks = 12 objects.
+    runVerify("-c", "/config.properties");
+    assertThat(context.status).isEqualTo(0);
+    assertThat(context.stdOutString())
+        .contains("Discovered 12 object(s) in GCS (2 snapshot(s), 10 block(s)).");
+    assertThat(context.stdOutString())
+        .contains(
+            "Verified 2 unique catalog(s) and 5 unique directories; checked 3 unique data block(s).");
+    assertThat(context.stdOutString()).contains("Verified 2 snapshot(s): Catalog is complete.");
+
+    runVerify("-c", "/config.properties", "--snapshots", "1");
+    assertThat(context.status).isEqualTo(0);
+    assertThat(context.stdOutString())
+        .contains("Discovered 11 object(s) in GCS (1 snapshot(s), 10 block(s)).");
+    assertThat(context.stdOutString())
+        .contains(
+            "Verified 1 unique catalog(s) and 3 unique directories; checked 3 unique data block(s).");
+    assertThat(context.stdOutString()).contains("Verified 1 snapshot(s): Catalog is complete.");
   }
 
   @Test
