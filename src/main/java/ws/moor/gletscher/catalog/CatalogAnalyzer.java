@@ -89,10 +89,12 @@ public class CatalogAnalyzer {
             10L << 40,
             100L << 40);
     Set<PersistedBlock> uniqueDataBlocks = new HashSet<>();
+    Set<PersistedBlock> uniqueMetaBlocks = new HashSet<>();
     Map<String, AtomicLong> bytesByExtension = new HashMap<>();
 
     if (catalogBlock.isPresent()) {
       PersistedBlock cb = catalogBlock.get();
+      uniqueMetaBlocks.add(cb);
       allUniqueMetaBlocks.add(cb);
       metaSizes.add(cb.getOriginalLength());
     }
@@ -105,6 +107,7 @@ public class CatalogAnalyzer {
     while (!dirStack.isEmpty()) {
       directories++;
       PersistedBlock dirBlock = dirStack.pop();
+      uniqueMetaBlocks.add(dirBlock);
       allUniqueMetaBlocks.add(dirBlock);
       Gletscher.Directory dir = fetchDirectory(dirBlock);
       metaSizes.add(dirBlock.getOriginalLength());
@@ -137,18 +140,25 @@ public class CatalogAnalyzer {
     snapshotsAnalyzed++;
     allUniqueDataBlocks.addAll(uniqueDataBlocks);
 
+    long uniqueMetaSize = sumOriginalLength(uniqueMetaBlocks);
     long uniqueDataSize = sumOriginalLength(uniqueDataBlocks);
 
-    out.println("                 roots: " + catalog.getRoots().size());
-    out.println("           directories: " + directories);
-    out.println("                 files: " + files);
-    out.println("              symlinks: " + symlinks);
-    out.println("           meta blocks: " + metaSizes.count());
-    out.println("       meta block size: " + ByteSize.ofBytes(metaSizes.sum()));
-    out.println("     total data blocks: " + blockSizes.count());
-    out.println(" total data block size: " + ByteSize.ofBytes(blockSizes.sum()));
-    out.println("    unique data blocks: " + uniqueDataBlocks.size());
-    out.println("unique data block size: " + ByteSize.ofBytes(uniqueDataSize));
+    out.println("      roots: " + catalog.getRoots().size());
+    out.println("directories: " + directories);
+    out.println("      files: " + files);
+    out.println("   symlinks: " + symlinks);
+    out.printf(
+        "meta blocks: %d / %s (%d / %s unique)%n",
+        metaSizes.count(),
+        ByteSize.ofBytes(metaSizes.sum()),
+        uniqueMetaBlocks.size(),
+        ByteSize.ofBytes(uniqueMetaSize));
+    out.printf(
+        "data blocks: %d / %s (%d / %s unique)%n",
+        blockSizes.count(),
+        ByteSize.ofBytes(blockSizes.sum()),
+        uniqueDataBlocks.size(),
+        ByteSize.ofBytes(uniqueDataSize));
     out.println();
 
     if (printHistograms) {
@@ -213,10 +223,8 @@ public class CatalogAnalyzer {
     long uniqueMetaSize = sumOriginalLength(allUniqueMetaBlocks);
     long uniqueDataSize = sumOriginalLength(allUniqueDataBlocks);
     out.printf("Summary across %d snapshots:%n", snapshotsAnalyzed);
-    out.println("    unique meta blocks: " + allUniqueMetaBlocks.size());
-    out.println("unique meta block size: " + ByteSize.ofBytes(uniqueMetaSize));
-    out.println("    unique data blocks: " + allUniqueDataBlocks.size());
-    out.println("unique data block size: " + ByteSize.ofBytes(uniqueDataSize));
+    out.printf("  unique meta blocks: %d / %s%n", allUniqueMetaBlocks.size(), ByteSize.ofBytes(uniqueMetaSize));
+    out.printf("  unique data blocks: %d / %s%n", allUniqueDataBlocks.size(), ByteSize.ofBytes(uniqueDataSize));
     out.println();
   }
 

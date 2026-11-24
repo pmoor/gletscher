@@ -81,12 +81,9 @@ public class StatsCommandTest {
     assertThat(context.stdOutString()).contains("directories: 2");
     assertThat(context.stdOutString()).contains("files: 6");
     assertThat(context.stdOutString()).contains("symlinks: 0");
-    assertThat(context.stdOutString()).contains("meta blocks: 3");
-    assertThat(context.stdOutString()).doesNotContain("unique meta blocks:");
-    assertThat(context.stdOutString()).contains("total data blocks: 6");
-    assertThat(context.stdOutString()).contains("unique data blocks: 5");
-    assertThat(context.stdOutString()).contains("total data block size: 30 B");
-    assertThat(context.stdOutString()).contains("unique data block size: 25 B");
+    assertThat(context.stdOutString()).contains("meta blocks: 3 / ");
+    assertThat(context.stdOutString()).contains(" unique)");
+    assertThat(context.stdOutString()).contains("data blocks: 6 / 30 B (5 / 25 B unique)");
     assertThat(context.stdOutString()).contains("txt: 11 B");
     assertThat(context.stdOutString()).contains("jpg: 8 B");
     assertThat(context.stdOutString()).contains("<none>: 6 B");
@@ -142,8 +139,8 @@ public class StatsCommandTest {
     assertThat(context.stdOutString()).contains("Summary across 2 snapshots:");
     // Each snapshot has 4 meta blocks (catalog, /, /home, /home/unchanged), but /home/unchanged is
     // shared across both snapshots so only 7 meta blocks are unique.
-    assertThat(context.stdOutString()).contains("unique meta blocks: 7");
-    assertThat(context.stdOutString()).contains("unique data blocks: 8");
+    assertThat(context.stdOutString()).contains("unique meta blocks: 7 / ");
+    assertThat(context.stdOutString()).contains("unique data blocks: 8 / ");
     assertThat(context.stdErrString()).isEmpty();
 
     // --snapshots all analyzes all 3 snapshots.
@@ -155,8 +152,8 @@ public class StatsCommandTest {
     assertThat(context.stdOutString()).contains("files: 7");
     assertThat(context.stdOutString()).contains("Summary across 3 snapshots:");
     // /home/unchanged is shared across all 3 snapshots (1 + 3*3 = 10 unique meta blocks).
-    assertThat(context.stdOutString()).contains("unique meta blocks: 10");
-    assertThat(context.stdOutString()).contains("unique data blocks: 8");
+    assertThat(context.stdOutString()).contains("unique meta blocks: 10 / ");
+    assertThat(context.stdOutString()).contains("unique data blocks: 8 / ");
     assertThat(context.stdErrString()).isEmpty();
   }
 
