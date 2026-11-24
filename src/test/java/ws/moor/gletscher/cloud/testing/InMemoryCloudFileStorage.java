@@ -75,7 +75,7 @@ public class InMemoryCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
-  public ListenableFuture<byte[]> get(String name) {
+  public ListenableFuture<byte[]> get(String name, GetOptions options) {
     return executor.submit(
         () -> {
           synchronized (lock) {

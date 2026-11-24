@@ -33,7 +33,11 @@ public interface CloudFileStorage extends AutoCloseable {
 
   ListenableFuture<Boolean> exists(String name);
 
-  ListenableFuture<byte[]> get(String name);
+  default ListenableFuture<byte[]> get(String name) {
+    return get(name, GetOptions.DEFAULT);
+  }
+
+  ListenableFuture<byte[]> get(String name, GetOptions options);
 
   void close();
 
@@ -122,6 +126,47 @@ public interface CloudFileStorage extends AutoCloseable {
       this.cacheContentsOnUpload = cacheContentsOnUpload;
       this.allowOverwriting = allowOverwriting;
       this.objectType = objectType;
+    }
+  }
+
+  final class GetOptions {
+    public static final GetOptions DEFAULT = GetOptions.builder().build();
+    public static final GetOptions READ_ONLY =
+        GetOptions.builder().setPopulateCache(false).build();
+    public static final GetOptions BYPASS_CACHE =
+        GetOptions.builder().setReadFromCache(false).setPopulateCache(false).build();
+
+    public static GetOptionsBuilder builder() {
+      return new GetOptionsBuilder();
+    }
+
+    public static final class GetOptionsBuilder {
+      private boolean readFromCache = true;
+      private boolean populateCache = true;
+
+      private GetOptionsBuilder() {}
+
+      public GetOptionsBuilder setReadFromCache(boolean readFromCache) {
+        this.readFromCache = readFromCache;
+        return this;
+      }
+
+      public GetOptionsBuilder setPopulateCache(boolean populateCache) {
+        this.populateCache = populateCache;
+        return this;
+      }
+
+      public GetOptions build() {
+        return new GetOptions(readFromCache, populateCache);
+      }
+    }
+
+    public final boolean readFromCache;
+    public final boolean populateCache;
+
+    private GetOptions(boolean readFromCache, boolean populateCache) {
+      this.readFromCache = readFromCache;
+      this.populateCache = populateCache;
     }
   }
 }

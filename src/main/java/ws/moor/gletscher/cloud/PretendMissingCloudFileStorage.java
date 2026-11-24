@@ -87,11 +87,11 @@ public class PretendMissingCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
-  public ListenableFuture<byte[]> get(String name) {
+  public ListenableFuture<byte[]> get(String name, GetOptions options) {
     if (missingNames.contains(name)) {
       return Futures.immediateFuture(null);
     }
-    return delegate.get(name);
+    return delegate.get(name, options);
   }
 
   @Override

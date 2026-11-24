@@ -87,7 +87,12 @@ public class BlockStore {
   }
 
   public ListenableFuture<byte[]> retrieve(PersistedBlock block) {
-    return cloudFileStorage.get(toFileName(block));
+    return retrieve(block, CloudFileStorage.GetOptions.DEFAULT);
+  }
+
+  public ListenableFuture<byte[]> retrieve(
+      PersistedBlock block, CloudFileStorage.GetOptions options) {
+    return cloudFileStorage.get(toFileName(block), options);
   }
 
   public static String toFileName(PersistedBlock block) {

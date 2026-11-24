@@ -102,8 +102,9 @@ public class PretendMissingCloudFileStorageTest {
           }
 
           @Override
-          public com.google.common.util.concurrent.ListenableFuture<byte[]> get(String name) {
-            return backing.get(name);
+          public com.google.common.util.concurrent.ListenableFuture<byte[]> get(
+              String name, GetOptions options) {
+            return backing.get(name, options);
           }
 
           @Override

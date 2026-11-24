@@ -71,8 +71,8 @@ public class SigningCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
-  public ListenableFuture<byte[]> get(String name) {
-    return delegate.get(name);
+  public ListenableFuture<byte[]> get(String name, GetOptions options) {
+    return delegate.get(name, options);
   }
 
   @Override
