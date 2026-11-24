@@ -16,20 +16,32 @@
 
 package ws.moor.gletscher.commands;
 
+import com.google.common.base.Strings;
 import com.google.common.util.concurrent.Futures;
 import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
+import ws.moor.gletscher.blocks.BlockStore;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogPath;
 import ws.moor.gletscher.catalog.CatalogStore;
 import ws.moor.gletscher.cloud.CloudFileStorage;
+import ws.moor.gletscher.cloud.PretendMissingCloudFileStorage;
 import ws.moor.gletscher.proto.Gletscher;
+import ws.moor.gletscher.util.Signer;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -49,6 +61,13 @@ class VerifyCommand extends AbstractCommand {
         options,
         "Verify the last N snapshots, or 'all' including parent links (default: all).");
     addMaxListingAgeOption(options);
+    options.addOption(
+        Option.builder()
+            .longOpt("pretend-missing")
+            .hasArg()
+            .argName("FILE")
+            .desc("File containing remote object names (or gs:// URIs) to pretend do not exist.")
+            .get());
   }
 
   @Override
@@ -58,6 +77,14 @@ class VerifyCommand extends AbstractCommand {
     }
 
     int snapshotLimit = parseSnapshotsOption(this, commandLine, Integer.MAX_VALUE);
+    if (commandLine.hasOption("pretend-missing")) {
+      Set<String> pretendMissing =
+          loadPretendMissing(commandLine.getOptionValues("pretend-missing"));
+      cloudFileStorage = new PretendMissingCloudFileStorage(cloudFileStorage, pretendMissing);
+      blockStore = new BlockStore(cloudFileStorage, new Signer(config.getSigningKey()));
+      catalogStore = new CatalogStore(context.getFileSystem(), cloudFileStorage, blockStore);
+      context.getStdOut().printf("Pretending %d object(s) do not exist.%n", pretendMissing.size());
+    }
 
     List<CloudFileStorage.FileHeader> headers = catalogStore.listSnapshotHeaders(snapshotLimit);
     if (headers.isEmpty()) {
@@ -79,6 +106,78 @@ class VerifyCommand extends AbstractCommand {
     } else {
       context.getStdOut().printf("Verification failed with %d error(s).%n", verifier.errors);
       return -1;
+    }
+  }
+
+  private Set<String> loadPretendMissing(String[] paths)
+      throws IOException, InvalidUsageException {
+    Set<String> missing = new LinkedHashSet<>();
+    for (String rawPath : paths) {
+      Path path = context.getFileSystem().getPath(rawPath);
+      if (!Files.exists(path)) {
+        throw new InvalidUsageException(this, "File not found for --pretend-missing: %s", rawPath);
+      }
+      if (Files.isDirectory(path)) {
+        throw new InvalidUsageException(
+            this, "--pretend-missing path is a directory: %s", rawPath);
+      }
+      try (BufferedReader reader =
+          new BufferedReader(
+              new InputStreamReader(context.readFile(path), StandardCharsets.UTF_8))) {
+        parsePretendMissingLines(reader, rawPath, missing);
+      }
+    }
+    return missing;
+  }
+
+  private void parsePretendMissingLines(
+      BufferedReader reader, String sourceName, Set<String> missing)
+      throws IOException, InvalidUsageException {
+    String expectedGsPrefix = null;
+    String line;
+    int lineNumber = 0;
+    while ((line = reader.readLine()) != null) {
+      lineNumber++;
+      String trimmed = line.trim();
+      if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+        continue;
+      }
+      String objectName;
+      if (trimmed.startsWith("gs://")) {
+        if (expectedGsPrefix == null) {
+          String bucket = config.getBucketName();
+          if (Strings.isNullOrEmpty(bucket)) {
+            throw new InvalidUsageException(
+                this,
+                "gcs.bucket_name is required in configuration to parse gs:// URIs in %s:%d.",
+                sourceName,
+                lineNumber);
+          }
+          expectedGsPrefix = "gs://" + bucket + "/" + Strings.nullToEmpty(config.getFilePrefix());
+        }
+        if (!trimmed.startsWith(expectedGsPrefix) || trimmed.length() == expectedGsPrefix.length()) {
+          throw new InvalidUsageException(
+              this,
+              "Invalid --pretend-missing entry '%s' at %s:%d; expected prefix '%s'.",
+              trimmed,
+              sourceName,
+              lineNumber,
+              expectedGsPrefix);
+        }
+        objectName = trimmed.substring(expectedGsPrefix.length());
+      } else {
+        objectName = trimmed;
+      }
+      if (!objectName.startsWith("blocks/") && !objectName.startsWith("backups/")) {
+        context
+            .getStdErr()
+            .printf(
+                "Warning: --pretend-missing entry '%s' at %s:%d does not start with 'blocks/' or 'backups/'.%n",
+                trimmed,
+                sourceName,
+                lineNumber);
+      }
+      missing.add(objectName);
     }
   }
 

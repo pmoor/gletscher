@@ -105,10 +105,13 @@ abstract class AbstractCommand {
     }
 
     List<String> argList = new ArrayList<>(commandLine.getArgList());
-    int returnCode = runInternal(commandLine, argList);
-
-    if (cloudFileStorage != null) {
-      cloudFileStorage.close(); // caches can clean-up
+    int returnCode;
+    try {
+      returnCode = runInternal(commandLine, argList);
+    } finally {
+      if (cloudFileStorage != null) {
+        cloudFileStorage.close(); // caches can clean-up
+      }
     }
 
     if (costTracker.hasUsage()) {
