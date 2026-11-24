@@ -26,61 +26,105 @@ import ws.moor.gletscher.util.Histogram;
 
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.util.ArrayDeque;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
-import java.util.Stack;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 public class CatalogAnalyzer {
 
   private final BlockStore blockStore;
   private final boolean printHistograms;
+  private final Set<PersistedBlock> allUniqueMetaBlocks = new HashSet<>();
+  private final Set<PersistedBlock> allUniqueDataBlocks = new HashSet<>();
+  private int snapshotsAnalyzed = 0;
 
   public CatalogAnalyzer(BlockStore blockStore, boolean printHistograms) {
     this.blockStore = blockStore;
     this.printHistograms = printHistograms;
   }
 
-  public void analyze(Catalog catalog, PrintStream out) {
-    out.printf("Analyzing catalog %s...\n", catalog.getAddress());
+  public void analyze(CatalogStore.Snapshot snapshot, PrintStream out) {
+    analyze(snapshot.catalog(), snapshot.catalogBlock(), snapshot.pointerName(), out);
+  }
 
-    Stack<Gletscher.Directory> stack = new Stack<>();
-    for (PersistedBlock root : catalog.getRoots().values()) {
-      stack.push(fetchDirectory(root));
-    }
+  public void analyze(Catalog catalog, PrintStream out) {
+    analyze(catalog, Optional.of(catalog.getAddress()), catalog.getAddress().toString(), out);
+  }
+
+  private void analyze(
+      Catalog catalog,
+      Optional<PersistedBlock> catalogBlock,
+      String fallbackLabel,
+      PrintStream out) {
+    String label = catalogBlock.map(PersistedBlock::toString).orElse(fallbackLabel);
+    out.printf("Analyzing catalog %s...\n", label);
 
     int directories = 0;
     int files = 0;
     int symlinks = 0;
     Histogram blockSizes = new Histogram(0, 100, 1 << 10, 2 << 10, 4 << 10, 8 << 10, 16 << 10, 32 << 10, 64 << 10, 128 << 10, 256 << 10, 512 << 10, 1 << 20, 2 << 20, 4 << 20);
     Histogram metaSizes = new Histogram(0, 100, 1 << 10, 2 << 10, 4 << 10, 8 << 10, 16 << 10, 32 << 10, 64 << 10, 128 << 10, 256 << 10, 512 << 10, 1 << 20, 2 << 20, 3 << 20, 4 << 20);
-    Histogram fileSizes = new Histogram(0, 1 << 10, 1 << 20, 1 << 30, 1L << 40);
-    Set<PersistedBlock> uniqueBlocks = new HashSet<>();
+    Histogram fileSizes =
+        new Histogram(
+            0,
+            10,
+            100,
+            1L << 10,
+            10L << 10,
+            100L << 10,
+            1L << 20,
+            10L << 20,
+            100L << 20,
+            1L << 30,
+            10L << 30,
+            100L << 30,
+            1L << 40,
+            10L << 40,
+            100L << 40);
+    Set<PersistedBlock> uniqueDataBlocks = new HashSet<>();
+    Set<PersistedBlock> uniqueMetaBlocks = new HashSet<>();
     Map<String, AtomicLong> bytesByExtension = new HashMap<>();
-    while (!stack.isEmpty()) {
+
+    if (catalogBlock.isPresent()) {
+      PersistedBlock cb = catalogBlock.get();
+      uniqueMetaBlocks.add(cb);
+      metaSizes.add(cb.getOriginalLength());
+    }
+
+    Deque<PersistedBlock> dirStack = new ArrayDeque<>();
+    for (PersistedBlock root : catalog.getRoots().values()) {
+      dirStack.push(root);
+    }
+
+    while (!dirStack.isEmpty()) {
       directories++;
-      Gletscher.Directory dir = stack.pop();
-      metaSizes.add(dir.getSerializedSize());
+      PersistedBlock dirBlock = dirStack.pop();
+      uniqueMetaBlocks.add(dirBlock);
+      Gletscher.Directory dir = fetchDirectory(dirBlock);
+      metaSizes.add(dirBlock.getOriginalLength());
       for (Gletscher.DirectoryEntry entry : dir.getEntryList()) {
         switch (entry.getTypeCase()) {
           case FILE:
             files++;
             long fileSize = 0;
             for (Gletscher.PersistedBlock block : entry.getFile().getBlockList()) {
-              uniqueBlocks.add(PersistedBlock.fromProto(block));
-              blockSizes.add(block.getOriginalSize());
-              fileSize += block.getOriginalSize();
+              PersistedBlock pb = PersistedBlock.fromProto(block);
+              uniqueDataBlocks.add(pb);
+              blockSizes.add(pb.getOriginalLength());
+              fileSize += pb.getOriginalLength();
             }
             fileSizes.add(fileSize);
             trackBytesByExtension(entry.getFile().getName(), fileSize, bytesByExtension);
             break;
           case DIRECTORY:
-            stack.push(fetchDirectory(PersistedBlock.fromProto(entry.getDirectory().getBlock())));
+            dirStack.push(PersistedBlock.fromProto(entry.getDirectory().getBlock()));
             break;
           case SYMLINK:
             symlinks++;
@@ -91,18 +135,25 @@ public class CatalogAnalyzer {
       }
     }
 
-    long uniqueSize =
-        uniqueBlocks.stream().collect(Collectors.summingLong(PersistedBlock::getOriginalLength));
+    snapshotsAnalyzed++;
+    allUniqueMetaBlocks.addAll(uniqueMetaBlocks);
+    allUniqueDataBlocks.addAll(uniqueDataBlocks);
 
-    out.println("            roots: " + catalog.getRoots().size());
-    out.println("      directories: " + directories);
-    out.println("            files: " + files);
-    out.println("         symlinks: " + symlinks);
-    out.println("        meta size: " + ByteSize.ofBytes(metaSizes.sum()));
-    out.println("     total blocks: " + blockSizes.count());
-    out.println(" total block size: " + ByteSize.ofBytes(blockSizes.sum()));
-    out.println("    unique blocks: " + uniqueBlocks.size());
-    out.println("unique block size: " + ByteSize.ofBytes(uniqueSize));
+    long uniqueMetaSize = sumOriginalLength(uniqueMetaBlocks);
+    long uniqueDataSize = sumOriginalLength(uniqueDataBlocks);
+
+    out.println("                 roots: " + catalog.getRoots().size());
+    out.println("           directories: " + directories);
+    out.println("                 files: " + files);
+    out.println("              symlinks: " + symlinks);
+    out.println("     total meta blocks: " + metaSizes.count());
+    out.println(" total meta block size: " + ByteSize.ofBytes(metaSizes.sum()));
+    out.println("    unique meta blocks: " + uniqueMetaBlocks.size());
+    out.println("unique meta block size: " + ByteSize.ofBytes(uniqueMetaSize));
+    out.println("     total data blocks: " + blockSizes.count());
+    out.println(" total data block size: " + ByteSize.ofBytes(blockSizes.sum()));
+    out.println("    unique data blocks: " + uniqueDataBlocks.size());
+    out.println("unique data block size: " + ByteSize.ofBytes(uniqueDataSize));
     out.println();
 
     if (printHistograms) {
@@ -157,6 +208,29 @@ public class CatalogAnalyzer {
     //      totalSize += block.getOriginalLength();
     //    }
     //    System.out.println("excess blocks size: " + totalSize);
+  }
+
+  /** Prints deduplicated block counts and sizes across all analyzed snapshots if more than one was analyzed. */
+  public void printSummary(PrintStream out) {
+    if (snapshotsAnalyzed <= 1) {
+      return;
+    }
+    long uniqueMetaSize = sumOriginalLength(allUniqueMetaBlocks);
+    long uniqueDataSize = sumOriginalLength(allUniqueDataBlocks);
+    out.printf("Summary across %d snapshots:%n", snapshotsAnalyzed);
+    out.println("    unique meta blocks: " + allUniqueMetaBlocks.size());
+    out.println("unique meta block size: " + ByteSize.ofBytes(uniqueMetaSize));
+    out.println("    unique data blocks: " + allUniqueDataBlocks.size());
+    out.println("unique data block size: " + ByteSize.ofBytes(uniqueDataSize));
+    out.println();
+  }
+
+  private static long sumOriginalLength(Set<PersistedBlock> blocks) {
+    long total = 0;
+    for (PersistedBlock block : blocks) {
+      total += block.getOriginalLength();
+    }
+    return total;
   }
 
   private static void trackBytesByExtension(String fileName, long fileSize, Map<String, AtomicLong> bytesByExtension) {

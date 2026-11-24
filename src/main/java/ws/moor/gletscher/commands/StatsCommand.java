@@ -19,13 +19,13 @@ package ws.moor.gletscher.commands;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
-import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogAnalyzer;
+import ws.moor.gletscher.catalog.CatalogStore;
+import ws.moor.gletscher.cloud.CloudFileStorage;
 
 import java.util.List;
-import java.util.Optional;
 
-@Command(name = "stats", description = "Print size stats of the last 3 remote catalogs.")
+@Command(name = "stats", description = "Print size stats of the last N remote snapshots (default: 1).")
 class StatsCommand extends AbstractCommand {
   StatsCommand(CommandContext context) {
     super(context);
@@ -34,6 +34,9 @@ class StatsCommand extends AbstractCommand {
   @Override
   protected void addCommandLineOptions(Options options) {
     addConfigFileOption(options);
+    addSnapshotsOption(
+        options,
+        "Analyze the last N snapshots, or 'all' (default: 1).");
     options.addOption(
         Option.builder("v")
             .longOpt("verbose")
@@ -47,12 +50,16 @@ class StatsCommand extends AbstractCommand {
       throw new InvalidUsageException(this, "Command does not accept arguments.");
     }
 
-    CatalogAnalyzer analyzer = new CatalogAnalyzer(blockStore, /* printHistograms= */commandLine.hasOption('v'));
-    Optional<Catalog> catalog = catalogStore.getLatestCatalog();
-    while (catalog.isPresent()) {
-      analyzer.analyze(catalog.get(), context.getStdOut());
-      catalog = catalog.get().getBaseCatalog().map(catalogStore::load);
+    int snapshotLimit = parseSnapshotsOption(this, commandLine, 1);
+
+    CatalogAnalyzer analyzer =
+        new CatalogAnalyzer(blockStore, /* printHistograms= */ commandLine.hasOption('v'));
+    List<CloudFileStorage.FileHeader> headers = catalogStore.listSnapshotHeaders(snapshotLimit);
+    for (CloudFileStorage.FileHeader header : headers) {
+      CatalogStore.Snapshot snapshot = catalogStore.loadSnapshot(header);
+      analyzer.analyze(snapshot, context.getStdOut());
     }
+    analyzer.printSummary(context.getStdOut());
     return 0;
   }
 }
