@@ -219,27 +219,120 @@ public class CachingCloudFileStorageTest {
       assertThat(cachedHeaders.get(0).metadata).containsExactly("sig", "s1");
       assertThat(delegate.listCalls.get()).isEqualTo(1);
 
-      // Bounded listing bypasses the cache and hits the delegate.
+      // Bounded listing within the cached unlimited listing is also served from cache.
       List<CloudFileStorage.FileHeader> bounded = listAll(cache, "blocks/", 1);
       assertThat(bounded).hasSize(1);
-      assertThat(delegate.listCalls.get()).isEqualTo(2);
+      assertThat(bounded.get(0).name).isEqualTo("blocks/aa/1");
+      assertThat(delegate.listCalls.get()).isEqualTo(1);
 
       // Partial unlimited iteration (not exhausted) must not overwrite the cached entry.
       now.set(Instant.parse("2026-06-01T01:05:00Z")); // expired (> 1h)
       Iterator<CloudFileStorage.FileHeader> partial = cache.listFiles("blocks/", Integer.MAX_VALUE);
       assertThat(partial.hasNext()).isTrue();
       partial.next();
-      assertThat(delegate.listCalls.get()).isEqualTo(3);
+      assertThat(delegate.listCalls.get()).isEqualTo(2);
 
       // Because partial didn't finish, previous entry is still older -> full call still refreshes.
       List<CloudFileStorage.FileHeader> refreshed = listAll(cache, "blocks/", Integer.MAX_VALUE);
       assertThat(refreshed).hasSize(3);
-      assertThat(delegate.listCalls.get()).isEqualTo(4);
+      assertThat(delegate.listCalls.get()).isEqualTo(3);
 
       // Calling again right away (now at 1h05m, within 1h of refresh) hits cache cleanly!
       List<CloudFileStorage.FileHeader> cachedAfterRefresh =
           listAll(cache, "blocks/", Integer.MAX_VALUE);
       assertThat(cachedAfterRefresh).hasSize(3);
+      assertThat(delegate.listCalls.get()).isEqualTo(3);
+    }
+  }
+
+  @Test
+  public void testCachesBoundedListingsRespectsLimitAndInvalidatesOnStore() throws Exception {
+    Path cacheDir = tempFolder.newFolder("bounded-listing-cache").toPath();
+    AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-06-01T00:00:00Z"));
+    Clock clock =
+        new Clock() {
+          @Override
+          public ZoneId getZone() {
+            return ZoneOffset.UTC;
+          }
+
+          @Override
+          public Clock withZone(ZoneId zone) {
+            return this;
+          }
+
+          @Override
+          public Instant instant() {
+            return now.get();
+          }
+        };
+
+    InMemoryCloudFileStorage backing =
+        new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService(), clock);
+    CountingDelegate delegate = new CountingDelegate(backing);
+
+    for (int i = 1; i <= 3; i++) {
+      byte[] data = ("snap-" + i).getBytes(StandardCharsets.UTF_8);
+      backing
+          .store(
+              "backups/00" + i,
+              data,
+              LegacyHashing.md5().hashBytes(data),
+              ImmutableMap.of(),
+              CloudFileStorage.StoreOptions.DEFAULT)
+          .get();
+    }
+
+    // Consume only the single item from limit=1 without calling hasNext() a second time
+    // (mirrors CatalogStore.getLatestCatalog()).
+    try (CachingCloudFileStorage cache =
+        new CachingCloudFileStorage(delegate, cacheDir, Duration.ofHours(1), clock)) {
+      Iterator<CloudFileStorage.FileHeader> it = cache.listFiles("backups/", 1);
+      assertThat(it.hasNext()).isTrue();
+      assertThat(it.next().name).isEqualTo("backups/001");
+      assertThat(delegate.listCalls.get()).isEqualTo(1);
+    }
+
+    // Reopen: limit=1 is served from cache (0 delegate calls), but limit=2 refreshes!
+    now.set(Instant.parse("2026-06-01T00:10:00Z"));
+    try (CachingCloudFileStorage cache =
+        new CachingCloudFileStorage(delegate, cacheDir, Duration.ofHours(1), clock)) {
+      List<CloudFileStorage.FileHeader> hit = listAll(cache, "backups/", 1);
+      assertThat(hit).hasSize(1);
+      assertThat(hit.get(0).name).isEqualTo("backups/001");
+      assertThat(delegate.listCalls.get()).isEqualTo(1);
+
+      List<CloudFileStorage.FileHeader> bigger = listAll(cache, "backups/", 2);
+      assertThat(bigger).hasSize(2);
+      assertThat(delegate.listCalls.get()).isEqualTo(2);
+
+      // Now limit=2 is cached and satisfies both limit=1 and limit=2, while limit=5 refreshes.
+      assertThat(listAll(cache, "backups/", 1)).hasSize(1);
+      assertThat(listAll(cache, "backups/", 2)).hasSize(2);
+      assertThat(delegate.listCalls.get()).isEqualTo(2);
+
+      // Asking for limit=5 when only 3 objects exist exhausts the prefix -> stored as complete!
+      assertThat(listAll(cache, "backups/", 5)).hasSize(3);
+      assertThat(delegate.listCalls.get()).isEqualTo(3);
+
+      // Therefore an unlimited listing is now served from cache too.
+      assertThat(listAll(cache, "backups/", Integer.MAX_VALUE)).hasSize(3);
+      assertThat(delegate.listCalls.get()).isEqualTo(3);
+
+      // Storing a new object under backups/ invalidates the backups/ listing cache.
+      byte[] snap0 = "snap-0".getBytes(StandardCharsets.UTF_8);
+      cache
+          .store(
+              "backups/000",
+              snap0,
+              LegacyHashing.md5().hashBytes(snap0),
+              ImmutableMap.of(),
+              CloudFileStorage.StoreOptions.DEFAULT)
+          .get();
+
+      List<CloudFileStorage.FileHeader> afterStore = listAll(cache, "backups/", 1);
+      assertThat(afterStore).hasSize(1);
+      assertThat(afterStore.get(0).name).isEqualTo("backups/000");
       assertThat(delegate.listCalls.get()).isEqualTo(4);
     }
   }

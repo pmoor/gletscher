@@ -45,6 +45,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -52,6 +53,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 public class CachingCloudFileStorage implements CloudFileStorage {
 
@@ -77,6 +79,7 @@ public class CachingCloudFileStorage implements CloudFileStorage {
   private final Duration maxListingAge;
   private final Clock clock;
   private final ListeningExecutorService executor;
+  private volatile boolean populateListings = true;
 
   public CachingCloudFileStorage(CloudFileStorage delegate, Path localCacheDir) {
     this(delegate, localCacheDir, Duration.ZERO, Clock.systemUTC());
@@ -116,6 +119,18 @@ public class CachingCloudFileStorage implements CloudFileStorage {
   public ListenableFuture<?> store(
       String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
     ListenableFuture<?> future = delegate.store(name, data, md5, metadata, options);
+    Futures.addCallback(
+        future,
+        new FutureCallback<Object>() {
+          @Override
+          public void onSuccess(@Nullable Object unused) {
+            invalidateListingsFor(name);
+          }
+
+          @Override
+          public void onFailure(Throwable throwable) {}
+        },
+        MoreExecutors.directExecutor());
     if (options.cacheContentsOnUpload) {
       Futures.addCallback(
           future,
@@ -135,12 +150,12 @@ public class CachingCloudFileStorage implements CloudFileStorage {
 
   @Override
   public Iterator<FileHeader> listFiles(String prefix, int limit) {
-    if (limit != Integer.MAX_VALUE) {
-      return delegate.listFiles(prefix, limit);
+    if (limit <= 0) {
+      return Collections.emptyIterator();
     }
 
     if (!maxListingAge.isZero()) {
-      List<FileHeader> cached = tryReadCachedListing(prefix);
+      List<FileHeader> cached = tryReadCachedListing(prefix, limit);
       if (cached != null) {
         return cached.iterator();
       }
@@ -150,21 +165,30 @@ public class CachingCloudFileStorage implements CloudFileStorage {
     Iterator<FileHeader> delegateIterator = delegate.listFiles(prefix, limit);
     List<FileHeader> collected = new ArrayList<>();
     return new AbstractIterator<>() {
+      private boolean stored = false;
+
       @Override
       protected FileHeader computeNext() {
-        if (delegateIterator.hasNext()) {
+        if (collected.size() < limit && delegateIterator.hasNext()) {
           FileHeader next = delegateIterator.next();
           collected.add(next);
+          if (collected.size() == limit) {
+            storeListing(prefix, retrievedAt, limit, collected);
+            stored = true;
+          }
           return next;
         }
-        storeListing(prefix, retrievedAt, collected);
+        if (!stored) {
+          storeListing(prefix, retrievedAt, Integer.MAX_VALUE, collected);
+          stored = true;
+        }
         return endOfData();
       }
     };
   }
 
   @Nullable
-  private List<FileHeader> tryReadCachedListing(String prefix) {
+  private List<FileHeader> tryReadCachedListing(String prefix, int requestedLimit) {
     byte[] raw = listingsMap.get(prefix);
     if (raw == null) {
       return null;
@@ -180,8 +204,14 @@ public class CachingCloudFileStorage implements CloudFileStorage {
     if (age.isNegative() || age.compareTo(maxListingAge) > 0) {
       return null;
     }
-    List<FileHeader> headers = new ArrayList<>(proto.getFileCount());
-    for (Cache.CachedFileHeader entry : proto.getFileList()) {
+    int cachedLimit = proto.hasLimit() ? proto.getLimit() : Integer.MAX_VALUE;
+    if (cachedLimit < requestedLimit) {
+      return null;
+    }
+    int count = Math.min(requestedLimit, proto.getFileCount());
+    List<FileHeader> headers = new ArrayList<>(count);
+    for (int i = 0; i < count; i++) {
+      Cache.CachedFileHeader entry = proto.getFile(i);
       headers.add(
           new FileHeader(
               entry.getName(),
@@ -205,9 +235,15 @@ public class CachingCloudFileStorage implements CloudFileStorage {
     return null;
   }
 
-  private void storeListing(String prefix, Instant retrievedAt, List<FileHeader> headers) {
+  private void storeListing(
+      String prefix, Instant retrievedAt, int limit, List<FileHeader> headers) {
+    if (!populateListings) {
+      return;
+    }
     Cache.CachedListing.Builder listingBuilder =
-        Cache.CachedListing.newBuilder().setRetrievedAtMillis(retrievedAt.toEpochMilli());
+        Cache.CachedListing.newBuilder()
+            .setRetrievedAtMillis(retrievedAt.toEpochMilli())
+            .setLimit(limit);
     for (FileHeader header : headers) {
       Cache.CachedFileHeader.Builder entryBuilder =
           Cache.CachedFileHeader.newBuilder()
@@ -306,6 +342,17 @@ public class CachingCloudFileStorage implements CloudFileStorage {
     return delegateFuture;
   }
 
+  /** Runs {@code action} without populating cached prefix listings. */
+  public <T> T withoutCachingListings(Supplier<T> action) {
+    boolean previous = populateListings;
+    populateListings = false;
+    try {
+      return action.get();
+    } finally {
+      populateListings = previous;
+    }
+  }
+
   /** Statistics returned by {@link #purgeCache(Set, boolean)}. */
   public record PurgeStats(
       int removedDataCount,
@@ -384,6 +431,18 @@ public class CachingCloudFileStorage implements CloudFileStorage {
         removedExistsCount,
         keptExistsCount,
         removedListingsCount);
+  }
+
+  private void invalidateListingsFor(String objectName) {
+    List<String> keysToRemove = new ArrayList<>();
+    for (String prefix : listingsMap.keySet()) {
+      if (objectName.startsWith(prefix)) {
+        keysToRemove.add(prefix);
+      }
+    }
+    for (String key : keysToRemove) {
+      listingsMap.remove(key);
+    }
   }
 
   private void storeExists(String name) {

@@ -56,6 +56,7 @@ class ContainsCommand extends AbstractCommand {
     addConfigFileOption(options);
     addSnapshotsOption(
         options, "Search at most the last N snapshots, or 'all' (default: 1).");
+    addMaxListingAgeOption(options);
   }
 
   @Override

@@ -36,4 +36,5 @@ message CachedFileHeader {
 message CachedListing {
   int64 retrieved_at_millis = 1;
   repeated CachedFileHeader file = 2;
+  optional int32 limit = 3;
 }

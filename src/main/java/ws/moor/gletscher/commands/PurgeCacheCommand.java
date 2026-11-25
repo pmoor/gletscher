@@ -61,7 +61,8 @@ class PurgeCacheCommand extends AbstractCommand {
     }
 
     List<CatalogStore.Snapshot> snapshots =
-        SnapshotReachability.listSnapshots(catalogStore, snapshotLimit);
+        cachingCloudFileStorage.withoutCachingListings(
+            () -> SnapshotReachability.listSnapshots(catalogStore, snapshotLimit));
     if (snapshots.isEmpty()) {
       context.getStdErr().println("No existing backups found - nothing to purge.");
       return -1;

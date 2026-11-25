@@ -37,6 +37,7 @@ class StatsCommand extends AbstractCommand {
     addSnapshotsOption(
         options,
         "Analyze the last N snapshots, or 'all' (default: 1).");
+    addMaxListingAgeOption(options);
     options.addOption(
         Option.builder("v")
             .longOpt("verbose")
