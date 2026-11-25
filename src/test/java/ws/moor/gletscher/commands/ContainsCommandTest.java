@@ -17,7 +17,6 @@
 package ws.moor.gletscher.commands;
 
 import com.google.common.jimfs.Jimfs;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Before;
 import org.junit.Test;
@@ -32,14 +31,12 @@ import ws.moor.gletscher.commands.testing.TestCommandContext;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executors;
 
 import static com.google.common.jimfs.Configuration.unix;
 import static com.google.common.truth.Truth.assertThat;
@@ -84,8 +81,14 @@ public class ContainsCommandTest {
     Files.writeString(fs.getPath("/check/second.bin"), "alpha-content");
     Files.writeString(fs.getPath("/check/third.bin"), "alpha-content");
 
-    TestCommandContext context = runContains(ZURICH, "-c", "/config.properties",
-        "/check/first.bin", "/check/second.bin", "/check/third.bin");
+    TestCommandContext context =
+        runContains(
+            ZURICH,
+            "-c",
+            "/config.properties",
+            "/check/first.bin",
+            "/check/second.bin",
+            "/check/third.bin");
 
     assertThat(context.status).isEqualTo(0);
     assertThat(context.stdErrString()).isEmpty();
@@ -93,6 +96,9 @@ public class ContainsCommandTest {
         .isEqualTo(
             String.join(
                     lineSeparator(),
+                    "Fingerprinted 3 files (38 B).",
+                    "Searching snapshot 2026-01-15 11:00:00 CET...",
+                    "",
                     "Found:",
                     "  /check/first.bin (in snapshot 2026-01-15 11:00:00 CET):",
                     "    /home/b.txt",
@@ -134,6 +140,9 @@ public class ContainsCommandTest {
         .isEqualTo(
             String.join(
                     lineSeparator(),
+                    "Fingerprinted 5 files (21 B).",
+                    "Searching snapshot 2026-07-01 14:00:00 CEST...",
+                    "",
                     "Empty (0 bytes):",
                     "  /check/empty1.txt",
                     "  /check/empty2.txt",
@@ -157,7 +166,12 @@ public class ContainsCommandTest {
     assertThat(context.stdErrString()).isEmpty();
     assertThat(context.stdOutString())
         .isEqualTo(
-            String.join(lineSeparator(), "Empty (0 bytes):", "  /check/empty.txt")
+            String.join(
+                    lineSeparator(),
+                    "Fingerprinted 1 file (0 B).",
+                    "",
+                    "Empty (0 bytes):",
+                    "  /check/empty.txt")
                 + lineSeparator());
   }
 
@@ -192,6 +206,9 @@ public class ContainsCommandTest {
         .isEqualTo(
             String.join(
                     lineSeparator(),
+                    "Fingerprinted 3 files (42 B).",
+                    "Searching snapshot 2026-01-01 00:00:00 Z...",
+                    "",
                     "Found:",
                     "  /check/unchanged.txt (in snapshot 2026-01-01 00:00:00 Z):",
                     "    /home/unchanged.txt",
@@ -217,6 +234,10 @@ public class ContainsCommandTest {
         .isEqualTo(
             String.join(
                     lineSeparator(),
+                    "Fingerprinted 3 files (42 B).",
+                    "Searching snapshot 2026-01-01 00:00:00 Z...",
+                    "Searching snapshot 2025-01-01 00:00:00 Z...",
+                    "",
                     "Found:",
                     "  /check/old.txt (in snapshot 2025-01-01 00:00:00 Z):",
                     "    /home/old.txt",
@@ -246,59 +267,31 @@ public class ContainsCommandTest {
 
     Files.writeString(fs.getPath("/check/latest.txt"), "latest-content");
     TestCommandContext context =
-        runContains(ZoneOffset.UTC, "-c", "/config.properties", "--snapshots", "all", "/check/latest.txt");
+        runContains(
+            ZoneOffset.UTC, "-c", "/config.properties", "--snapshots", "all", "/check/latest.txt");
 
     assertThat(context.status).isEqualTo(0);
+    assertThat(context.stdOutString()).contains("Searching snapshot 2026-01-01 00:00:00 Z...");
+    assertThat(context.stdOutString()).doesNotContain("2025-01-01");
     assertThat(context.stdOutString()).contains("/home/latest.txt");
-  }
-
-  @Test
-  public void testConcurrentHashingManyFiles() throws Exception {
-    int fileCount = 80; // > MAX_CONCURRENT_FILE_HASHES (64)
-    List<String> args = new ArrayList<>();
-    args.add("-c");
-    args.add("/config.properties");
-
-    for (int i = 0; i < fileCount; i++) {
-      String content = "payload-" + i;
-      Files.writeString(fs.getPath("/home/f" + i + ".txt"), content);
-      Path checkFile = fs.getPath("/check/f" + i + ".txt");
-      Files.writeString(checkFile, content);
-      args.add(checkFile.toString());
-    }
-    takeBackupAt(Instant.parse("2026-03-01T09:00:00Z"));
-
-    ListeningExecutorService executor =
-        MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(4));
-    try {
-      TestCommandContext context = new TestCommandContext(fs, inMemoryStorage);
-      context.executorService = executor;
-      context.clock = Clock.fixed(Instant.parse("2026-03-01T09:00:00Z"), ZoneOffset.UTC);
-
-      List<String> fullArgs = new ArrayList<>();
-      fullArgs.add("contains");
-      fullArgs.addAll(args);
-      new GletscherMain(context).run(fullArgs.toArray(new String[0]));
-
-      assertThat(context.status).isEqualTo(0);
-      for (int i = 0; i < fileCount; i++) {
-        assertThat(context.stdOutString()).contains("  /check/f" + i + ".txt (in snapshot");
-        assertThat(context.stdOutString()).contains("    /home/f" + i + ".txt");
-      }
-    } finally {
-      executor.shutdownNow();
-    }
   }
 
   @Test
   public void testNoBackupsReturnsErrorForNonEmptyFile() throws Exception {
     Files.writeString(fs.getPath("/check/missing.txt"), "data");
 
-    TestCommandContext context = runContains(ZoneOffset.UTC, "-c", "/config.properties", "/check/missing.txt");
+    TestCommandContext context =
+        runContains(ZoneOffset.UTC, "-c", "/config.properties", "/check/missing.txt");
     assertThat(context.status).isEqualTo(-1);
     assertThat(context.stdOutString())
         .isEqualTo(
-            String.join(lineSeparator(), "Not found:", "  /check/missing.txt") + lineSeparator());
+            String.join(
+                    lineSeparator(),
+                    "Fingerprinted 1 file (4 B).",
+                    "",
+                    "Not found:",
+                    "  /check/missing.txt")
+                + lineSeparator());
   }
 
   @Test

@@ -17,8 +17,6 @@
 package ws.moor.gletscher.commands;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import ws.moor.gletscher.blocks.PersistedBlock;
@@ -26,10 +24,10 @@ import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogReader;
 import ws.moor.gletscher.catalog.CatalogReaders;
 import ws.moor.gletscher.cloud.CloudFileStorage;
+import ws.moor.gletscher.util.ByteSize;
 import ws.moor.gletscher.util.Signer;
 import ws.moor.gletscher.util.StreamSplitter;
 
-import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
@@ -45,13 +43,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Semaphore;
 
 @Command(name = "contains", description = "Checks whether local files are part of a backup.")
 class ContainsCommand extends AbstractCommand {
-
-  private static final int MAX_CONCURRENT_FILE_HASHES = 64;
 
   ContainsCommand(CommandContext context) {
     super(context);
@@ -82,7 +76,7 @@ class ContainsCommand extends AbstractCommand {
       inputs.add(new InputFile(file, path));
     }
 
-    List<List<PersistedBlock>> blocksByInput = hashFilesConcurrently(inputs);
+    List<List<PersistedBlock>> blocksByInput = fingerprintFiles(inputs);
     if (blocksByInput == null) {
       return -1;
     }
@@ -98,9 +92,13 @@ class ContainsCommand extends AbstractCommand {
       }
     }
 
+    DateTimeFormatter timestampFormatter =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z", Locale.US)
+            .withZone(context.getClock().getZone());
+
     MatchResult[] matchResults = new MatchResult[inputs.size()];
     if (!pendingByBlocks.isEmpty()) {
-      searchSnapshots(snapshotLimit, pendingByBlocks, matchResults);
+      searchSnapshots(snapshotLimit, pendingByBlocks, matchResults, timestampFormatter);
     }
 
     List<Integer> foundIndices = new ArrayList<>();
@@ -116,44 +114,44 @@ class ContainsCommand extends AbstractCommand {
       }
     }
 
-    printResults(inputs, emptyFiles, foundIndices, matchResults, notFoundFiles);
+    printResults(inputs, emptyFiles, foundIndices, matchResults, notFoundFiles, timestampFormatter);
     return notFoundFiles.isEmpty() ? 0 : -1;
   }
 
-  private List<List<PersistedBlock>> hashFilesConcurrently(List<InputFile> inputs)
-      throws InterruptedException {
+  private List<List<PersistedBlock>> fingerprintFiles(List<InputFile> inputs) {
     StreamSplitter splitter = config.getStreamSplitter();
-    SecretKeySpec signingKey = config.getSigningKey();
-
-    Semaphore inFlight = new Semaphore(MAX_CONCURRENT_FILE_HASHES);
-    List<ListenableFuture<List<PersistedBlock>>> futures = new ArrayList<>(inputs.size());
-    for (InputFile input : inputs) {
-      inFlight.acquire();
-      ListenableFuture<List<PersistedBlock>> future =
-          context.getExecutor().submit(() -> computeBlocks(input.path(), splitter, signingKey));
-      future.addListener(inFlight::release, MoreExecutors.directExecutor());
-      futures.add(future);
-    }
-
+    Signer signer = new Signer(config.getSigningKey());
     List<List<PersistedBlock>> results = new ArrayList<>(inputs.size());
-    boolean failed = false;
-    for (int i = 0; i < inputs.size(); i++) {
+    long totalBytes = 0;
+
+    for (InputFile input : inputs) {
       try {
-        results.add(futures.get(i).get());
-      } catch (ExecutionException e) {
+        List<PersistedBlock> blocks = computeBlocks(input.path(), splitter, signer);
+        for (PersistedBlock block : blocks) {
+          totalBytes += block.getOriginalLength();
+        }
+        results.add(blocks);
+      } catch (IOException | RuntimeException e) {
         context
             .getStdErr()
-            .printf("failed to read %s: %s%n", inputs.get(i).displayName(), describeCause(e));
-        failed = true;
+            .printf("failed to read %s: %s%n", input.displayName(), describeException(e));
+        return null;
       }
     }
-    return failed ? null : results;
+
+    context
+        .getStdOut()
+        .printf(
+            "Fingerprinted %d %s (%s).%n",
+            inputs.size(),
+            inputs.size() == 1 ? "file" : "files",
+            ByteSize.ofBytes(totalBytes));
+    return results;
   }
 
-  private List<PersistedBlock> computeBlocks(
-      Path path, StreamSplitter splitter, SecretKeySpec signingKey) throws IOException {
+  private List<PersistedBlock> computeBlocks(Path path, StreamSplitter splitter, Signer signer)
+      throws IOException {
     ImmutableList.Builder<PersistedBlock> blocks = ImmutableList.builder();
-    Signer signer = new Signer(signingKey);
     try (InputStream is = context.readFile(path)) {
       Iterator<byte[]> it = splitter.split(is);
       while (it.hasNext()) {
@@ -167,15 +165,19 @@ class ContainsCommand extends AbstractCommand {
   private void searchSnapshots(
       int snapshotLimit,
       Map<List<PersistedBlock>, List<Integer>> pendingByBlocks,
-      MatchResult[] matchResults) {
+      MatchResult[] matchResults,
+      DateTimeFormatter timestampFormatter) {
     List<CloudFileStorage.FileHeader> headers = catalogStore.listSnapshotHeaders(snapshotLimit);
     for (CloudFileStorage.FileHeader header : headers) {
       if (pendingByBlocks.isEmpty()) {
         break;
       }
       Catalog catalog = catalogStore.loadSnapshot(header).catalog();
-      Map<List<PersistedBlock>, Set<String>> matchesInCatalog = new HashMap<>();
+      context
+          .getStdOut()
+          .printf("Searching snapshot %s...%n", timestampFormatter.format(catalog.getStartTime()));
 
+      Map<List<PersistedBlock>, Set<String>> matchesInCatalog = new HashMap<>();
       CatalogReader catalogReader = CatalogReaders.fromBlockStore(blockStore, catalog);
       Iterator<CatalogReader.CatalogFile> it = catalogReader.walk();
       while (it.hasNext()) {
@@ -203,25 +205,20 @@ class ContainsCommand extends AbstractCommand {
       List<InputFile> emptyFiles,
       List<Integer> foundIndices,
       MatchResult[] matchResults,
-      List<InputFile> notFoundFiles) {
+      List<InputFile> notFoundFiles,
+      DateTimeFormatter timestampFormatter) {
     PrintStream out = context.getStdOut();
-    DateTimeFormatter timestampFormatter =
-        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z", Locale.US)
-            .withZone(context.getClock().getZone());
 
-    boolean printedSection = false;
     if (!emptyFiles.isEmpty()) {
+      out.println();
       out.println("Empty (0 bytes):");
       for (InputFile file : emptyFiles) {
         out.printf("  %s%n", file.displayName());
       }
-      printedSection = true;
     }
 
     if (!foundIndices.isEmpty()) {
-      if (printedSection) {
-        out.println();
-      }
+      out.println();
       out.println("Found:");
       for (int idx : foundIndices) {
         MatchResult match = matchResults[idx];
@@ -232,13 +229,10 @@ class ContainsCommand extends AbstractCommand {
           out.printf("    %s%n", catalogPath);
         }
       }
-      printedSection = true;
     }
 
     if (!notFoundFiles.isEmpty()) {
-      if (printedSection) {
-        out.println();
-      }
+      out.println();
       out.println("Not found:");
       for (InputFile file : notFoundFiles) {
         out.printf("  %s%n", file.displayName());
@@ -246,9 +240,9 @@ class ContainsCommand extends AbstractCommand {
     }
   }
 
-  private static String describeCause(ExecutionException e) {
-    Throwable cause = e.getCause();
-    return cause != null ? cause.toString() : e.toString();
+  private static String describeException(Exception e) {
+    Throwable cause = (e instanceof RuntimeException && e.getCause() != null) ? e.getCause() : e;
+    return cause.toString();
   }
 
   private record InputFile(String displayName, Path path) {}
