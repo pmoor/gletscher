@@ -471,8 +471,8 @@ public class ListObjectsCommandTest {
           }
 
           @Override
-          public ListenableFuture<byte[]> get(String name) {
-            return storage.get(name);
+          public ListenableFuture<byte[]> get(String name, GetOptions options) {
+            return storage.get(name, options);
           }
 
           @Override

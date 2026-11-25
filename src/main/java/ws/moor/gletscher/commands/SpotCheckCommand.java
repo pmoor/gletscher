@@ -27,6 +27,7 @@ import ws.moor.gletscher.catalog.Catalog;
 import ws.moor.gletscher.catalog.CatalogPath;
 import ws.moor.gletscher.catalog.CatalogReader;
 import ws.moor.gletscher.catalog.CatalogReaders;
+import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.util.MoreArrays;
 
 import java.nio.ByteBuffer;
@@ -136,7 +137,9 @@ class SpotCheckCommand extends AbstractCommand {
         }
         data.rewind();
 
-        byte[] remoteData = Futures.getUnchecked(blockStore.retrieve(sample.block));
+        byte[] remoteData =
+            Futures.getUnchecked(
+                blockStore.retrieve(sample.block, CloudFileStorage.GetOptions.BYPASS_CACHE));
         ByteBuffer remoteBytes = ByteBuffer.wrap(remoteData);
 
         if (remoteBytes.equals(data)) {

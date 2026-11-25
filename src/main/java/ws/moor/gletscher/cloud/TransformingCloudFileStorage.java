@@ -71,8 +71,9 @@ abstract class TransformingCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
-  public ListenableFuture<byte[]> get(String name) {
-    return Futures.transform(delegate.get(name), decodingFn::apply, MoreExecutors.directExecutor());
+  public ListenableFuture<byte[]> get(String name, GetOptions options) {
+    return Futures.transform(
+        delegate.get(name, options), decodingFn::apply, MoreExecutors.directExecutor());
   }
 
   @Override

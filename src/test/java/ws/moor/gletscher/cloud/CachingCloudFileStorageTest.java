@@ -244,6 +244,62 @@ public class CachingCloudFileStorageTest {
     }
   }
 
+  @Test
+  public void testGetOptionsReadOnlyAndBypassCache() throws Exception {
+    Path cacheDir = tempFolder.newFolder("get-options-cache").toPath();
+    InMemoryCloudFileStorage backing =
+        new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
+    CountingDelegate delegate = new CountingDelegate(backing);
+
+    byte[] uncached = "uncached-payload".getBytes(StandardCharsets.UTF_8);
+    byte[] cached = "cached-payload".getBytes(StandardCharsets.UTF_8);
+
+    try (CachingCloudFileStorage cache = new CachingCloudFileStorage(delegate, cacheDir)) {
+      cache
+          .store(
+              "data/uncached",
+              uncached,
+              LegacyHashing.md5().hashBytes(uncached),
+              ImmutableMap.of(),
+              CloudFileStorage.StoreOptions.DEFAULT)
+          .get();
+      cache
+          .store(
+              "data/cached",
+              cached,
+              LegacyHashing.md5().hashBytes(cached),
+              ImmutableMap.of(),
+              CloudFileStorage.StoreOptions.builder().setCacheContentsOnUpload(true).build())
+          .get();
+
+      // READ_ONLY on a miss fetches from delegate without populating cache.
+      assertThat(cache.get("data/uncached", CloudFileStorage.GetOptions.READ_ONLY).get())
+          .isEqualTo(uncached);
+      assertThat(cache.get("data/uncached", CloudFileStorage.GetOptions.READ_ONLY).get())
+          .isEqualTo(uncached);
+      assertThat(delegate.getCalls.get()).isEqualTo(2);
+
+      // READ_ONLY on a hit serves from cache.
+      assertThat(cache.get("data/cached", CloudFileStorage.GetOptions.READ_ONLY).get())
+          .isEqualTo(cached);
+      assertThat(delegate.getCalls.get()).isEqualTo(2);
+
+      // BYPASS_CACHE skips both cache reads and cache writes even when already cached.
+      assertThat(cache.get("data/cached", CloudFileStorage.GetOptions.BYPASS_CACHE).get())
+          .isEqualTo(cached);
+      assertThat(cache.get("data/uncached", CloudFileStorage.GetOptions.BYPASS_CACHE).get())
+          .isEqualTo(uncached);
+      assertThat(delegate.getCalls.get()).isEqualTo(4);
+    }
+
+    // Reopen and confirm BYPASS_CACHE did not write data/uncached into cache.mv.
+    try (CachingCloudFileStorage reopened = new CachingCloudFileStorage(delegate, cacheDir)) {
+      assertThat(reopened.get("data/uncached", CloudFileStorage.GetOptions.READ_ONLY).get())
+          .isEqualTo(uncached);
+      assertThat(delegate.getCalls.get()).isEqualTo(5);
+    }
+  }
+
   private static List<CloudFileStorage.FileHeader> listAll(
       CloudFileStorage storage, String prefix, int limit) {
     List<CloudFileStorage.FileHeader> result = new ArrayList<>();
@@ -283,10 +339,10 @@ public class CachingCloudFileStorageTest {
     }
 
     @Override
-    public ListenableFuture<byte[]> get(String name) {
+    public ListenableFuture<byte[]> get(String name, GetOptions options) {
       getCalls.incrementAndGet();
       return Futures.transform(
-          delegate.get(name), bytes -> bytes, MoreExecutors.directExecutor());
+          delegate.get(name, options), bytes -> bytes, MoreExecutors.directExecutor());
     }
 
     @Override

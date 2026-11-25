@@ -261,7 +261,10 @@ public class CachingCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
-  public ListenableFuture<byte[]> get(String name) {
+  public ListenableFuture<byte[]> get(String name, GetOptions options) {
+    if (!options.readFromCache) {
+      return fetchFromDelegate(name, options);
+    }
     ListenableFuture<byte[]> data = executor.submit(() -> readData(name));
     return Futures.transformAsync(
         data,
@@ -269,25 +272,31 @@ public class CachingCloudFileStorage implements CloudFileStorage {
           if (bytes != null) {
             return Futures.immediateFuture(bytes);
           } else {
-            ListenableFuture<byte[]> delegateFuture = delegate.get(name);
-            Futures.addCallback(
-                delegateFuture,
-                new FutureCallback<byte[]>() {
-                  @Override
-                  public void onSuccess(@Nullable byte[] data) {
-                    if (data != null) {
-                      storeData(name, data);
-                    }
-                  }
-
-                  @Override
-                  public void onFailure(Throwable t) {}
-                },
-                executor);
-            return delegateFuture;
+            return fetchFromDelegate(name, options);
           }
         },
         MoreExecutors.directExecutor());
+  }
+
+  private ListenableFuture<byte[]> fetchFromDelegate(String name, GetOptions options) {
+    ListenableFuture<byte[]> delegateFuture = delegate.get(name, options);
+    if (options.populateCache) {
+      Futures.addCallback(
+          delegateFuture,
+          new FutureCallback<byte[]>() {
+            @Override
+            public void onSuccess(@Nullable byte[] data) {
+              if (data != null) {
+                storeData(name, data);
+              }
+            }
+
+            @Override
+            public void onFailure(Throwable t) {}
+          },
+          executor);
+    }
+    return delegateFuture;
   }
 
   private void storeExists(String name) {

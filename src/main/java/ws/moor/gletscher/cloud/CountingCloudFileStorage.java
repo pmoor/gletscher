@@ -60,8 +60,8 @@ public class CountingCloudFileStorage implements CloudFileStorage {
   }
 
   @Override
-  public ListenableFuture<byte[]> get(String name) {
-    ListenableFuture<byte[]> future = delegate.get(name);
+  public ListenableFuture<byte[]> get(String name, GetOptions options) {
+    ListenableFuture<byte[]> future = delegate.get(name, options);
     return Futures.transform(
         future,
         (Function<byte[], byte[]>)
