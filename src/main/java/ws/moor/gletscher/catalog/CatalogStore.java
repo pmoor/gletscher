@@ -78,10 +78,19 @@ public class CatalogStore {
   }
 
   public Catalog load(PersistedBlock address) {
+    return loadIfExists(address)
+        .orElseThrow(() -> new IllegalStateException("Missing catalog block: " + address));
+  }
+
+  /** Loads and parses a catalog block if it exists, returning empty if missing. */
+  public Optional<Catalog> loadIfExists(PersistedBlock address) {
     try {
       byte[] bytes = Futures.getUnchecked(blockStore.retrieve(address));
+      if (bytes == null) {
+        return Optional.empty();
+      }
       Gletscher.Catalog proto = Gletscher.Catalog.parseFrom(bytes);
-      return Catalog.fromProto(address, fs, proto);
+      return Optional.of(Catalog.fromProto(address, fs, proto));
     } catch (InvalidProtocolBufferException e) {
       throw new IllegalStateException(e);
     }

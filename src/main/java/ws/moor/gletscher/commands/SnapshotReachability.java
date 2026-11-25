@@ -48,7 +48,6 @@ final class SnapshotReachability {
   }
 
   static Set<String> collectReachableObjectNames(
-      CloudFileStorage cloudFileStorage,
       BlockStore blockStore,
       CatalogStore catalogStore,
       List<CatalogStore.Snapshot> snapshots,
@@ -84,12 +83,14 @@ final class SnapshotReachability {
             .getBaseCatalog()
             .ifPresent(
                 baseBlock -> {
-                  String fileName = BlockStore.toFileName(baseBlock);
-                  if (visitedCatalogs.add(baseBlock)
-                      && Boolean.TRUE.equals(
-                          Futures.getUnchecked(cloudFileStorage.exists(fileName)))) {
-                    names.add(fileName);
-                    catalogQueue.push(catalogStore.load(baseBlock));
+                  if (visitedCatalogs.add(baseBlock)) {
+                    catalogStore
+                        .loadIfExists(baseBlock)
+                        .ifPresent(
+                            baseCatalog -> {
+                              names.add(BlockStore.toFileName(baseBlock));
+                              catalogQueue.push(baseCatalog);
+                            });
                   }
                 });
       }

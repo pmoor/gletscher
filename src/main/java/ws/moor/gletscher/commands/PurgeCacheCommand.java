@@ -70,7 +70,7 @@ class PurgeCacheCommand extends AbstractCommand {
     boolean followParentLinks = snapshotLimit == Integer.MAX_VALUE;
     Set<String> metadataNames =
         SnapshotReachability.collectReachableObjectNames(
-            cloudFileStorage, blockStore, catalogStore, snapshots, false, followParentLinks);
+            blockStore, catalogStore, snapshots, false, followParentLinks);
     CachingCloudFileStorage.PurgeStats stats =
         cachingCloudFileStorage.purgeCache(metadataNames, purgeExists);
 

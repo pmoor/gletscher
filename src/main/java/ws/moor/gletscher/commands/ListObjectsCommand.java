@@ -271,7 +271,7 @@ class ListObjectsCommand extends AbstractCommand {
           SnapshotReachability.listSnapshots(catalogStore, limit);
       Set<String> metadataNames =
           SnapshotReachability.collectReachableObjectNames(
-              cloudFileStorage, blockStore, catalogStore, snapshots, false, followParentLinks);
+              blockStore, catalogStore, snapshots, false, followParentLinks);
       if (!filters.hasHeaderFilter()) {
         return new ListingResult(new ArrayList<>(new TreeSet<>(metadataNames)), Optional.empty());
       }
@@ -288,7 +288,7 @@ class ListObjectsCommand extends AbstractCommand {
           SnapshotReachability.listSnapshots(catalogStore, limit);
       Set<String> reachableNames =
           SnapshotReachability.collectReachableObjectNames(
-              cloudFileStorage, blockStore, catalogStore, snapshots, true, followParentLinks);
+              blockStore, catalogStore, snapshots, true, followParentLinks);
       return filterHeaders(
           listAllHeaders(),
           header -> !reachableNames.contains(header.name),
@@ -301,7 +301,7 @@ class ListObjectsCommand extends AbstractCommand {
           SnapshotReachability.listSnapshots(catalogStore, Integer.MAX_VALUE);
       Set<String> metadataNames =
           SnapshotReachability.collectReachableObjectNames(
-              cloudFileStorage, blockStore, catalogStore, snapshots, false, true);
+              blockStore, catalogStore, snapshots, false, true);
       return filterHeaders(
           blockStore.listAllBlockHeaders(),
           header -> !metadataNames.contains(header.name),

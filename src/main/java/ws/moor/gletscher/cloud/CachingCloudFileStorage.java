@@ -49,6 +49,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -320,73 +321,69 @@ public class CachingCloudFileStorage implements CloudFileStorage {
    * listings, optionally purges cached exists markers not in {@code keysToKeep}, and compacts the
    * store.
    */
-  public PurgeStats purgeCache(java.util.Set<String> keysToKeep, boolean purgeExists) {
-    return Futures.getUnchecked(
-        executor.submit(
-            () -> {
-              List<String> dataKeysToRemove = new ArrayList<>();
-              int keptDataCount = 0;
-              long keptDataBytes = 0;
-              for (Map.Entry<String, byte[]> entry : dataMap.entrySet()) {
-                if (keysToKeep.contains(entry.getKey())) {
-                  keptDataCount++;
-                  keptDataBytes += entry.getValue().length;
-                } else {
-                  dataKeysToRemove.add(entry.getKey());
-                }
-              }
+  public PurgeStats purgeCache(Set<String> keysToKeep, boolean purgeExists) {
+    // Wait for any pending async cache writes to finish before mutating or compacting the store.
+    Futures.getUnchecked(executor.submit(() -> {}));
 
-              long removedDataBytes = 0;
-              for (String key : dataKeysToRemove) {
-                byte[] removed = dataMap.remove(key);
-                if (removed != null) {
-                  removedDataBytes += removed.length;
-                }
-              }
+    List<String> dataKeysToRemove = new ArrayList<>();
+    int keptDataCount = 0;
+    long keptDataBytes = 0;
+    for (Map.Entry<String, byte[]> entry : dataMap.entrySet()) {
+      if (keysToKeep.contains(entry.getKey())) {
+        keptDataCount++;
+        keptDataBytes += entry.getValue().length;
+      } else {
+        dataKeysToRemove.add(entry.getKey());
+      }
+    }
 
-              int removedExistsCount = 0;
-              int keptExistsCount = 0;
-              if (purgeExists) {
-                List<String> existsKeysToRemove = new ArrayList<>();
-                for (String key : existsMap.keySet()) {
-                  if (keysToKeep.contains(key)) {
-                    keptExistsCount++;
-                  } else {
-                    existsKeysToRemove.add(key);
-                  }
-                }
-                for (String key : existsKeysToRemove) {
-                  if (existsMap.remove(key) != null) {
-                    removedExistsCount++;
-                  }
-                }
-              }
+    long removedDataBytes = 0;
+    for (String key : dataKeysToRemove) {
+      byte[] removed = dataMap.remove(key);
+      if (removed != null) {
+        removedDataBytes += removed.length;
+      }
+    }
 
-              int removedListingsCount = listingsMap.size();
-              if (removedListingsCount > 0) {
-                listingsMap.clear();
-              }
+    int removedExistsCount = 0;
+    int keptExistsCount = 0;
+    if (purgeExists) {
+      List<String> existsKeysToRemove = new ArrayList<>();
+      for (String key : existsMap.keySet()) {
+        if (keysToKeep.contains(key)) {
+          keptExistsCount++;
+        } else {
+          existsKeysToRemove.add(key);
+        }
+      }
+      for (String key : existsKeysToRemove) {
+        if (existsMap.remove(key) != null) {
+          removedExistsCount++;
+        }
+      }
+    }
 
-              if (!dataKeysToRemove.isEmpty()
-                  || removedExistsCount > 0
-                  || removedListingsCount > 0) {
-                mvStore.commit();
-                if (localCacheDir.getFileSystem().equals(FileSystems.getDefault())) {
-                  mvStore.close();
-                  MVStore.compact(
-                      localCacheDir.resolve(CACHE_FILE_NAME).toString(), false, null);
-                  openMaps();
-                }
-              }
-              return new PurgeStats(
-                  dataKeysToRemove.size(),
-                  removedDataBytes,
-                  keptDataCount,
-                  keptDataBytes,
-                  removedExistsCount,
-                  keptExistsCount,
-                  removedListingsCount);
-            }));
+    int removedListingsCount = listingsMap.size();
+    if (removedListingsCount > 0) {
+      listingsMap.clear();
+    }
+
+    if (!dataKeysToRemove.isEmpty() || removedExistsCount > 0 || removedListingsCount > 0) {
+      mvStore.commit();
+      if (localCacheDir.getFileSystem().equals(FileSystems.getDefault())) {
+        mvStore.close();
+        MVStore.compact(localCacheDir.resolve(CACHE_FILE_NAME).toString(), false, null);
+        openMaps();
+      }
+    }
+    return new PurgeStats(
+        dataKeysToRemove.size(),
+        removedDataBytes,
+        keptDataCount,
+        keptDataBytes,
+        removedExistsCount,
+        keptExistsCount,
+        removedListingsCount);
   }
 
   private void storeExists(String name) {
