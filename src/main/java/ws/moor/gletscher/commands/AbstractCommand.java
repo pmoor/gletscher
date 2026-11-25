@@ -64,6 +64,7 @@ abstract class AbstractCommand {
 
   protected Configuration config;
   protected CloudFileStorage cloudFileStorage;
+  protected CachingCloudFileStorage cachingCloudFileStorage;
   protected BlockStore blockStore;
   protected CatalogStore catalogStore;
 
@@ -222,9 +223,10 @@ abstract class AbstractCommand {
     CountingCloudFileStorage counting = new CountingCloudFileStorage(cloudFileStorage);
     cloudFileStorage = counting;
     if (!config.disableCache()) {
-      cloudFileStorage =
+      cachingCloudFileStorage =
           new CachingCloudFileStorage(
               counting, config.getLocalCacheDir(), maxListingAge, context.getClock());
+      cloudFileStorage = cachingCloudFileStorage;
     }
     cloudFileStorage =
         new SigningCloudFileStorage(cloudFileStorage, new Signer(config.getSigningKey()));

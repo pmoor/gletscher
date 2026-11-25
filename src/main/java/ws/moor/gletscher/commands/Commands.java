@@ -31,6 +31,7 @@ public final class Commands {
           .add(ContainsCommand.class)
           .add(HelpCommand.class)
           .add(ListObjectsCommand.class)
+          .add(PurgeCacheCommand.class)
           .add(RestoreCommand.class)
           .add(SearchCommand.class)
           .add(SpotCheckCommand.class)

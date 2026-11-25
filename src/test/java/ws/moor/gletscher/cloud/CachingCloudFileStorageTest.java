@@ -300,6 +300,92 @@ public class CachingCloudFileStorageTest {
     }
   }
 
+  @Test
+  public void testPurgeCacheKeepsAllowedKeysClearsListingsAndShrinksCacheFile() throws Exception {
+    Path cacheDir = tempFolder.newFolder("purge-cache").toPath();
+    InMemoryCloudFileStorage backing =
+        new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
+    CountingDelegate delegate = new CountingDelegate(backing);
+
+    byte[] metaBytes = "metadata-payload".getBytes(StandardCharsets.UTF_8);
+    byte[] bigData = new byte[512 * 1024];
+    for (int i = 0; i < bigData.length; i++) {
+      bigData[i] = (byte) (i * 31);
+    }
+
+    try (CachingCloudFileStorage cache = new CachingCloudFileStorage(delegate, cacheDir)) {
+      cache
+          .store(
+              "meta/keep",
+              metaBytes,
+              LegacyHashing.md5().hashBytes(metaBytes),
+              ImmutableMap.of(),
+              CloudFileStorage.StoreOptions.builder().setCacheContentsOnUpload(true).build())
+          .get();
+      cache
+          .store(
+              "data/purge",
+              bigData,
+              LegacyHashing.md5().hashBytes(bigData),
+              ImmutableMap.of(),
+              CloudFileStorage.StoreOptions.builder().setCacheContentsOnUpload(true).build())
+          .get();
+      cache
+          .store(
+              "data/exists-only",
+              metaBytes,
+              LegacyHashing.md5().hashBytes(metaBytes),
+              ImmutableMap.of(),
+              CloudFileStorage.StoreOptions.DEFAULT)
+          .get();
+      assertThat(cache.exists("meta/keep").get()).isTrue();
+      assertThat(cache.exists("data/exists-only").get()).isTrue();
+      assertThat(delegate.existsCalls.get()).isEqualTo(1);
+      // Warm cached prefix listing.
+      assertThat(listAll(cache, "data/", Integer.MAX_VALUE)).hasSize(2);
+      assertThat(delegate.listCalls.get()).isEqualTo(1);
+    }
+
+    long sizeBefore = Files.size(cacheDir.resolve("cache.mv"));
+    assertThat(sizeBefore).isGreaterThan(bigData.length);
+
+    try (CachingCloudFileStorage cache =
+        new CachingCloudFileStorage(delegate, cacheDir, Duration.ofHours(1), Clock.systemUTC())) {
+      // First purge without purgeExists: purges data/purge and cached listing, keeps existsMap.
+      CachingCloudFileStorage.PurgeStats stats =
+          cache.purgeCache(java.util.Set.of("meta/keep"), false);
+      assertThat(stats.removedDataCount()).isEqualTo(1);
+      assertThat(stats.removedDataBytes()).isEqualTo(bigData.length);
+      assertThat(stats.keptDataCount()).isEqualTo(1);
+      assertThat(stats.keptDataBytes()).isEqualTo(metaBytes.length);
+      assertThat(stats.removedListingsCount()).isEqualTo(1);
+      assertThat(stats.removedExistsCount()).isEqualTo(0);
+
+      long sizeAfter = Files.size(cacheDir.resolve("cache.mv"));
+      assertThat(sizeAfter).isLessThan(sizeBefore);
+
+      // Kept metadata is served from cache; purged listing forces delegate list; existsMap is intact.
+      assertThat(cache.get("meta/keep").get()).isEqualTo(metaBytes);
+      assertThat(delegate.getCalls.get()).isEqualTo(0);
+      assertThat(cache.exists("data/exists-only").get()).isTrue();
+      assertThat(delegate.existsCalls.get()).isEqualTo(1);
+      assertThat(listAll(cache, "data/", Integer.MAX_VALUE)).hasSize(2);
+      assertThat(delegate.listCalls.get()).isEqualTo(2);
+
+      // Now purge with purgeExists=true: removes data/exists-only from existsMap and clears listing.
+      CachingCloudFileStorage.PurgeStats purgeExistsStats =
+          cache.purgeCache(java.util.Set.of("meta/keep"), true);
+      assertThat(purgeExistsStats.removedDataCount()).isEqualTo(0);
+      assertThat(purgeExistsStats.removedListingsCount()).isEqualTo(1);
+      assertThat(purgeExistsStats.removedExistsCount()).isEqualTo(1);
+      assertThat(cache.exists("data/exists-only").get()).isTrue();
+      assertThat(delegate.existsCalls.get()).isEqualTo(2);
+      assertThat(cache.get("data/purge", CloudFileStorage.GetOptions.READ_ONLY).get())
+          .isEqualTo(bigData);
+      assertThat(delegate.getCalls.get()).isEqualTo(1);
+    }
+  }
+
   private static List<CloudFileStorage.FileHeader> listAll(
       CloudFileStorage storage, String prefix, int limit) {
     List<CloudFileStorage.FileHeader> result = new ArrayList<>();
