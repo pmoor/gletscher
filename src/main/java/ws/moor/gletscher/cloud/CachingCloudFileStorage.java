@@ -36,6 +36,8 @@ import org.h2.mvstore.type.StringDataType;
 import ws.moor.gletscher.proto.Cache;
 
 import javax.annotation.Nullable;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -106,8 +108,16 @@ public class CachingCloudFileStorage implements CloudFileStorage {
 
   private static MVStore openStore(Path localCacheDir) {
     return new MVStore.Builder()
-        .fileName(FileSystemFilePath.toStoreName(localCacheDir.resolve(CACHE_FILE_NAME)))
+        .fileName(toMvStoreFileName(localCacheDir.resolve(CACHE_FILE_NAME)))
         .open();
+  }
+
+  private static String toMvStoreFileName(Path path) {
+    FileSystem fs = path.getFileSystem();
+    if (fs.equals(FileSystems.getDefault())) {
+      return path.toString();
+    }
+    return "gletscher-fs:" + Integer.toHexString(System.identityHashCode(fs)) + ":" + path.toAbsolutePath();
   }
 
   @Override
@@ -387,8 +397,7 @@ public class CachingCloudFileStorage implements CloudFileStorage {
     if (!dataKeysToRemove.isEmpty() || removedExistsCount > 0 || removedListingsCount > 0) {
       mvStore.commit();
       mvStore.close();
-      MVStore.compact(
-          FileSystemFilePath.toStoreName(localCacheDir.resolve(CACHE_FILE_NAME)), false, null);
+      MVStore.compact(toMvStoreFileName(localCacheDir.resolve(CACHE_FILE_NAME)), false, null);
       openMaps();
     }
     return new PurgeStats(

@@ -42,6 +42,7 @@ public class FileSystemTestRule extends ExternalResource {
 
   private FileSystemTestRule(Configuration configuration) {
     this.fs = Jimfs.newFileSystem(configuration);
+    FileSystemFilePath.register(this.fs);
   }
 
   public void createDirectories(String path) throws Exception {

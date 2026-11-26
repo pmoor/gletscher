@@ -23,6 +23,7 @@ import ws.moor.gletscher.Configuration;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.cloud.CostTracker;
 import ws.moor.gletscher.commands.CommandContext;
+import ws.moor.gletscher.testing.FileSystemFilePath;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -51,10 +52,12 @@ public class TestCommandContext implements CommandContext {
   public TestCommandContext(FileSystem fs, CloudFileStorage cloudStorage) {
     this.fs = fs;
     this.cloudStorage = cloudStorage;
+    FileSystemFilePath.register(fs);
   }
 
   @Override
   public FileSystem getFileSystem() {
+    FileSystemFilePath.register(fs);
     return fs;
   }
 

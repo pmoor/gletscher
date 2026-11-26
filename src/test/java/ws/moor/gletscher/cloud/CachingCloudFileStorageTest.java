@@ -27,6 +27,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
+import ws.moor.gletscher.testing.FileSystemFilePath;
 import ws.moor.gletscher.util.LegacyHashing;
 
 import java.nio.charset.StandardCharsets;
@@ -52,7 +53,7 @@ public class CachingCloudFileStorageTest {
 
   @Test
   public void testPersistsDataAndExistenceAcrossReopen() throws Exception {
-    try (FileSystem fs = Jimfs.newFileSystem(Configuration.unix())) {
+    try (FileSystem fs = newJimfs(Configuration.unix())) {
       Path cacheDir = Files.createDirectories(fs.getPath("/cache"));
       InMemoryCloudFileStorage backing =
           new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
@@ -109,7 +110,7 @@ public class CachingCloudFileStorageTest {
 
   @Test
   public void testWindowsJimfsPersistsAcrossReopen() throws Exception {
-    try (FileSystem fs = Jimfs.newFileSystem(Configuration.windows())) {
+    try (FileSystem fs = newJimfs(Configuration.windows())) {
       Path cacheDir = Files.createDirectories(fs.getPath("C:\\cache"));
       InMemoryCloudFileStorage backing =
           new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
@@ -141,7 +142,7 @@ public class CachingCloudFileStorageTest {
 
   @Test
   public void testCachesUnlimitedListingsAcrossReopenAndRespectsMaxAge() throws Exception {
-    try (FileSystem fs = Jimfs.newFileSystem(Configuration.unix())) {
+    try (FileSystem fs = newJimfs(Configuration.unix())) {
       Path cacheDir = Files.createDirectories(fs.getPath("/listing-cache"));
     AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-06-01T00:00:00Z"));
     Clock clock =
@@ -249,7 +250,7 @@ public class CachingCloudFileStorageTest {
 
   @Test
   public void testCachesBoundedListingsAndRespectsLimit() throws Exception {
-    try (FileSystem fs = Jimfs.newFileSystem(Configuration.unix())) {
+    try (FileSystem fs = newJimfs(Configuration.unix())) {
       Path cacheDir = Files.createDirectories(fs.getPath("/bounded-listing-cache"));
     AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-06-01T00:00:00Z"));
     Clock clock =
@@ -327,7 +328,7 @@ public class CachingCloudFileStorageTest {
 
   @Test
   public void testGetOptionsReadOnlyAndBypassCache() throws Exception {
-    try (FileSystem fs = Jimfs.newFileSystem(Configuration.unix())) {
+    try (FileSystem fs = newJimfs(Configuration.unix())) {
       Path cacheDir = Files.createDirectories(fs.getPath("/get-options-cache"));
     InMemoryCloudFileStorage backing =
         new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
@@ -385,7 +386,7 @@ public class CachingCloudFileStorageTest {
 
   @Test
   public void testPurgeCacheKeepsAllowedKeysClearsListingsAndShrinksCacheFile() throws Exception {
-    try (FileSystem fs = Jimfs.newFileSystem(Configuration.unix())) {
+    try (FileSystem fs = newJimfs(Configuration.unix())) {
       Path cacheDir = Files.createDirectories(fs.getPath("/purge-cache"));
     InMemoryCloudFileStorage backing =
         new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
@@ -469,6 +470,12 @@ public class CachingCloudFileStorageTest {
       assertThat(delegate.getCalls.get()).isEqualTo(1);
     }
     }
+  }
+
+  private static FileSystem newJimfs(Configuration config) {
+    FileSystem fs = Jimfs.newFileSystem(config);
+    FileSystemFilePath.register(fs);
+    return fs;
   }
 
   private static List<CloudFileStorage.FileHeader> listAll(

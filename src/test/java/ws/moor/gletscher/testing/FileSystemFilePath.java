@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package ws.moor.gletscher.cloud;
+package ws.moor.gletscher.testing;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.MapMaker;
@@ -34,21 +34,18 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 /**
- * H2 {@link FilePath} provider backed by {@link java.nio.file.Path} so {@link
- * org.h2.mvstore.MVStore} persists and compacts on any NIO {@link FileSystem} (such as Jimfs).
+ * Test-only H2 {@link FilePath} provider backed by {@link java.nio.file.Path} so {@link
+ * org.h2.mvstore.MVStore} persists and compacts on non-default NIO {@link FileSystem}s (such as
+ * Jimfs).
  */
-final class FileSystemFilePath extends FilePath {
+public final class FileSystemFilePath extends FilePath {
 
   private static final String SCHEME = "gletscher-fs";
   private static final ConcurrentMap<String, FileSystem> BY_ID =
       new MapMaker().weakValues().makeMap();
-  private static final ConcurrentMap<FileSystem, String> IDS =
-      new MapMaker().weakKeys().makeMap();
-  private static final AtomicLong NEXT_ID = new AtomicLong();
   private static volatile boolean registered = false;
 
   private final FileSystem fs;
@@ -59,28 +56,25 @@ final class FileSystemFilePath extends FilePath {
     this.path = path;
   }
 
-  /**
-   * Returns a file name suitable for {@link org.h2.mvstore.MVStore} targeting {@code path}.
-   * Default-filesystem paths are returned directly; non-default {@link FileSystem} paths are
-   * routed through this {@link FilePath} provider.
-   */
-  static String toStoreName(Path path) {
+  /** Registers {@code fs} so {@code gletscher-fs:<identityHash>:<path>} names resolve to it. */
+  public static void register(FileSystem fs) {
+    if (fs == null || fs.equals(FileSystems.getDefault())) {
+      return;
+    }
+    ensureRegistered();
+    BY_ID.putIfAbsent(fsId(fs), fs);
+  }
+
+  private static String fsId(FileSystem fs) {
+    return Integer.toHexString(System.identityHashCode(fs));
+  }
+
+  private static String toStoreName(Path path) {
     FileSystem fs = path.getFileSystem();
     if (fs.equals(FileSystems.getDefault())) {
       return path.toString();
     }
-    ensureRegistered();
-    String id =
-        IDS.computeIfAbsent(
-            fs,
-            ignored -> {
-              String newId = Long.toString(NEXT_ID.incrementAndGet());
-              BY_ID.put(newId, fs);
-              return newId;
-            });
-    // Ensure a retained strong reference on the reverse map stays consistent under weak values.
-    BY_ID.putIfAbsent(id, fs);
-    return SCHEME + ":" + id + ":" + path.toAbsolutePath();
+    return SCHEME + ":" + fsId(fs) + ":" + path.toAbsolutePath();
   }
 
   private static void ensureRegistered() {
