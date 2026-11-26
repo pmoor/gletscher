@@ -55,21 +55,22 @@ public class BackupRestoreIT {
     CloudFileStorage inMemoryStorage =
         new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
 
-    Files.write(
-        fs.getPath("/config.properties"),
-        ("version: 1\n"
-            + "cache_dir: /tmp/cache\n"
-            + "max_split_size: 65536\n"
-            + "disable_cache: false\n"
-            + "include:\n"
-            + "  - /home/pmoor\n"
-            + "  - /home/cmoor\n"
-            + "  - /tmp\n"
-            + "exclude:\n"
-            + "  - \\.ignore$")
-            .getBytes(StandardCharsets.UTF_8));
-    Files.createDirectories(fs.getPath("/tmp/cache"));
-    Files.createDirectories(fs.getPath("/home/cmoor"));
+    fsRule.writeFile(
+        "/config.properties",
+        """
+        version: 1
+        cache_dir: /tmp/cache
+        max_split_size: 65536
+        disable_cache: false
+        include:
+          - /home/pmoor
+          - /home/cmoor
+          - /tmp
+        exclude:
+          - \\.ignore$
+        """);
+    fsRule.createDirectories("/tmp/cache");
+    fsRule.createDirectories("/home/cmoor");
 
     // initial backup
     createRandomFileTree(fs.getPath("/home/pmoor"), 6);

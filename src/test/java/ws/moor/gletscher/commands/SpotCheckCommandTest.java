@@ -32,9 +32,7 @@ import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
 import ws.moor.gletscher.testing.FileSystemTestRule;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -59,21 +57,22 @@ public class SpotCheckCommandTest {
     fs = fsRule.getFileSystem();
     inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
 
-    Files.write(
-        fs.getPath("/config.properties"),
-        ("version: 1\n"
-                + "max_split_size: 65536\n"
-                + "disable_cache: true\n"
-                + "include:\n"
-                + "  - /home\n")
-            .getBytes(StandardCharsets.UTF_8));
+    fsRule.writeFile(
+        "/config.properties",
+        """
+        version: 1
+        max_split_size: 65536
+        disable_cache: true
+        include:
+          - /home
+        """);
 
     // files to back-up
-    Files.createDirectories(fs.getPath("/home"));
+    fsRule.createDirectories("/home");
     for (int i = 0; i < 20; i++) {
       String fileName = String.format("/home/file-%04d.txt", i);
       String contents = Strings.repeat(String.format("%04d", i), i * i * 1000);
-      Files.newBufferedWriter(fs.getPath(fileName)).append(contents).close();
+      fsRule.writeFile(fileName, contents);
     }
 
     context = new TestCommandContext(fs, inMemoryStorage);
@@ -100,7 +99,7 @@ public class SpotCheckCommandTest {
     int i = 17;
     String fileName = String.format("/home/file-%04d.txt", i);
     String contents = Strings.repeat(String.format("%04d", i * i), i * i * 1000);
-    Files.newBufferedWriter(fs.getPath(fileName)).append(contents).close();
+    fsRule.writeFile(fileName, contents);
 
     main.run("spot_check", "-c", "/config.properties", "--max_blocks", "10");
     assertThat(context.status).isEqualTo(-1);
@@ -111,38 +110,38 @@ public class SpotCheckCommandTest {
 
   @Test
   public void testSpotCheckBypassesCacheForDataButCachesMetadata() throws Exception {
-    Path tempRoot = Files.createDirectories(fs.getPath("/spot-check-cache"));
-    Path cacheDir = Files.createDirectories(tempRoot.resolve("cache"));
-    Path homeDir = Files.createDirectories(tempRoot.resolve("home2"));
+    fsRule.createDirectories("/spot-check-cache");
+    Path cacheDir = fsRule.createDirectories("/spot-check-cache/cache");
+    Path homeDir = fsRule.createDirectories("/spot-check-cache/home2");
     for (int i = 0; i < 20; i++) {
       String contents = Strings.repeat(String.format("%04d", i), i * i * 1000);
-      Files.writeString(homeDir.resolve(String.format("file-%04d.txt", i)), contents);
+      fsRule.writeFile(String.format("/spot-check-cache/home2/file-%04d.txt", i), contents);
     }
 
-    Path uncachedConfig = tempRoot.resolve("uncached.properties");
-    Files.writeString(
-        uncachedConfig,
-        "version: 1\n"
-            + "max_split_size: 65536\n"
-            + "disable_cache: true\n"
-            + "include:\n"
-            + "  - "
-            + homeDir.toAbsolutePath()
-            + "\n");
+    Path uncachedConfig =
+        fsRule.writeFile(
+            "/spot-check-cache/uncached.properties",
+            "version: 1\n"
+                + "max_split_size: 65536\n"
+                + "disable_cache: true\n"
+                + "include:\n"
+                + "  - "
+                + homeDir.toAbsolutePath()
+                + "\n");
 
-    Path cachedConfig = tempRoot.resolve("cached.properties");
-    Files.writeString(
-        cachedConfig,
-        "version: 1\n"
-            + "max_split_size: 65536\n"
-            + "disable_cache: false\n"
-            + "cache_dir: "
-            + cacheDir.toAbsolutePath()
-            + "\n"
-            + "include:\n"
-            + "  - "
-            + homeDir.toAbsolutePath()
-            + "\n");
+    Path cachedConfig =
+        fsRule.writeFile(
+            "/spot-check-cache/cached.properties",
+            "version: 1\n"
+                + "max_split_size: 65536\n"
+                + "disable_cache: false\n"
+                + "cache_dir: "
+                + cacheDir.toAbsolutePath()
+                + "\n"
+                + "include:\n"
+                + "  - "
+                + homeDir.toAbsolutePath()
+                + "\n");
 
     // Backup directly to inMemoryStorage (no local cache populated yet).
     TestCommandContext backupContext = new TestCommandContext(fs, inMemoryStorage);

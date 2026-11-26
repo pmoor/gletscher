@@ -31,7 +31,6 @@ import ws.moor.gletscher.commands.testing.TestCommandContext;
 import ws.moor.gletscher.testing.FileSystemTestRule;
 
 import java.nio.file.FileSystem;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
@@ -60,49 +59,49 @@ public class PurgeCacheCommandTest {
   public void setUp() throws Exception {
     fs = fsRule.getFileSystem();
     inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
-    tempRoot = Files.createDirectories(fs.getPath("/purge-cache-cmd"));
-    cacheDir = Files.createDirectories(tempRoot.resolve("cache"));
-    homeDir = Files.createDirectories(tempRoot.resolve("home"));
+    tempRoot = fsRule.createDirectories("/purge-cache-cmd");
+    cacheDir = fsRule.createDirectories("/purge-cache-cmd/cache");
+    homeDir = fsRule.createDirectories("/purge-cache-cmd/home");
 
-    cachedConfig = tempRoot.resolve("cached.properties");
-    Files.writeString(
-        cachedConfig,
-        "version: 1\n"
-            + "max_split_size: 65536\n"
-            + "disable_cache: false\n"
-            + "cache_dir: "
-            + cacheDir.toAbsolutePath()
-            + "\n"
-            + "include:\n"
-            + "  - "
-            + homeDir.toAbsolutePath()
-            + "\n");
+    cachedConfig =
+        fsRule.writeFile(
+            "/purge-cache-cmd/cached.properties",
+            "version: 1\n"
+                + "max_split_size: 65536\n"
+                + "disable_cache: false\n"
+                + "cache_dir: "
+                + cacheDir.toAbsolutePath()
+                + "\n"
+                + "include:\n"
+                + "  - "
+                + homeDir.toAbsolutePath()
+                + "\n");
 
-    uncachedConfig = tempRoot.resolve("uncached.properties");
-    Files.writeString(
-        uncachedConfig,
-        "version: 1\n"
-            + "max_split_size: 65536\n"
-            + "disable_cache: true\n"
-            + "include:\n"
-            + "  - "
-            + homeDir.toAbsolutePath()
-            + "\n");
+    uncachedConfig =
+        fsRule.writeFile(
+            "/purge-cache-cmd/uncached.properties",
+            "version: 1\n"
+                + "max_split_size: 65536\n"
+                + "disable_cache: true\n"
+                + "include:\n"
+                + "  - "
+                + homeDir.toAbsolutePath()
+                + "\n");
   }
 
   @Test
   public void testPurgeRemovesDataAndOldSnapshotMetadataAcrossSnapshots() throws Exception {
     // Snapshot 1: /home/old-only.txt
-    Files.writeString(homeDir.resolve("old-only.txt"), "snapshot-1-unique-payload");
+    fsRule.writeFile("/purge-cache-cmd/home/old-only.txt", "snapshot-1-unique-payload");
     takeBackupAt(Instant.parse("2026-01-01T00:00:00Z"), cachedConfig);
 
     // Snapshot 2: replace with /home/new.txt
-    Files.delete(homeDir.resolve("old-only.txt"));
-    Files.writeString(homeDir.resolve("new.txt"), "snapshot-2-unique-payload");
+    fsRule.delete("/purge-cache-cmd/home/old-only.txt");
+    fsRule.writeFile("/purge-cache-cmd/home/new.txt", "snapshot-2-unique-payload");
     takeBackupAt(Instant.parse("2026-01-02T00:00:00Z"), cachedConfig);
 
     // Restore populates cache.mv with data payloads as well as metadata.
-    Path restoreDir = tempRoot.resolve("restore");
+    Path restoreDir = fsRule.getPath("/purge-cache-cmd/restore");
     TestCommandContext restoreCtx = new TestCommandContext(fs, inMemoryStorage);
     new GletscherMain(restoreCtx)
         .run("restore", "-c", cachedConfig.toString(), restoreDir.toString());
@@ -176,7 +175,7 @@ public class PurgeCacheCommandTest {
     assertThat(remoteLists).isNotEmpty();
 
     // Adding a duplicate file in a new backup causes exists() to return true and populate existsMap.
-    Files.writeString(homeDir.resolve("copy-of-new.txt"), "snapshot-2-unique-payload");
+    fsRule.writeFile("/purge-cache-cmd/home/copy-of-new.txt", "snapshot-2-unique-payload");
     takeBackupAt(Instant.parse("2026-01-03T00:00:00Z"), cachedConfig);
 
     // Running purge_cache --purge-exists removes exists markers for data blocks & old snapshots.

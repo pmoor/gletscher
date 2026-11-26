@@ -31,9 +31,7 @@ import ws.moor.gletscher.commands.testing.FileReadFailureInjector;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
 import ws.moor.gletscher.testing.FileSystemTestRule;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
@@ -63,31 +61,30 @@ public class ContainsCommandTest {
     fs = fsRule.getFileSystem();
     inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
 
-    Files.writeString(
-        fs.getPath("/config.properties"),
+    fsRule.writeFile(
+        "/config.properties",
         """
         version: 1
         max_split_size: 65536
         disable_cache: true
         include:
           - /home
-        """,
-        StandardCharsets.UTF_8);
+        """);
 
-    Files.createDirectories(fs.getPath("/home/sub"));
-    Files.createDirectories(fs.getPath("/check"));
+    fsRule.createDirectories("/home/sub");
+    fsRule.createDirectories("/check");
   }
 
   @Test
   public void testAllFoundInLatestSnapshotWithMultiplePathsAndLocalTimestamp() throws Exception {
-    Files.writeString(fs.getPath("/home/a.txt"), "alpha-content");
-    Files.writeString(fs.getPath("/home/sub/a_copy.txt"), "alpha-content");
-    Files.writeString(fs.getPath("/home/b.txt"), "beta-content");
+    fsRule.writeFile("/home/a.txt", "alpha-content");
+    fsRule.writeFile("/home/sub/a_copy.txt", "alpha-content");
+    fsRule.writeFile("/home/b.txt", "beta-content");
     takeBackupAt(Instant.parse("2026-01-15T10:00:00Z"));
 
-    Files.writeString(fs.getPath("/check/first.bin"), "beta-content");
-    Files.writeString(fs.getPath("/check/second.bin"), "alpha-content");
-    Files.writeString(fs.getPath("/check/third.bin"), "alpha-content");
+    fsRule.writeFile("/check/first.bin", "beta-content");
+    fsRule.writeFile("/check/second.bin", "alpha-content");
+    fsRule.writeFile("/check/third.bin", "alpha-content");
 
     TestCommandContext context =
         runContains(
@@ -121,15 +118,15 @@ public class ContainsCommandTest {
 
   @Test
   public void testMixedEmptyFoundAndNotFoundPreservesOrderWithinSections() throws Exception {
-    Files.writeString(fs.getPath("/home/kept.txt"), "kept-data");
-    Files.writeString(fs.getPath("/home/backup-empty.txt"), "");
+    fsRule.writeFile("/home/kept.txt", "kept-data");
+    fsRule.writeFile("/home/backup-empty.txt", "");
     takeBackupAt(Instant.parse("2026-07-01T12:00:00Z"));
 
-    Files.writeString(fs.getPath("/check/missing1.txt"), "nope-1");
-    Files.writeString(fs.getPath("/check/empty1.txt"), "");
-    Files.writeString(fs.getPath("/check/found1.txt"), "kept-data");
-    Files.writeString(fs.getPath("/check/empty2.txt"), "");
-    Files.writeString(fs.getPath("/check/missing2.txt"), "nope-2");
+    fsRule.writeFile("/check/missing1.txt", "nope-1");
+    fsRule.writeFile("/check/empty1.txt", "");
+    fsRule.writeFile("/check/found1.txt", "kept-data");
+    fsRule.writeFile("/check/empty2.txt", "");
+    fsRule.writeFile("/check/missing2.txt", "nope-2");
 
     TestCommandContext context =
         runContains(
@@ -167,7 +164,7 @@ public class ContainsCommandTest {
 
   @Test
   public void testOnlyEmptyFilesSucceedsWithoutBackups() throws Exception {
-    Files.writeString(fs.getPath("/check/empty.txt"), "");
+    fsRule.writeFile("/check/empty.txt", "");
 
     TestCommandContext context = runContains(ZURICH, "-c", "/config.properties", "/check/empty.txt");
     assertThat(context.status).isEqualTo(0);
@@ -186,19 +183,19 @@ public class ContainsCommandTest {
   @Test
   public void testSnapshotLimitDefaultsToLatestAndSupportsOlderWithN() throws Exception {
     // Snapshot 1: old-only + version 1 of shared + unchanged
-    Files.writeString(fs.getPath("/home/old.txt"), "old-only-content");
-    Files.writeString(fs.getPath("/home/shared.txt"), "shared-v1");
-    Files.writeString(fs.getPath("/home/unchanged.txt"), "unchanged-content");
+    fsRule.writeFile("/home/old.txt", "old-only-content");
+    fsRule.writeFile("/home/shared.txt", "shared-v1");
+    fsRule.writeFile("/home/unchanged.txt", "unchanged-content");
     takeBackupAt(Instant.parse("2025-01-01T00:00:00Z"));
 
     // Snapshot 2: old.txt removed, shared.txt updated to v2, unchanged.txt still present
-    Files.delete(fs.getPath("/home/old.txt"));
-    Files.writeString(fs.getPath("/home/shared.txt"), "shared-v2");
+    fsRule.delete("/home/old.txt");
+    fsRule.writeFile("/home/shared.txt", "shared-v2");
     takeBackupAt(Instant.parse("2026-01-01T00:00:00Z"));
 
-    Files.writeString(fs.getPath("/check/old.txt"), "old-only-content");
-    Files.writeString(fs.getPath("/check/shared_v1.txt"), "shared-v1");
-    Files.writeString(fs.getPath("/check/unchanged.txt"), "unchanged-content");
+    fsRule.writeFile("/check/old.txt", "old-only-content");
+    fsRule.writeFile("/check/shared_v1.txt", "shared-v1");
+    fsRule.writeFile("/check/unchanged.txt", "unchanged-content");
 
     // Default (-n 1): only latest snapshot is searched.
     TestCommandContext latestOnly =
@@ -258,12 +255,12 @@ public class ContainsCommandTest {
 
   @Test
   public void testStopsSearchingOlderSnapshotsOnceAllFilesAreFound() throws Exception {
-    Files.writeString(fs.getPath("/home/old.txt"), "old-content");
+    fsRule.writeFile("/home/old.txt", "old-content");
     takeBackupAt(Instant.parse("2025-01-01T00:00:00Z"));
     List<String> snap1Meta =
         new ArrayList<>(inMemoryStorage.getFileNames(CloudFileStorage.ObjectType.METADATA));
 
-    Files.writeString(fs.getPath("/home/latest.txt"), "latest-content");
+    fsRule.writeFile("/home/latest.txt", "latest-content");
     takeBackupAt(Instant.parse("2026-01-01T00:00:00Z"));
 
     // Corrupt snapshot 1 so loading it would fail if touched.
@@ -273,7 +270,7 @@ public class ContainsCommandTest {
       }
     }
 
-    Files.writeString(fs.getPath("/check/latest.txt"), "latest-content");
+    fsRule.writeFile("/check/latest.txt", "latest-content");
     TestCommandContext context =
         runContains(
             ZoneOffset.UTC, "-c", "/config.properties", "--snapshots", "all", "/check/latest.txt");
@@ -286,7 +283,7 @@ public class ContainsCommandTest {
 
   @Test
   public void testNoBackupsReturnsErrorForNonEmptyFile() throws Exception {
-    Files.writeString(fs.getPath("/check/missing.txt"), "data");
+    fsRule.writeFile("/check/missing.txt", "data");
 
     TestCommandContext context =
         runContains(ZoneOffset.UTC, "-c", "/config.properties", "/check/missing.txt");
@@ -317,7 +314,7 @@ public class ContainsCommandTest {
     assertThat(dirArg.status).isEqualTo(-1);
     assertThat(dirArg.stdErrString()).contains("not a regular file: /home");
 
-    Files.writeString(fs.getPath("/check/unreadable.txt"), "secret");
+    fsRule.writeFile("/check/unreadable.txt", "secret");
     TestCommandContext readFailure = new TestCommandContext(fs, inMemoryStorage);
     readFailure.failureInjector = new FileReadFailureInjector.FailSpecificNamesInjector("unreadable.txt");
     new GletscherMain(readFailure)
@@ -328,19 +325,21 @@ public class ContainsCommandTest {
 
   @Test
   public void testMaxListingAgeCachesBackupsScanForLatestNCatalogs() throws Exception {
-    Path cacheDir = Files.createDirectories(fs.getPath("/cache"));
-    Path includeDir = fs.getPath("/home");
-    Path checkFile = fs.getPath("/check/sample.txt");
-    Files.writeString(includeDir.resolve("sample.txt"), "cached-backup-data");
-    Files.writeString(checkFile, "cached-backup-data");
+    fsRule.createDirectories("/cache");
+    fsRule.writeFile("/home/sample.txt", "cached-backup-data");
+    Path checkFile = fsRule.writeFile("/check/sample.txt", "cached-backup-data");
 
-    Path configPath = fs.getPath("/cached-config.yaml");
-    Files.writeString(
-        configPath,
-        String.format(
-            "version: 1%nmax_split_size: 65536%ndisable_cache: false%ncache_dir: %s%ninclude:%n  - %s%n",
-            cacheDir, includeDir),
-        StandardCharsets.UTF_8);
+    Path configPath =
+        fsRule.writeFile(
+            "/cached-config.yaml",
+            """
+            version: 1
+            max_split_size: 65536
+            disable_cache: false
+            cache_dir: /cache
+            include:
+              - /home
+            """);
 
     InMemoryCloudFileStorage backing =
         new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
@@ -387,7 +386,7 @@ public class ContainsCommandTest {
 
     TestCommandContext backup2 = new TestCommandContext(fs, countingStorage);
     backup2.clock = Clock.fixed(t0.plusSeconds(60), ZoneOffset.UTC);
-    Files.writeString(includeDir.resolve("sample2.txt"), "second-snapshot");
+    fsRule.writeFile("/home/sample2.txt", "second-snapshot");
     new GletscherMain(backup2).run("backup", "-c", configPath.toString());
     assertThat(backup2.status).isEqualTo(0);
 
@@ -418,7 +417,7 @@ public class ContainsCommandTest {
     // Asking for -n 2 exceeds the cached limit=1 -> refreshes from remote storage.
     TestCommandContext missingInSnap2 = new TestCommandContext(fs, countingStorage);
     missingInSnap2.clock = Clock.fixed(t0.plusSeconds(1800), ZoneOffset.UTC);
-    Path onlyMissing = Files.writeString(fs.getPath("/check/missing.txt"), "not-in-backup");
+    Path onlyMissing = fsRule.writeFile("/check/missing.txt", "not-in-backup");
     new GletscherMain(missingInSnap2)
         .run(
             "contains",

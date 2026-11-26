@@ -57,12 +57,16 @@ public class FileSystemTestRule extends ExternalResource {
     }
   }
 
-  public void createDirectories(String path) throws Exception {
-    Files.createDirectories(getPath(path));
+  public Path createDirectories(String path) throws Exception {
+    return Files.createDirectories(getPath(path));
   }
 
-  public void writeFile(String path, String contents) throws Exception {
-    Files.writeString(getPath(path), contents);
+  public Path writeFile(String path, String contents) throws Exception {
+    return Files.writeString(getPath(path), contents);
+  }
+
+  public void delete(String path) throws Exception {
+    Files.delete(getPath(path));
   }
 
   public FileSystem getFileSystem() {

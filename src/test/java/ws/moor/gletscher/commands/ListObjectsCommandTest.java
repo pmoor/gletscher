@@ -68,21 +68,22 @@ public class ListObjectsCommandTest {
     fs = fsRule.getFileSystem();
     storage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
 
-    Files.write(
-        fs.getPath("/config.properties"),
-        ("version: 1\n"
-                + "max_split_size: 65536\n"
-                + "disable_cache: true\n"
-                + "gcs:\n"
-                + "  bucket_name: my-backup-bucket\n"
-                + "  object_prefix: prod/\n"
-                + "include:\n"
-                + "  - /home\n")
-            .getBytes(StandardCharsets.UTF_8));
+    fsRule.writeFile(
+        "/config.properties",
+        """
+        version: 1
+        max_split_size: 65536
+        disable_cache: true
+        gcs:
+          bucket_name: my-backup-bucket
+          object_prefix: prod/
+        include:
+          - /home
+        """);
 
-    Files.createDirectories(fs.getPath("/home/sub"));
-    Files.writeString(fs.getPath("/home/a.txt"), "small-a");
-    Files.writeString(fs.getPath("/home/sub/b.bin"), "medium-data-block-content-1234567890");
+    fsRule.createDirectories("/home/sub");
+    fsRule.writeFile("/home/a.txt", "small-a");
+    fsRule.writeFile("/home/sub/b.bin", "medium-data-block-content-1234567890");
   }
 
   @Test
@@ -99,7 +100,7 @@ public class ListObjectsCommandTest {
     Set<String> metaAfterSnap1 = storage.getFileNames(CloudFileStorage.ObjectType.METADATA);
     Set<String> dataAfterSnap1 = storage.getFileNames(CloudFileStorage.ObjectType.DATA);
 
-    Files.writeString(fs.getPath("/home/c.txt"), "snapshot-2-new-file-content-abcdefghijklmnopqrstuvwxyz");
+    fsRule.writeFile("/home/c.txt", "snapshot-2-new-file-content-abcdefghijklmnopqrstuvwxyz");
     takeBackupAt(Instant.parse("2025-06-01T00:00:00Z"));
     Set<String> metaAfterSnap2 = storage.getFileNames(CloudFileStorage.ObjectType.METADATA);
     String snap2Pointer =
@@ -109,7 +110,7 @@ public class ListObjectsCommandTest {
             .findFirst()
             .orElseThrow();
 
-    Files.writeString(fs.getPath("/home/sub/d.txt"), "snapshot-3-newest-file");
+    fsRule.writeFile("/home/sub/d.txt", "snapshot-3-newest-file");
     takeBackupAt(Instant.parse("2026-01-01T00:00:00Z"));
 
     Set<String> allMeta = storage.getFileNames(CloudFileStorage.ObjectType.METADATA);
@@ -266,13 +267,13 @@ public class ListObjectsCommandTest {
     Instant now = Instant.parse("2026-06-01T00:00:00Z");
 
     // Take snapshot 1 with a file that will later be deleted.
-    Files.writeString(fs.getPath("/home/ephemeral.txt"), "only-in-snapshot-1-unique-payload");
+    fsRule.writeFile("/home/ephemeral.txt", "only-in-snapshot-1-unique-payload");
     takeBackupAt(Instant.parse("2026-01-01T00:00:00Z"));
     Set<String> snap1Meta = storage.getFileNames(CloudFileStorage.ObjectType.METADATA);
     Set<String> snap1Data = storage.getFileNames(CloudFileStorage.ObjectType.DATA);
 
     // Delete ephemeral.txt and take snapshot 2.
-    Files.delete(fs.getPath("/home/ephemeral.txt"));
+    fsRule.delete("/home/ephemeral.txt");
     takeBackupAt(Instant.parse("2026-05-01T00:00:00Z"));
     Set<String> snap2MetaOnly =
         Sets.difference(storage.getFileNames(CloudFileStorage.ObjectType.METADATA), snap1Meta);
@@ -363,17 +364,17 @@ public class ListObjectsCommandTest {
   public void directoryPreviousVersionLinksPreserveHistoryWhenCatalogPointerMissing()
       throws Exception {
     // Snapshot 1 has unique files at root and in a nested directory.
-    Files.writeString(fs.getPath("/home/snap1-root.txt"), "snap1-root-unique-payload");
-    Files.writeString(fs.getPath("/home/sub/snap1-nested.txt"), "snap1-nested-unique-payload");
+    fsRule.writeFile("/home/snap1-root.txt", "snap1-root-unique-payload");
+    fsRule.writeFile("/home/sub/snap1-nested.txt", "snap1-nested-unique-payload");
     String snap1CatalogSig = takeBackupAt(Instant.parse("2025-01-01T00:00:00Z"));
     Set<String> snap1Meta = storage.getFileNames(CloudFileStorage.ObjectType.METADATA);
     Set<String> snap1Data = storage.getFileNames(CloudFileStorage.ObjectType.DATA);
 
     // Snapshot 2 deletes the snapshot-1-only files so /home and /home/sub get new directory blocks
     // with previous_version pointing back to snapshot 1's directory blocks.
-    Files.delete(fs.getPath("/home/snap1-root.txt"));
-    Files.delete(fs.getPath("/home/sub/snap1-nested.txt"));
-    Files.writeString(fs.getPath("/home/snap2-only.txt"), "snap2-unique-payload");
+    fsRule.delete("/home/snap1-root.txt");
+    fsRule.delete("/home/sub/snap1-nested.txt");
+    fsRule.writeFile("/home/snap2-only.txt", "snap2-unique-payload");
     takeBackupAt(Instant.parse("2026-01-01T00:00:00Z"));
 
     // Delete snapshot 1's backups/ pointer and catalog block so snapshot 1's directories and
@@ -426,22 +427,22 @@ public class ListObjectsCommandTest {
 
   @Test
   public void maxListingAgeReusesPersistentCacheAcrossInvocations() throws Exception {
-    Path cacheDir = Files.createDirectories(fs.getPath("/cache"));
-    Path configPath = fs.getPath("/cached-config.properties");
-    Path rootDir = Files.createDirectories(fs.getPath("/cached-home"));
-    Files.writeString(rootDir.resolve("one.txt"), "first-file-payload");
-    Files.writeString(
-        configPath,
-        "version: 1\n"
-            + "max_split_size: 65536\n"
-            + "disable_cache: false\n"
-            + "cache_dir: "
-            + cacheDir.toAbsolutePath()
-            + "\n"
-            + "include:\n"
-            + "  - "
-            + rootDir.toAbsolutePath()
-            + "\n");
+    Path cacheDir = fsRule.createDirectories("/cache");
+    Path rootDir = fsRule.createDirectories("/cached-home");
+    fsRule.writeFile("/cached-home/one.txt", "first-file-payload");
+    Path configPath =
+        fsRule.writeFile(
+            "/cached-config.properties",
+            "version: 1\n"
+                + "max_split_size: 65536\n"
+                + "disable_cache: false\n"
+                + "cache_dir: "
+                + cacheDir.toAbsolutePath()
+                + "\n"
+                + "include:\n"
+                + "  - "
+                + rootDir.toAbsolutePath()
+                + "\n");
 
     AtomicInteger listCalls = new AtomicInteger();
     CloudFileStorage countingStorage =

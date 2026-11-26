@@ -63,18 +63,19 @@ public class VerifyCommandTest {
     fs = fsRule.getFileSystem();
     inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
 
-    Files.write(
-        fs.getPath("/config.properties"),
-        ("version: 1\n"
-                + "max_split_size: 65536\n"
-                + "disable_cache: true\n"
-                + "include:\n"
-                + "  - /home\n")
-            .getBytes(StandardCharsets.UTF_8));
+    fsRule.writeFile(
+        "/config.properties",
+        """
+        version: 1
+        max_split_size: 65536
+        disable_cache: true
+        include:
+          - /home
+        """);
 
     // files to back-up
-    Files.createDirectories(fs.getPath("/home"));
-    Files.newBufferedWriter(fs.getPath("/home/file.txt")).append("Hello World").close();
+    fsRule.createDirectories("/home");
+    fsRule.writeFile("/home/file.txt", "Hello World");
 
     context = new TestCommandContext(fs, inMemoryStorage);
     main = new GletscherMain(context);
@@ -114,12 +115,12 @@ public class VerifyCommandTest {
 
   @Test
   public void testVerifyStatsDeduplicateSharedDirectoriesAndDataBlocks() throws Exception {
-    Files.createDirectories(fs.getPath("/home/unchanged"));
-    Files.writeString(fs.getPath("/home/unchanged/a.txt"), "shared");
-    Files.writeString(fs.getPath("/home/unchanged/b.txt"), "shared");
+    fsRule.createDirectories("/home/unchanged");
+    fsRule.writeFile("/home/unchanged/a.txt", "shared");
+    fsRule.writeFile("/home/unchanged/b.txt", "shared");
     takeBackupAt(Instant.parse("2025-01-01T00:00:00Z"));
 
-    Files.writeString(fs.getPath("/home/second.txt"), "second");
+    fsRule.writeFile("/home/second.txt", "second");
     takeBackupAt(Instant.parse("2026-01-01T00:00:00Z"));
 
     // Snapshot 1: catalog1 + /, /home, /home/unchanged (4 meta) + "Hello World", "shared" (2 data).
@@ -154,7 +155,7 @@ public class VerifyCommandTest {
             .findFirst()
             .orElse(null);
 
-    Files.writeString(fs.getPath("/home/second.txt"), "second snapshot data");
+    fsRule.writeFile("/home/second.txt", "second snapshot data");
     takeBackupAt(Instant.parse("2026-01-01T00:00:00Z"));
 
     // All snapshots and parent links valid.
@@ -182,15 +183,15 @@ public class VerifyCommandTest {
   @Test
   public void testVerifyReportsBrokenOldSnapshotAndParentDirectoryLink() throws Exception {
     // Snapshot 1 has a unique file; snapshot 2 deletes it and adds a new file.
-    Files.writeString(fs.getPath("/home/old-only.txt"), "unique-old-only-content");
+    fsRule.writeFile("/home/old-only.txt", "unique-old-only-content");
     takeBackupAt(Instant.parse("2025-01-01T00:00:00Z"));
     Set<String> snap1Meta =
         inMemoryStorage.getFileNames(ws.moor.gletscher.cloud.CloudFileStorage.ObjectType.METADATA);
     Set<String> snap1Data =
         inMemoryStorage.getFileNames(ws.moor.gletscher.cloud.CloudFileStorage.ObjectType.DATA);
 
-    Files.delete(fs.getPath("/home/old-only.txt"));
-    Files.writeString(fs.getPath("/home/new.txt"), "brand-new-content");
+    fsRule.delete("/home/old-only.txt");
+    fsRule.writeFile("/home/new.txt", "brand-new-content");
     takeBackupAt(Instant.parse("2026-01-01T00:00:00Z"));
     Set<String> allMetaAfterSnap2 =
         inMemoryStorage.getFileNames(ws.moor.gletscher.cloud.CloudFileStorage.ObjectType.METADATA);
@@ -258,8 +259,8 @@ public class VerifyCommandTest {
             blockStore.store(orphanPayload, false, CloudFileStorage.ObjectType.DATA).get());
     int countBefore = inMemoryStorage.getFileCount();
 
-    Files.writeString(
-        fs.getPath("/candidates.txt"),
+    fsRule.writeFile(
+        "/candidates.txt",
         "# deletion candidates\n\n  " + orphanBlock + "  \n");
 
     runVerify("-c", "/config.properties", "--pretend-missing", "/candidates.txt");
@@ -276,7 +277,7 @@ public class VerifyCommandTest {
     takeBackup();
     String dataBlock =
         "blocks/50/08/50082da69e7e4780c867be198e795b9cd5e94e739ee9485aa95a70f60e36e73f:11";
-    Files.writeString(fs.getPath("/candidates.txt"), dataBlock + "\n");
+    fsRule.writeFile("/candidates.txt", dataBlock + "\n");
 
     runVerify("-c", "/config.properties", "--pretend-missing", "/candidates.txt");
     assertThat(context.status).isEqualTo(-1);
@@ -300,18 +301,18 @@ public class VerifyCommandTest {
         catalogStore.loadSnapshot(catalogStore.listSnapshotHeaders(1).get(0));
 
     String dirBlock = BlockStore.toFileName(snapshot.catalog().getOnlyRootBlock());
-    Files.writeString(fs.getPath("/candidates.txt"), dirBlock + "\n");
+    fsRule.writeFile("/candidates.txt", dirBlock + "\n");
     runVerify("-c", "/config.properties", "--pretend-missing", "/candidates.txt");
     assertThat(context.status).isEqualTo(-1);
     assertThat(context.stdOutString()).contains("missing directory block:");
 
     String catalogBlock = BlockStore.toFileName(snapshot.catalogBlock().orElseThrow());
-    Files.writeString(fs.getPath("/candidates.txt"), catalogBlock + "\n");
+    fsRule.writeFile("/candidates.txt", catalogBlock + "\n");
     runVerify("-c", "/config.properties", "--pretend-missing", "/candidates.txt");
     assertThat(context.status).isEqualTo(-1);
     assertThat(context.stdOutString()).contains("broken snapshot " + snapshot.pointerName());
 
-    Files.writeString(fs.getPath("/candidates.txt"), snapshot.pointerName() + "\n");
+    fsRule.writeFile("/candidates.txt", snapshot.pointerName() + "\n");
     runVerify("-c", "/config.properties", "--pretend-missing", "/candidates.txt");
     assertThat(context.status).isEqualTo(-1);
     assertThat(context.stdErrString()).contains("No existing backups found");
@@ -319,23 +320,24 @@ public class VerifyCommandTest {
 
   @Test
   public void testPretendMissingWithListObjectsOrphanedWorkflow() throws Exception {
-    Files.write(
-        fs.getPath("/gcs-config.properties"),
-        ("version: 1\n"
-                + "max_split_size: 65536\n"
-                + "disable_cache: true\n"
-                + "gcs:\n"
-                + "  bucket_name: my-backup-bucket\n"
-                + "  object_prefix: prod/\n"
-                + "include:\n"
-                + "  - /home\n")
-            .getBytes(StandardCharsets.UTF_8));
+    fsRule.writeFile(
+        "/gcs-config.properties",
+        """
+        version: 1
+        max_split_size: 65536
+        disable_cache: true
+        gcs:
+          bucket_name: my-backup-bucket
+          object_prefix: prod/
+        include:
+          - /home
+        """);
 
-    Files.writeString(fs.getPath("/home/old-only.txt"), "unique-old-only-content");
+    fsRule.writeFile("/home/old-only.txt", "unique-old-only-content");
     takeBackupAt(Instant.parse("2025-01-01T00:00:00Z"), "/gcs-config.properties");
 
-    Files.delete(fs.getPath("/home/old-only.txt"));
-    Files.writeString(fs.getPath("/home/new.txt"), "brand-new-content");
+    fsRule.delete("/home/old-only.txt");
+    fsRule.writeFile("/home/new.txt", "brand-new-content");
     takeBackupAt(Instant.parse("2026-01-01T00:00:00Z"), "/gcs-config.properties");
 
     // Generate deletion candidates as gs:// URIs for pruning down to the last 1 snapshot.
@@ -353,7 +355,7 @@ public class VerifyCommandTest {
     assertThat(listContext.status).isEqualTo(0);
     String candidates = listContext.stdOutString();
     assertThat(candidates).contains("gs://my-backup-bucket/prod/backups/");
-    Files.writeString(fs.getPath("/candidates.txt"), candidates);
+    fsRule.writeFile("/candidates.txt", candidates);
 
     // Verifying --snapshots 1 with those candidates pretended missing succeeds.
     runVerify(
@@ -375,16 +377,17 @@ public class VerifyCommandTest {
 
   @Test
   public void testPretendMissingMultipleFilesAndWithLocalCacheEnabled() throws Exception {
-    Files.createDirectories(fs.getPath("/cache"));
-    Files.write(
-        fs.getPath("/cached-config.properties"),
-        ("version: 1\n"
-                + "max_split_size: 65536\n"
-                + "disable_cache: false\n"
-                + "cache_dir: /cache\n"
-                + "include:\n"
-                + "  - /home\n")
-            .getBytes(StandardCharsets.UTF_8));
+    fsRule.createDirectories("/cache");
+    fsRule.writeFile(
+        "/cached-config.properties",
+        """
+        version: 1
+        max_split_size: 65536
+        disable_cache: false
+        cache_dir: /cache
+        include:
+          - /home
+        """);
 
     takeBackupAt(Instant.parse("2025-01-01T00:00:00Z"), "/cached-config.properties");
     // Prime cache with a verify pass.
@@ -393,14 +396,14 @@ public class VerifyCommandTest {
 
     String dataBlock =
         "blocks/50/08/50082da69e7e4780c867be198e795b9cd5e94e739ee9485aa95a70f60e36e73f:11";
-    Files.writeString(fs.getPath("/part2.txt"), dataBlock + "\n");
+    fsRule.writeFile("/part2.txt", dataBlock + "\n");
     runVerify("-c", "/cached-config.properties", "--pretend-missing", "/part2.txt");
     assertThat(context.status).isEqualTo(-1);
     assertThat(context.stdOutString()).contains("Pretending 1 object(s) do not exist.");
     assertThat(context.stdOutString()).contains("missing block:");
 
     // Empty file and multiple files work cleanly.
-    Files.writeString(fs.getPath("/empty.txt"), "\n# comment only\n");
+    fsRule.writeFile("/empty.txt", "\n# comment only\n");
     runVerify(
         "-c",
         "/cached-config.properties",
@@ -435,40 +438,39 @@ public class VerifyCommandTest {
     assertThat(context.stdErrString()).contains("--pretend-missing path is a directory");
 
     // gs:// URI without gcs.bucket_name in config.
-    Files.writeString(fs.getPath("/gs.txt"), "gs://some-bucket/blocks/00/00/aa:1\n");
+    fsRule.writeFile("/gs.txt", "gs://some-bucket/blocks/00/00/aa:1\n");
     runVerify("-c", "/config.properties", "--pretend-missing", "/gs.txt");
     assertThat(context.status).isEqualTo(-1);
     assertThat(context.stdErrString()).contains("gcs.bucket_name is required");
 
     // gs:// URI with mismatched bucket or prefix.
-    Files.write(
-        fs.getPath("/gcs-config.properties"),
-        ("version: 1\n"
-                + "max_split_size: 65536\n"
-                + "disable_cache: true\n"
-                + "gcs:\n"
-                + "  bucket_name: my-backup-bucket\n"
-                + "  object_prefix: prod/\n"
-                + "include:\n"
-                + "  - /home\n")
-            .getBytes(StandardCharsets.UTF_8));
-    Files.writeString(
-        fs.getPath("/wrong-prefix.txt"),
-        "gs://my-backup-bucket/staging/blocks/00/00/aa:1\n");
+    fsRule.writeFile(
+        "/gcs-config.properties",
+        """
+        version: 1
+        max_split_size: 65536
+        disable_cache: true
+        gcs:
+          bucket_name: my-backup-bucket
+          object_prefix: prod/
+        include:
+          - /home
+        """);
+    fsRule.writeFile("/wrong-prefix.txt", "gs://my-backup-bucket/staging/blocks/00/00/aa:1\n");
     runVerify("-c", "/gcs-config.properties", "--pretend-missing", "/wrong-prefix.txt");
     assertThat(context.status).isEqualTo(-1);
     assertThat(context.stdErrString())
         .contains("expected prefix 'gs://my-backup-bucket/prod/'");
 
     // gs:// URI with empty relative name.
-    Files.writeString(fs.getPath("/empty-rel.txt"), "gs://my-backup-bucket/prod/\n");
+    fsRule.writeFile("/empty-rel.txt", "gs://my-backup-bucket/prod/\n");
     runVerify("-c", "/gcs-config.properties", "--pretend-missing", "/empty-rel.txt");
     assertThat(context.status).isEqualTo(-1);
     assertThat(context.stdErrString())
         .contains("expected prefix 'gs://my-backup-bucket/prod/'");
 
     // Non-blocks/backups entries emit a warning on stderr.
-    Files.writeString(fs.getPath("/unexpected-entry.txt"), "unexpected/object/name\n");
+    fsRule.writeFile("/unexpected-entry.txt", "unexpected/object/name\n");
     runVerify("-c", "/config.properties", "--pretend-missing", "/unexpected-entry.txt");
     assertThat(context.status).isEqualTo(0);
     assertThat(context.stdErrString())

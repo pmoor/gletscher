@@ -56,16 +56,17 @@ public class BackwardsCompatibilityTest {
   @Before
   public void setUp() throws Exception {
     fs = fsRule.getFileSystem();
-    Files.write(
-        fs.getPath("/config.properties"),
-        ("version: 1\n"
-            + "max_split_size: 10\n"
-            + "disable_cache: true\n"
-            + "include:\n"
-            + "  - /home\n"
-            + "exclude:\n"
-            + "  - \\.ignore$")
-            .getBytes(StandardCharsets.UTF_8));
+    fsRule.writeFile(
+        "/config.properties",
+        """
+        version: 1
+        max_split_size: 10
+        disable_cache: true
+        include:
+          - /home
+        exclude:
+          - \\.ignore$
+        """);
 
     inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
   }

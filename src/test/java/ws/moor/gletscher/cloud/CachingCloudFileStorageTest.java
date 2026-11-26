@@ -54,7 +54,7 @@ public class CachingCloudFileStorageTest {
 
   @Test
   public void testPersistsDataAndExistenceAcrossReopen() throws Exception {
-    Path cacheDir = Files.createDirectories(unix.getPath("/cache"));
+    Path cacheDir = unix.createDirectories("/cache");
     InMemoryCloudFileStorage backing =
         new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
     CountingDelegate delegate = new CountingDelegate(backing);
@@ -109,7 +109,7 @@ public class CachingCloudFileStorageTest {
 
   @Test
   public void testWindowsJimfsPersistsAcrossReopen() throws Exception {
-    Path cacheDir = Files.createDirectories(windows.getPath("C:\\cache"));
+    Path cacheDir = windows.createDirectories("C:\\cache");
     InMemoryCloudFileStorage backing =
         new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
     CountingDelegate delegate = new CountingDelegate(backing);
@@ -139,7 +139,7 @@ public class CachingCloudFileStorageTest {
 
   @Test
   public void testCachesUnlimitedListingsAcrossReopenAndRespectsMaxAge() throws Exception {
-    Path cacheDir = Files.createDirectories(unix.getPath("/listing-cache"));
+    Path cacheDir = unix.createDirectories("/listing-cache");
     AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-06-01T00:00:00Z"));
     Clock clock =
         new Clock() {
@@ -245,7 +245,7 @@ public class CachingCloudFileStorageTest {
 
   @Test
   public void testCachesBoundedListingsAndRespectsLimit() throws Exception {
-    Path cacheDir = Files.createDirectories(unix.getPath("/bounded-listing-cache"));
+    Path cacheDir = unix.createDirectories("/bounded-listing-cache");
     AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-06-01T00:00:00Z"));
     Clock clock =
         new Clock() {
@@ -321,7 +321,7 @@ public class CachingCloudFileStorageTest {
 
   @Test
   public void testGetOptionsReadOnlyAndBypassCache() throws Exception {
-    Path cacheDir = Files.createDirectories(unix.getPath("/get-options-cache"));
+    Path cacheDir = unix.createDirectories("/get-options-cache");
     InMemoryCloudFileStorage backing =
         new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
     CountingDelegate delegate = new CountingDelegate(backing);
@@ -377,7 +377,7 @@ public class CachingCloudFileStorageTest {
 
   @Test
   public void testPurgeCacheKeepsAllowedKeysClearsListingsAndShrinksCacheFile() throws Exception {
-    Path cacheDir = Files.createDirectories(unix.getPath("/purge-cache"));
+    Path cacheDir = unix.createDirectories("/purge-cache");
     InMemoryCloudFileStorage backing =
         new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
     CountingDelegate delegate = new CountingDelegate(backing);
