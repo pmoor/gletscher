@@ -16,10 +16,14 @@
 
 package ws.moor.gletscher.commands;
 
+import com.google.common.hash.HashCode;
 import com.google.common.jimfs.Jimfs;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import ws.moor.gletscher.GletscherMain;
@@ -30,13 +34,18 @@ import ws.moor.gletscher.commands.testing.TestCommandContext;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.jimfs.Configuration.unix;
 import static com.google.common.truth.Truth.assertThat;
@@ -46,6 +55,8 @@ import static java.lang.System.lineSeparator;
 public class ContainsCommandTest {
 
   private static final ZoneId ZURICH = ZoneId.of("Europe/Zurich");
+
+  @Rule public TemporaryFolder tempFolder = new TemporaryFolder();
 
   private FileSystem fs;
   private InMemoryCloudFileStorage inMemoryStorage;
@@ -316,6 +327,117 @@ public class ContainsCommandTest {
         .run("contains", "-c", "/config.properties", "/check/unreadable.txt");
     assertThat(readFailure.status).isEqualTo(-1);
     assertThat(readFailure.stdErrString()).contains("failed to read /check/unreadable.txt");
+  }
+
+  @Test
+  public void testMaxListingAgeCachesBackupsScanForLatestNCatalogs() throws Exception {
+    Path root = tempFolder.newFolder("contains-cache").toPath();
+    Path cacheDir = Files.createDirectories(root.resolve("cache"));
+    Path includeDir = Files.createDirectories(root.resolve("home"));
+    Path checkFile = Files.createDirectories(root.resolve("check")).resolve("sample.txt");
+    Files.writeString(includeDir.resolve("sample.txt"), "cached-backup-data");
+    Files.writeString(checkFile, "cached-backup-data");
+
+    Path configPath = root.resolve("config.yaml");
+    Files.writeString(
+        configPath,
+        String.format(
+            "version: 1%nmax_split_size: 65536%ndisable_cache: false%ncache_dir: %s%ninclude:%n  - %s%n",
+            cacheDir, includeDir),
+        StandardCharsets.UTF_8);
+
+    InMemoryCloudFileStorage backing =
+        new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
+    AtomicInteger listCalls = new AtomicInteger();
+    CloudFileStorage countingStorage =
+        new CloudFileStorage() {
+          @Override
+          public ListenableFuture<?> store(
+              String name,
+              byte[] data,
+              HashCode md5,
+              Map<String, String> metadata,
+              StoreOptions options) {
+            return backing.store(name, data, md5, metadata, options);
+          }
+
+          @Override
+          public Iterator<FileHeader> listFiles(String prefix, int limit) {
+            listCalls.incrementAndGet();
+            return backing.listFiles(prefix, limit);
+          }
+
+          @Override
+          public ListenableFuture<Boolean> exists(String name) {
+            return backing.exists(name);
+          }
+
+          @Override
+          public ListenableFuture<byte[]> get(String name, GetOptions options) {
+            return backing.get(name, options);
+          }
+
+          @Override
+          public void close() {
+            backing.close();
+          }
+        };
+
+    Instant t0 = Instant.parse("2026-06-01T00:00:00Z");
+    TestCommandContext backup1 = new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    backup1.clock = Clock.fixed(t0, ZoneOffset.UTC);
+    new GletscherMain(backup1).run("backup", "-c", configPath.toString());
+    assertThat(backup1.status).isEqualTo(0);
+
+    TestCommandContext backup2 = new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    backup2.clock = Clock.fixed(t0.plusSeconds(60), ZoneOffset.UTC);
+    Files.writeString(includeDir.resolve("sample2.txt"), "second-snapshot");
+    new GletscherMain(backup2).run("backup", "-c", configPath.toString());
+    assertThat(backup2.status).isEqualTo(0);
+
+    // Live contains (-n 1) scans backups/ once and warms cache.mv.
+    int callsBeforeLive = listCalls.get();
+    TestCommandContext liveContains =
+        new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    liveContains.clock = Clock.fixed(t0.plusSeconds(120), ZoneOffset.UTC);
+    new GletscherMain(liveContains)
+        .run("contains", "-c", configPath.toString(), checkFile.toString());
+    assertThat(liveContains.status).isEqualTo(0);
+    assertThat(listCalls.get()).isEqualTo(callsBeforeLive + 1);
+
+    // Within max-listing-age (t0+30m <= 1h), contains -n 1 makes 0 remote list calls!
+    TestCommandContext cachedContains =
+        new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    cachedContains.clock = Clock.fixed(t0.plusSeconds(1800), ZoneOffset.UTC);
+    new GletscherMain(cachedContains)
+        .run(
+            "contains",
+            "-c",
+            configPath.toString(),
+            "--max-listing-age",
+            "1h",
+            checkFile.toString());
+    assertThat(cachedContains.status).isEqualTo(0);
+    assertThat(cachedContains.stdOutString()).isEqualTo(liveContains.stdOutString());
+    assertThat(listCalls.get()).isEqualTo(callsBeforeLive + 1);
+
+    // Asking for -n 2 exceeds the cached limit=1 -> refreshes from remote storage.
+    TestCommandContext missingInSnap2 =
+        new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    missingInSnap2.clock = Clock.fixed(t0.plusSeconds(1800), ZoneOffset.UTC);
+    Path onlyMissing = Files.writeString(root.resolve("check/missing.txt"), "not-in-backup");
+    new GletscherMain(missingInSnap2)
+        .run(
+            "contains",
+            "-c",
+            configPath.toString(),
+            "-n",
+            "2",
+            "--max-listing-age",
+            "1h",
+            onlyMissing.toString());
+    assertThat(missingInSnap2.status).isEqualTo(-1);
+    assertThat(listCalls.get()).isEqualTo(callsBeforeLive + 2);
   }
 
   private void takeBackupAt(Instant instant) throws Exception {

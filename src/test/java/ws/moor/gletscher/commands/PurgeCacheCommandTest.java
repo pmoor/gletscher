@@ -136,12 +136,13 @@ public class PurgeCacheCommandTest {
     assertThat(purgeLatestCtx.stdOutString()).contains("from 1 snapshot(s).");
     assertThat(purgeLatestCtx.stdErrString()).isEmpty();
 
-    // Re-running purge_cache -n 1 immediately when nothing stale is cached reports 0 purged.
+    // Re-running purge_cache -n 1 immediately reports 0 objects purged (1 listing from its own
+    // backups/ scan before clearing listingsMap).
     TestCommandContext secondPurgeCtx = new TestCommandContext(fs, inMemoryStorage);
     new GletscherMain(secondPurgeCtx).run("purge_cache", "-c", cachedConfig.toString());
     assertThat(secondPurgeCtx.status).isEqualTo(0);
     assertThat(secondPurgeCtx.stdOutString())
-        .contains("Purged 0 cached object(s) (0 B) and 0 cached listing(s);");
+        .contains("Purged 0 cached object(s) (0 B) and 1 cached listing(s);");
 
     // Running stats -n 1 against a recording storage verifies snapshot 2's metadata is still
     // served completely from cache (0 remote get calls), while snapshot 1's metadata is no

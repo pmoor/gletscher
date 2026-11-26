@@ -56,6 +56,7 @@ class SpotCheckCommand extends AbstractCommand {
   @Override
   protected void addCommandLineOptions(Options options) {
     addConfigFileOption(options);
+    addMaxListingAgeOption(options);
     options.addOption(
         Option.builder()
             .longOpt("max_blocks")

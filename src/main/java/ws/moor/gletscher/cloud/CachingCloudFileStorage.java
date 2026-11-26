@@ -45,6 +45,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -135,12 +136,12 @@ public class CachingCloudFileStorage implements CloudFileStorage {
 
   @Override
   public Iterator<FileHeader> listFiles(String prefix, int limit) {
-    if (limit != Integer.MAX_VALUE) {
-      return delegate.listFiles(prefix, limit);
+    if (limit <= 0) {
+      return Collections.emptyIterator();
     }
 
     if (!maxListingAge.isZero()) {
-      List<FileHeader> cached = tryReadCachedListing(prefix);
+      List<FileHeader> cached = tryReadCachedListing(prefix, limit);
       if (cached != null) {
         return cached.iterator();
       }
@@ -150,21 +151,30 @@ public class CachingCloudFileStorage implements CloudFileStorage {
     Iterator<FileHeader> delegateIterator = delegate.listFiles(prefix, limit);
     List<FileHeader> collected = new ArrayList<>();
     return new AbstractIterator<>() {
+      private boolean stored = false;
+
       @Override
       protected FileHeader computeNext() {
-        if (delegateIterator.hasNext()) {
+        if (collected.size() < limit && delegateIterator.hasNext()) {
           FileHeader next = delegateIterator.next();
           collected.add(next);
+          if (collected.size() == limit) {
+            storeListing(prefix, retrievedAt, limit, collected);
+            stored = true;
+          }
           return next;
         }
-        storeListing(prefix, retrievedAt, collected);
+        if (!stored) {
+          storeListing(prefix, retrievedAt, Integer.MAX_VALUE, collected);
+          stored = true;
+        }
         return endOfData();
       }
     };
   }
 
   @Nullable
-  private List<FileHeader> tryReadCachedListing(String prefix) {
+  private List<FileHeader> tryReadCachedListing(String prefix, int requestedLimit) {
     byte[] raw = listingsMap.get(prefix);
     if (raw == null) {
       return null;
@@ -180,8 +190,14 @@ public class CachingCloudFileStorage implements CloudFileStorage {
     if (age.isNegative() || age.compareTo(maxListingAge) > 0) {
       return null;
     }
-    List<FileHeader> headers = new ArrayList<>(proto.getFileCount());
-    for (Cache.CachedFileHeader entry : proto.getFileList()) {
+    int cachedLimit = proto.hasLimit() ? proto.getLimit() : Integer.MAX_VALUE;
+    if (cachedLimit < requestedLimit) {
+      return null;
+    }
+    int count = Math.min(requestedLimit, proto.getFileCount());
+    List<FileHeader> headers = new ArrayList<>(count);
+    for (int i = 0; i < count; i++) {
+      Cache.CachedFileHeader entry = proto.getFile(i);
       headers.add(
           new FileHeader(
               entry.getName(),
@@ -205,9 +221,12 @@ public class CachingCloudFileStorage implements CloudFileStorage {
     return null;
   }
 
-  private void storeListing(String prefix, Instant retrievedAt, List<FileHeader> headers) {
+  private void storeListing(
+      String prefix, Instant retrievedAt, int limit, List<FileHeader> headers) {
     Cache.CachedListing.Builder listingBuilder =
-        Cache.CachedListing.newBuilder().setRetrievedAtMillis(retrievedAt.toEpochMilli());
+        Cache.CachedListing.newBuilder()
+            .setRetrievedAtMillis(retrievedAt.toEpochMilli())
+            .setLimit(limit);
     for (FileHeader header : headers) {
       Cache.CachedFileHeader.Builder entryBuilder =
           Cache.CachedFileHeader.newBuilder()
