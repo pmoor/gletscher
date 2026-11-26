@@ -17,14 +17,15 @@
 package ws.moor.gletscher;
 
 import com.google.common.base.Preconditions;
-import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.MoreExecutors;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
+import ws.moor.gletscher.testing.FileSystemTestRule;
 import ws.moor.gletscher.util.MoreArrays;
 
 import java.io.IOException;
@@ -41,15 +42,16 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
-import static com.google.common.jimfs.Configuration.unix;
 import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class BackupRestoreIT {
 
+  @Rule public FileSystemTestRule fsRule = FileSystemTestRule.unix();
+
   @Test
   public void testBackupAndRestore() throws Exception {
-    FileSystem fs = Jimfs.newFileSystem(unix());
+    FileSystem fs = fsRule.getFileSystem();
     CloudFileStorage inMemoryStorage =
         new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
 

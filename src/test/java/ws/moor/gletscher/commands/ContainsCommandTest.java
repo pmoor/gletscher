@@ -17,10 +17,10 @@
 package ws.moor.gletscher.commands;
 
 import com.google.common.hash.HashCode;
-import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,6 +29,7 @@ import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
 import ws.moor.gletscher.commands.testing.FileReadFailureInjector;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
+import ws.moor.gletscher.testing.FileSystemTestRule;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
@@ -44,7 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.google.common.jimfs.Configuration.unix;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.System.lineSeparator;
 
@@ -53,12 +53,14 @@ public class ContainsCommandTest {
 
   private static final ZoneId ZURICH = ZoneId.of("Europe/Zurich");
 
+  @Rule public FileSystemTestRule fsRule = FileSystemTestRule.unix();
+
   private FileSystem fs;
   private InMemoryCloudFileStorage inMemoryStorage;
 
   @Before
   public void setUp() throws Exception {
-    fs = Jimfs.newFileSystem(unix());
+    fs = fsRule.getFileSystem();
     inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
 
     Files.writeString(

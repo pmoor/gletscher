@@ -18,10 +18,10 @@ package ws.moor.gletscher.commands;
 
 import com.google.common.collect.Sets;
 import com.google.common.hash.HashCode;
-import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,6 +33,7 @@ import ws.moor.gletscher.cloud.SigningCloudFileStorage;
 import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
 import ws.moor.gletscher.proto.testing.Testing;
+import ws.moor.gletscher.testing.FileSystemTestRule;
 import ws.moor.gletscher.util.Signer;
 
 import java.io.InputStream;
@@ -52,18 +53,19 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import static com.google.common.jimfs.Configuration.unix;
 import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class ListObjectsCommandTest {
+
+  @Rule public FileSystemTestRule fsRule = FileSystemTestRule.unix();
 
   private FileSystem fs;
   private InMemoryCloudFileStorage storage;
 
   @Before
   public void setUp() throws Exception {
-    fs = Jimfs.newFileSystem(unix());
+    fs = fsRule.getFileSystem();
     storage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
 
     Files.write(

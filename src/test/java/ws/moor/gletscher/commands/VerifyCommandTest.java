@@ -16,9 +16,9 @@
 
 package ws.moor.gletscher.commands;
 
-import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,6 +32,7 @@ import ws.moor.gletscher.cloud.EncryptingCloudFileStorage;
 import ws.moor.gletscher.cloud.SigningCloudFileStorage;
 import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
+import ws.moor.gletscher.testing.FileSystemTestRule;
 import ws.moor.gletscher.util.Compressor;
 import ws.moor.gletscher.util.Cryptor;
 import ws.moor.gletscher.util.Signer;
@@ -45,11 +46,12 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 
-import static com.google.common.jimfs.Configuration.unix;
 import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class VerifyCommandTest {
+
+  @Rule public FileSystemTestRule fsRule = FileSystemTestRule.unix();
 
   private TestCommandContext context;
   private GletscherMain main;
@@ -58,7 +60,7 @@ public class VerifyCommandTest {
 
   @Before
   public void setUp() throws Exception {
-    fs = Jimfs.newFileSystem(unix());
+    fs = fsRule.getFileSystem();
     inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
 
     Files.write(

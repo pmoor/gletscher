@@ -41,7 +41,7 @@ import java.util.stream.Stream;
  * org.h2.mvstore.MVStore} persists and compacts on non-default NIO {@link FileSystem}s (such as
  * Jimfs).
  */
-public final class FileSystemFilePath extends FilePath {
+final class FileSystemFilePath extends FilePath {
 
   private static final String SCHEME = "gletscher-fs";
   private static final ConcurrentMap<String, FileSystem> BY_ID =
@@ -57,12 +57,19 @@ public final class FileSystemFilePath extends FilePath {
   }
 
   /** Registers {@code fs} so {@code gletscher-fs:<identityHash>:<path>} names resolve to it. */
-  public static void register(FileSystem fs) {
+  static void register(FileSystem fs) {
     if (fs == null || fs.equals(FileSystems.getDefault())) {
       return;
     }
     ensureRegistered();
     BY_ID.putIfAbsent(fsId(fs), fs);
+  }
+
+  /** Unregisters {@code fs} when its test lifecycle ends. */
+  static void unregister(FileSystem fs) {
+    if (fs != null) {
+      BY_ID.remove(fsId(fs), fs);
+    }
   }
 
   private static String fsId(FileSystem fs) {

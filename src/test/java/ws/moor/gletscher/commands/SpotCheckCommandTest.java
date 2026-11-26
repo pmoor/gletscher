@@ -19,10 +19,10 @@ package ws.moor.gletscher.commands;
 import com.google.common.base.Strings;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
-import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -30,6 +30,7 @@ import ws.moor.gletscher.GletscherMain;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
+import ws.moor.gletscher.testing.FileSystemTestRule;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
@@ -41,11 +42,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.google.common.jimfs.Configuration.unix;
 import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class SpotCheckCommandTest {
+
+  @Rule public FileSystemTestRule fsRule = FileSystemTestRule.unix();
 
   private TestCommandContext context;
   private GletscherMain main;
@@ -54,7 +56,7 @@ public class SpotCheckCommandTest {
 
   @Before
   public void setUp() throws Exception {
-    fs = Jimfs.newFileSystem(unix());
+    fs = fsRule.getFileSystem();
     inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
 
     Files.write(

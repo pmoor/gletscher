@@ -45,6 +45,18 @@ public class FileSystemTestRule extends ExternalResource {
     FileSystemFilePath.register(this.fs);
   }
 
+  @Override
+  protected void after() {
+    FileSystemFilePath.unregister(fs);
+    try {
+      if (fs.isOpen()) {
+        fs.close();
+      }
+    } catch (IOException ignored) {
+      // Best-effort cleanup in test teardown.
+    }
+  }
+
   public void createDirectories(String path) throws Exception {
     Files.createDirectories(getPath(path));
   }

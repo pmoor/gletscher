@@ -18,20 +18,18 @@ package ws.moor.gletscher.cloud;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
-import com.google.common.jimfs.Configuration;
-import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
-import ws.moor.gletscher.testing.FileSystemFilePath;
+import ws.moor.gletscher.testing.FileSystemTestRule;
 import ws.moor.gletscher.util.LegacyHashing;
 
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -51,99 +49,97 @@ import static com.google.common.truth.Truth.assertThat;
 @RunWith(JUnit4.class)
 public class CachingCloudFileStorageTest {
 
+  @Rule public FileSystemTestRule unix = FileSystemTestRule.unix();
+  @Rule public FileSystemTestRule windows = FileSystemTestRule.windows();
+
   @Test
   public void testPersistsDataAndExistenceAcrossReopen() throws Exception {
-    try (FileSystem fs = newJimfs(Configuration.unix())) {
-      Path cacheDir = Files.createDirectories(fs.getPath("/cache"));
-      InMemoryCloudFileStorage backing =
-          new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
-      CountingDelegate delegate = new CountingDelegate(backing);
+    Path cacheDir = Files.createDirectories(unix.getPath("/cache"));
+    InMemoryCloudFileStorage backing =
+        new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
+    CountingDelegate delegate = new CountingDelegate(backing);
 
-      byte[] cachedBytes = "cached-data".getBytes(StandardCharsets.UTF_8);
-      HashCode cachedMd5 = LegacyHashing.md5().hashBytes(cachedBytes);
-      byte[] uncachedBytes = "uncached-data".getBytes(StandardCharsets.UTF_8);
-      HashCode uncachedMd5 = LegacyHashing.md5().hashBytes(uncachedBytes);
+    byte[] cachedBytes = "cached-data".getBytes(StandardCharsets.UTF_8);
+    HashCode cachedMd5 = LegacyHashing.md5().hashBytes(cachedBytes);
+    byte[] uncachedBytes = "uncached-data".getBytes(StandardCharsets.UTF_8);
+    HashCode uncachedMd5 = LegacyHashing.md5().hashBytes(uncachedBytes);
 
-      try (CachingCloudFileStorage cache = new CachingCloudFileStorage(delegate, cacheDir)) {
-        cache
-            .store(
-                "meta/1",
-                cachedBytes,
-                cachedMd5,
-                ImmutableMap.of(),
-                CloudFileStorage.StoreOptions.builder().setCacheContentsOnUpload(true).build())
-            .get();
-        cache
-            .store(
-                "data/1",
-                uncachedBytes,
-                uncachedMd5,
-                ImmutableMap.of(),
-                CloudFileStorage.StoreOptions.DEFAULT)
-            .get();
+    try (CachingCloudFileStorage cache = new CachingCloudFileStorage(delegate, cacheDir)) {
+      cache
+          .store(
+              "meta/1",
+              cachedBytes,
+              cachedMd5,
+              ImmutableMap.of(),
+              CloudFileStorage.StoreOptions.builder().setCacheContentsOnUpload(true).build())
+          .get();
+      cache
+          .store(
+              "data/1",
+              uncachedBytes,
+              uncachedMd5,
+              ImmutableMap.of(),
+              CloudFileStorage.StoreOptions.DEFAULT)
+          .get();
 
-        assertThat(cache.exists("meta/1").get()).isTrue();
-        assertThat(cache.get("meta/1").get()).isEqualTo(cachedBytes);
-        assertThat(delegate.existsCalls.get()).isEqualTo(0);
-        assertThat(delegate.getCalls.get()).isEqualTo(0);
+      assertThat(cache.exists("meta/1").get()).isTrue();
+      assertThat(cache.get("meta/1").get()).isEqualTo(cachedBytes);
+      assertThat(delegate.existsCalls.get()).isEqualTo(0);
+      assertThat(delegate.getCalls.get()).isEqualTo(0);
 
-        // data/1 was not cached on upload, so first exists and get hit the delegate once.
-        assertThat(cache.exists("data/1").get()).isTrue();
-        assertThat(cache.get("data/1").get()).isEqualTo(uncachedBytes);
-        assertThat(delegate.existsCalls.get()).isEqualTo(1);
-        assertThat(delegate.getCalls.get()).isEqualTo(1);
-      }
+      // data/1 was not cached on upload, so first exists and get hit the delegate once.
+      assertThat(cache.exists("data/1").get()).isTrue();
+      assertThat(cache.get("data/1").get()).isEqualTo(uncachedBytes);
+      assertThat(delegate.existsCalls.get()).isEqualTo(1);
+      assertThat(delegate.getCalls.get()).isEqualTo(1);
+    }
 
-      assertThat(Files.exists(cacheDir.resolve("cache.mv"))).isTrue();
+    assertThat(Files.exists(cacheDir.resolve("cache.mv"))).isTrue();
 
-      // Reopen on the same Jimfs directory and verify hits do not reach the delegate.
-      try (CachingCloudFileStorage reopened = new CachingCloudFileStorage(delegate, cacheDir)) {
-        assertThat(reopened.exists("meta/1").get()).isTrue();
-        assertThat(reopened.get("meta/1").get()).isEqualTo(cachedBytes);
-        assertThat(reopened.exists("data/1").get()).isTrue();
-        assertThat(reopened.get("data/1").get()).isEqualTo(uncachedBytes);
-        assertThat(delegate.existsCalls.get()).isEqualTo(1);
-        assertThat(delegate.getCalls.get()).isEqualTo(1);
-      }
+    // Reopen on the same Jimfs directory and verify hits do not reach the delegate.
+    try (CachingCloudFileStorage reopened = new CachingCloudFileStorage(delegate, cacheDir)) {
+      assertThat(reopened.exists("meta/1").get()).isTrue();
+      assertThat(reopened.get("meta/1").get()).isEqualTo(cachedBytes);
+      assertThat(reopened.exists("data/1").get()).isTrue();
+      assertThat(reopened.get("data/1").get()).isEqualTo(uncachedBytes);
+      assertThat(delegate.existsCalls.get()).isEqualTo(1);
+      assertThat(delegate.getCalls.get()).isEqualTo(1);
     }
   }
 
   @Test
   public void testWindowsJimfsPersistsAcrossReopen() throws Exception {
-    try (FileSystem fs = newJimfs(Configuration.windows())) {
-      Path cacheDir = Files.createDirectories(fs.getPath("C:\\cache"));
-      InMemoryCloudFileStorage backing =
-          new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
-      CountingDelegate delegate = new CountingDelegate(backing);
+    Path cacheDir = Files.createDirectories(windows.getPath("C:\\cache"));
+    InMemoryCloudFileStorage backing =
+        new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
+    CountingDelegate delegate = new CountingDelegate(backing);
 
-      byte[] bytes = "hello".getBytes(StandardCharsets.UTF_8);
-      HashCode md5 = LegacyHashing.md5().hashBytes(bytes);
+    byte[] bytes = "hello".getBytes(StandardCharsets.UTF_8);
+    HashCode md5 = LegacyHashing.md5().hashBytes(bytes);
 
-      try (CachingCloudFileStorage cache = new CachingCloudFileStorage(delegate, cacheDir)) {
-        cache
-            .store(
-                "item/1",
-                bytes,
-                md5,
-                ImmutableMap.of(),
-                CloudFileStorage.StoreOptions.builder().setCacheContentsOnUpload(true).build())
-            .get();
-      }
+    try (CachingCloudFileStorage cache = new CachingCloudFileStorage(delegate, cacheDir)) {
+      cache
+          .store(
+              "item/1",
+              bytes,
+              md5,
+              ImmutableMap.of(),
+              CloudFileStorage.StoreOptions.builder().setCacheContentsOnUpload(true).build())
+          .get();
+    }
 
-      assertThat(Files.exists(cacheDir.resolve("cache.mv"))).isTrue();
-      try (CachingCloudFileStorage reopened = new CachingCloudFileStorage(delegate, cacheDir)) {
-        assertThat(reopened.exists("item/1").get()).isTrue();
-        assertThat(reopened.get("item/1").get()).isEqualTo(bytes);
-        assertThat(delegate.existsCalls.get()).isEqualTo(0);
-        assertThat(delegate.getCalls.get()).isEqualTo(0);
-      }
+    assertThat(Files.exists(cacheDir.resolve("cache.mv"))).isTrue();
+    try (CachingCloudFileStorage reopened = new CachingCloudFileStorage(delegate, cacheDir)) {
+      assertThat(reopened.exists("item/1").get()).isTrue();
+      assertThat(reopened.get("item/1").get()).isEqualTo(bytes);
+      assertThat(delegate.existsCalls.get()).isEqualTo(0);
+      assertThat(delegate.getCalls.get()).isEqualTo(0);
     }
   }
 
   @Test
   public void testCachesUnlimitedListingsAcrossReopenAndRespectsMaxAge() throws Exception {
-    try (FileSystem fs = newJimfs(Configuration.unix())) {
-      Path cacheDir = Files.createDirectories(fs.getPath("/listing-cache"));
+    Path cacheDir = Files.createDirectories(unix.getPath("/listing-cache"));
     AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-06-01T00:00:00Z"));
     Clock clock =
         new Clock() {
@@ -245,13 +241,11 @@ public class CachingCloudFileStorageTest {
       assertThat(cachedAfterRefresh).hasSize(3);
       assertThat(delegate.listCalls.get()).isEqualTo(3);
     }
-    }
   }
 
   @Test
   public void testCachesBoundedListingsAndRespectsLimit() throws Exception {
-    try (FileSystem fs = newJimfs(Configuration.unix())) {
-      Path cacheDir = Files.createDirectories(fs.getPath("/bounded-listing-cache"));
+    Path cacheDir = Files.createDirectories(unix.getPath("/bounded-listing-cache"));
     AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-06-01T00:00:00Z"));
     Clock clock =
         new Clock() {
@@ -323,13 +317,11 @@ public class CachingCloudFileStorageTest {
       assertThat(listAll(cache, "backups/", Integer.MAX_VALUE)).hasSize(3);
       assertThat(delegate.listCalls.get()).isEqualTo(3);
     }
-    }
   }
 
   @Test
   public void testGetOptionsReadOnlyAndBypassCache() throws Exception {
-    try (FileSystem fs = newJimfs(Configuration.unix())) {
-      Path cacheDir = Files.createDirectories(fs.getPath("/get-options-cache"));
+    Path cacheDir = Files.createDirectories(unix.getPath("/get-options-cache"));
     InMemoryCloudFileStorage backing =
         new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
     CountingDelegate delegate = new CountingDelegate(backing);
@@ -381,13 +373,11 @@ public class CachingCloudFileStorageTest {
           .isEqualTo(uncached);
       assertThat(delegate.getCalls.get()).isEqualTo(5);
     }
-    }
   }
 
   @Test
   public void testPurgeCacheKeepsAllowedKeysClearsListingsAndShrinksCacheFile() throws Exception {
-    try (FileSystem fs = newJimfs(Configuration.unix())) {
-      Path cacheDir = Files.createDirectories(fs.getPath("/purge-cache"));
+    Path cacheDir = Files.createDirectories(unix.getPath("/purge-cache"));
     InMemoryCloudFileStorage backing =
         new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
     CountingDelegate delegate = new CountingDelegate(backing);
@@ -469,13 +459,6 @@ public class CachingCloudFileStorageTest {
           .isEqualTo(bigData);
       assertThat(delegate.getCalls.get()).isEqualTo(1);
     }
-    }
-  }
-
-  private static FileSystem newJimfs(Configuration config) {
-    FileSystem fs = Jimfs.newFileSystem(config);
-    FileSystemFilePath.register(fs);
-    return fs;
   }
 
   private static List<CloudFileStorage.FileHeader> listAll(
