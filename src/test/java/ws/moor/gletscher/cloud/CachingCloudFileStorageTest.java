@@ -246,7 +246,7 @@ public class CachingCloudFileStorageTest {
   }
 
   @Test
-  public void testCachesBoundedListingsRespectsLimitAndInvalidatesOnStore() throws Exception {
+  public void testCachesBoundedListingsAndRespectsLimit() throws Exception {
     Path cacheDir = tempFolder.newFolder("bounded-listing-cache").toPath();
     AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-06-01T00:00:00Z"));
     Clock clock =
@@ -318,22 +318,6 @@ public class CachingCloudFileStorageTest {
       // Therefore an unlimited listing is now served from cache too.
       assertThat(listAll(cache, "backups/", Integer.MAX_VALUE)).hasSize(3);
       assertThat(delegate.listCalls.get()).isEqualTo(3);
-
-      // Storing a new object under backups/ invalidates the backups/ listing cache.
-      byte[] snap0 = "snap-0".getBytes(StandardCharsets.UTF_8);
-      cache
-          .store(
-              "backups/000",
-              snap0,
-              LegacyHashing.md5().hashBytes(snap0),
-              ImmutableMap.of(),
-              CloudFileStorage.StoreOptions.DEFAULT)
-          .get();
-
-      List<CloudFileStorage.FileHeader> afterStore = listAll(cache, "backups/", 1);
-      assertThat(afterStore).hasSize(1);
-      assertThat(afterStore.get(0).name).isEqualTo("backups/000");
-      assertThat(delegate.listCalls.get()).isEqualTo(4);
     }
   }
 

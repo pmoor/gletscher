@@ -53,7 +53,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
 public class CachingCloudFileStorage implements CloudFileStorage {
 
@@ -79,7 +78,6 @@ public class CachingCloudFileStorage implements CloudFileStorage {
   private final Duration maxListingAge;
   private final Clock clock;
   private final ListeningExecutorService executor;
-  private volatile boolean populateListings = true;
 
   public CachingCloudFileStorage(CloudFileStorage delegate, Path localCacheDir) {
     this(delegate, localCacheDir, Duration.ZERO, Clock.systemUTC());
@@ -119,18 +117,6 @@ public class CachingCloudFileStorage implements CloudFileStorage {
   public ListenableFuture<?> store(
       String name, byte[] data, HashCode md5, Map<String, String> metadata, StoreOptions options) {
     ListenableFuture<?> future = delegate.store(name, data, md5, metadata, options);
-    Futures.addCallback(
-        future,
-        new FutureCallback<Object>() {
-          @Override
-          public void onSuccess(@Nullable Object unused) {
-            invalidateListingsFor(name);
-          }
-
-          @Override
-          public void onFailure(Throwable throwable) {}
-        },
-        MoreExecutors.directExecutor());
     if (options.cacheContentsOnUpload) {
       Futures.addCallback(
           future,
@@ -237,9 +223,6 @@ public class CachingCloudFileStorage implements CloudFileStorage {
 
   private void storeListing(
       String prefix, Instant retrievedAt, int limit, List<FileHeader> headers) {
-    if (!populateListings) {
-      return;
-    }
     Cache.CachedListing.Builder listingBuilder =
         Cache.CachedListing.newBuilder()
             .setRetrievedAtMillis(retrievedAt.toEpochMilli())
@@ -342,17 +325,6 @@ public class CachingCloudFileStorage implements CloudFileStorage {
     return delegateFuture;
   }
 
-  /** Runs {@code action} without populating cached prefix listings. */
-  public <T> T withoutCachingListings(Supplier<T> action) {
-    boolean previous = populateListings;
-    populateListings = false;
-    try {
-      return action.get();
-    } finally {
-      populateListings = previous;
-    }
-  }
-
   /** Statistics returned by {@link #purgeCache(Set, boolean)}. */
   public record PurgeStats(
       int removedDataCount,
@@ -431,18 +403,6 @@ public class CachingCloudFileStorage implements CloudFileStorage {
         removedExistsCount,
         keptExistsCount,
         removedListingsCount);
-  }
-
-  private void invalidateListingsFor(String objectName) {
-    List<String> keysToRemove = new ArrayList<>();
-    for (String prefix : listingsMap.keySet()) {
-      if (objectName.startsWith(prefix)) {
-        keysToRemove.add(prefix);
-      }
-    }
-    for (String key : keysToRemove) {
-      listingsMap.remove(key);
-    }
   }
 
   private void storeExists(String name) {
