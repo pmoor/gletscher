@@ -18,21 +18,18 @@ package ws.moor.gletscher.cloud;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
-import com.google.common.jimfs.Configuration;
-import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
+import ws.moor.gletscher.testing.FileSystemTestRule;
 import ws.moor.gletscher.util.LegacyHashing;
 
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -52,11 +49,12 @@ import static com.google.common.truth.Truth.assertThat;
 @RunWith(JUnit4.class)
 public class CachingCloudFileStorageTest {
 
-  @Rule public TemporaryFolder tempFolder = new TemporaryFolder();
+  @Rule public FileSystemTestRule unix = FileSystemTestRule.unix();
+  @Rule public FileSystemTestRule windows = FileSystemTestRule.windows();
 
   @Test
   public void testPersistsDataAndExistenceAcrossReopen() throws Exception {
-    Path cacheDir = tempFolder.newFolder("cache").toPath();
+    Path cacheDir = unix.createDirectories("/cache");
     InMemoryCloudFileStorage backing =
         new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
     CountingDelegate delegate = new CountingDelegate(backing);
@@ -98,7 +96,7 @@ public class CachingCloudFileStorageTest {
 
     assertThat(Files.exists(cacheDir.resolve("cache.mv"))).isTrue();
 
-    // Reopen on the same directory and verify hits do not reach the delegate.
+    // Reopen on the same Jimfs directory and verify hits do not reach the delegate.
     try (CachingCloudFileStorage reopened = new CachingCloudFileStorage(delegate, cacheDir)) {
       assertThat(reopened.exists("meta/1").get()).isTrue();
       assertThat(reopened.get("meta/1").get()).isEqualTo(cachedBytes);
@@ -110,38 +108,38 @@ public class CachingCloudFileStorageTest {
   }
 
   @Test
-  public void testNonDefaultFileSystemUsesInMemoryStore() throws Exception {
-    try (FileSystem fs = Jimfs.newFileSystem(Configuration.unix())) {
-      Path cacheDir = fs.getPath("/cache");
-      Files.createDirectories(cacheDir);
-      InMemoryCloudFileStorage backing =
-          new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
-      CountingDelegate delegate = new CountingDelegate(backing);
+  public void testWindowsJimfsPersistsAcrossReopen() throws Exception {
+    Path cacheDir = windows.createDirectories("C:\\cache");
+    InMemoryCloudFileStorage backing =
+        new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
+    CountingDelegate delegate = new CountingDelegate(backing);
 
-      byte[] bytes = "hello".getBytes(StandardCharsets.UTF_8);
-      HashCode md5 = LegacyHashing.md5().hashBytes(bytes);
+    byte[] bytes = "hello".getBytes(StandardCharsets.UTF_8);
+    HashCode md5 = LegacyHashing.md5().hashBytes(bytes);
 
-      try (CachingCloudFileStorage cache = new CachingCloudFileStorage(delegate, cacheDir)) {
-        cache
-            .store(
-                "item/1",
-                bytes,
-                md5,
-                ImmutableMap.of(),
-                CloudFileStorage.StoreOptions.builder().setCacheContentsOnUpload(true).build())
-            .get();
+    try (CachingCloudFileStorage cache = new CachingCloudFileStorage(delegate, cacheDir)) {
+      cache
+          .store(
+              "item/1",
+              bytes,
+              md5,
+              ImmutableMap.of(),
+              CloudFileStorage.StoreOptions.builder().setCacheContentsOnUpload(true).build())
+          .get();
+    }
 
-        assertThat(cache.exists("item/1").get()).isTrue();
-        assertThat(cache.get("item/1").get()).isEqualTo(bytes);
-        assertThat(delegate.existsCalls.get()).isEqualTo(0);
-        assertThat(delegate.getCalls.get()).isEqualTo(0);
-      }
+    assertThat(Files.exists(cacheDir.resolve("cache.mv"))).isTrue();
+    try (CachingCloudFileStorage reopened = new CachingCloudFileStorage(delegate, cacheDir)) {
+      assertThat(reopened.exists("item/1").get()).isTrue();
+      assertThat(reopened.get("item/1").get()).isEqualTo(bytes);
+      assertThat(delegate.existsCalls.get()).isEqualTo(0);
+      assertThat(delegate.getCalls.get()).isEqualTo(0);
     }
   }
 
   @Test
   public void testCachesUnlimitedListingsAcrossReopenAndRespectsMaxAge() throws Exception {
-    Path cacheDir = tempFolder.newFolder("listing-cache").toPath();
+    Path cacheDir = unix.createDirectories("/listing-cache");
     AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-06-01T00:00:00Z"));
     Clock clock =
         new Clock() {
@@ -247,7 +245,7 @@ public class CachingCloudFileStorageTest {
 
   @Test
   public void testCachesBoundedListingsAndRespectsLimit() throws Exception {
-    Path cacheDir = tempFolder.newFolder("bounded-listing-cache").toPath();
+    Path cacheDir = unix.createDirectories("/bounded-listing-cache");
     AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-06-01T00:00:00Z"));
     Clock clock =
         new Clock() {
@@ -323,7 +321,7 @@ public class CachingCloudFileStorageTest {
 
   @Test
   public void testGetOptionsReadOnlyAndBypassCache() throws Exception {
-    Path cacheDir = tempFolder.newFolder("get-options-cache").toPath();
+    Path cacheDir = unix.createDirectories("/get-options-cache");
     InMemoryCloudFileStorage backing =
         new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
     CountingDelegate delegate = new CountingDelegate(backing);
@@ -379,7 +377,7 @@ public class CachingCloudFileStorageTest {
 
   @Test
   public void testPurgeCacheKeepsAllowedKeysClearsListingsAndShrinksCacheFile() throws Exception {
-    Path cacheDir = tempFolder.newFolder("purge-cache").toPath();
+    Path cacheDir = unix.createDirectories("/purge-cache");
     InMemoryCloudFileStorage backing =
         new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
     CountingDelegate delegate = new CountingDelegate(backing);

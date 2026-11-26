@@ -18,10 +18,9 @@ package ws.moor.gletscher;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.jimfs.Configuration;
-import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,6 +28,7 @@ import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
 import ws.moor.gletscher.proto.testing.Testing;
+import ws.moor.gletscher.testing.FileSystemTestRule;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -48,22 +48,25 @@ public class BackwardsCompatibilityTest {
   private static final Instant TIME_B = Instant.ofEpochSecond(1313391600);
   private static final Instant TIME_C = Instant.ofEpochSecond(1356076800);
 
+  @Rule public FileSystemTestRule fsRule = FileSystemTestRule.unix();
+
   private FileSystem fs;
   private InMemoryCloudFileStorage inMemoryStorage;
 
   @Before
   public void setUp() throws Exception {
-    fs = Jimfs.newFileSystem(Configuration.unix());
-    Files.write(
-        fs.getPath("/config.properties"),
-        ("version: 1\n"
-            + "max_split_size: 10\n"
-            + "disable_cache: true\n"
-            + "include:\n"
-            + "  - /home\n"
-            + "exclude:\n"
-            + "  - \\.ignore$")
-            .getBytes(StandardCharsets.UTF_8));
+    fs = fsRule.getFileSystem();
+    fsRule.writeFile(
+        "/config.properties",
+        """
+        version: 1
+        max_split_size: 10
+        disable_cache: true
+        include:
+          - /home
+        exclude:
+          - \\.ignore$
+        """);
 
     inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
   }

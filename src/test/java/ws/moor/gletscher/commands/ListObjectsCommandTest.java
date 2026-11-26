@@ -18,13 +18,11 @@ package ws.moor.gletscher.commands;
 
 import com.google.common.collect.Sets;
 import com.google.common.hash.HashCode;
-import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import ws.moor.gletscher.Configuration;
@@ -35,12 +33,12 @@ import ws.moor.gletscher.cloud.SigningCloudFileStorage;
 import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
 import ws.moor.gletscher.proto.testing.Testing;
+import ws.moor.gletscher.testing.FileSystemTestRule;
 import ws.moor.gletscher.util.Signer;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -55,37 +53,37 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import static com.google.common.jimfs.Configuration.unix;
 import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class ListObjectsCommandTest {
 
-  @Rule public TemporaryFolder tempFolder = new TemporaryFolder();
+  @Rule public FileSystemTestRule fsRule = FileSystemTestRule.unix();
 
   private FileSystem fs;
   private InMemoryCloudFileStorage storage;
 
   @Before
   public void setUp() throws Exception {
-    fs = Jimfs.newFileSystem(unix());
+    fs = fsRule.getFileSystem();
     storage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
 
-    Files.write(
-        fs.getPath("/config.properties"),
-        ("version: 1\n"
-                + "max_split_size: 65536\n"
-                + "disable_cache: true\n"
-                + "gcs:\n"
-                + "  bucket_name: my-backup-bucket\n"
-                + "  object_prefix: prod/\n"
-                + "include:\n"
-                + "  - /home\n")
-            .getBytes(StandardCharsets.UTF_8));
+    fsRule.writeFile(
+        "/config.properties",
+        """
+        version: 1
+        max_split_size: 65536
+        disable_cache: true
+        gcs:
+          bucket_name: my-backup-bucket
+          object_prefix: prod/
+        include:
+          - /home
+        """);
 
-    Files.createDirectories(fs.getPath("/home/sub"));
-    Files.writeString(fs.getPath("/home/a.txt"), "small-a");
-    Files.writeString(fs.getPath("/home/sub/b.bin"), "medium-data-block-content-1234567890");
+    fsRule.createDirectories("/home/sub");
+    fsRule.writeFile("/home/a.txt", "small-a");
+    fsRule.writeFile("/home/sub/b.bin", "medium-data-block-content-1234567890");
   }
 
   @Test
@@ -102,7 +100,7 @@ public class ListObjectsCommandTest {
     Set<String> metaAfterSnap1 = storage.getFileNames(CloudFileStorage.ObjectType.METADATA);
     Set<String> dataAfterSnap1 = storage.getFileNames(CloudFileStorage.ObjectType.DATA);
 
-    Files.writeString(fs.getPath("/home/c.txt"), "snapshot-2-new-file-content-abcdefghijklmnopqrstuvwxyz");
+    fsRule.writeFile("/home/c.txt", "snapshot-2-new-file-content-abcdefghijklmnopqrstuvwxyz");
     takeBackupAt(Instant.parse("2025-06-01T00:00:00Z"));
     Set<String> metaAfterSnap2 = storage.getFileNames(CloudFileStorage.ObjectType.METADATA);
     String snap2Pointer =
@@ -112,7 +110,7 @@ public class ListObjectsCommandTest {
             .findFirst()
             .orElseThrow();
 
-    Files.writeString(fs.getPath("/home/sub/d.txt"), "snapshot-3-newest-file");
+    fsRule.writeFile("/home/sub/d.txt", "snapshot-3-newest-file");
     takeBackupAt(Instant.parse("2026-01-01T00:00:00Z"));
 
     Set<String> allMeta = storage.getFileNames(CloudFileStorage.ObjectType.METADATA);
@@ -269,13 +267,13 @@ public class ListObjectsCommandTest {
     Instant now = Instant.parse("2026-06-01T00:00:00Z");
 
     // Take snapshot 1 with a file that will later be deleted.
-    Files.writeString(fs.getPath("/home/ephemeral.txt"), "only-in-snapshot-1-unique-payload");
+    fsRule.writeFile("/home/ephemeral.txt", "only-in-snapshot-1-unique-payload");
     takeBackupAt(Instant.parse("2026-01-01T00:00:00Z"));
     Set<String> snap1Meta = storage.getFileNames(CloudFileStorage.ObjectType.METADATA);
     Set<String> snap1Data = storage.getFileNames(CloudFileStorage.ObjectType.DATA);
 
     // Delete ephemeral.txt and take snapshot 2.
-    Files.delete(fs.getPath("/home/ephemeral.txt"));
+    fsRule.delete("/home/ephemeral.txt");
     takeBackupAt(Instant.parse("2026-05-01T00:00:00Z"));
     Set<String> snap2MetaOnly =
         Sets.difference(storage.getFileNames(CloudFileStorage.ObjectType.METADATA), snap1Meta);
@@ -366,17 +364,17 @@ public class ListObjectsCommandTest {
   public void directoryPreviousVersionLinksPreserveHistoryWhenCatalogPointerMissing()
       throws Exception {
     // Snapshot 1 has unique files at root and in a nested directory.
-    Files.writeString(fs.getPath("/home/snap1-root.txt"), "snap1-root-unique-payload");
-    Files.writeString(fs.getPath("/home/sub/snap1-nested.txt"), "snap1-nested-unique-payload");
+    fsRule.writeFile("/home/snap1-root.txt", "snap1-root-unique-payload");
+    fsRule.writeFile("/home/sub/snap1-nested.txt", "snap1-nested-unique-payload");
     String snap1CatalogSig = takeBackupAt(Instant.parse("2025-01-01T00:00:00Z"));
     Set<String> snap1Meta = storage.getFileNames(CloudFileStorage.ObjectType.METADATA);
     Set<String> snap1Data = storage.getFileNames(CloudFileStorage.ObjectType.DATA);
 
     // Snapshot 2 deletes the snapshot-1-only files so /home and /home/sub get new directory blocks
     // with previous_version pointing back to snapshot 1's directory blocks.
-    Files.delete(fs.getPath("/home/snap1-root.txt"));
-    Files.delete(fs.getPath("/home/sub/snap1-nested.txt"));
-    Files.writeString(fs.getPath("/home/snap2-only.txt"), "snap2-unique-payload");
+    fsRule.delete("/home/snap1-root.txt");
+    fsRule.delete("/home/sub/snap1-nested.txt");
+    fsRule.writeFile("/home/snap2-only.txt", "snap2-unique-payload");
     takeBackupAt(Instant.parse("2026-01-01T00:00:00Z"));
 
     // Delete snapshot 1's backups/ pointer and catalog block so snapshot 1's directories and
@@ -429,22 +427,22 @@ public class ListObjectsCommandTest {
 
   @Test
   public void maxListingAgeReusesPersistentCacheAcrossInvocations() throws Exception {
-    Path cacheDir = tempFolder.newFolder("cache").toPath();
-    Path configPath = tempFolder.newFile("config.properties").toPath();
-    Path rootDir = tempFolder.newFolder("home").toPath();
-    Files.writeString(rootDir.resolve("one.txt"), "first-file-payload");
-    Files.writeString(
-        configPath,
-        "version: 1\n"
-            + "max_split_size: 65536\n"
-            + "disable_cache: false\n"
-            + "cache_dir: "
-            + cacheDir.toAbsolutePath()
-            + "\n"
-            + "include:\n"
-            + "  - "
-            + rootDir.toAbsolutePath()
-            + "\n");
+    Path cacheDir = fsRule.createDirectories("/cache");
+    Path rootDir = fsRule.createDirectories("/cached-home");
+    fsRule.writeFile("/cached-home/one.txt", "first-file-payload");
+    Path configPath =
+        fsRule.writeFile(
+            "/cached-config.properties",
+            "version: 1\n"
+                + "max_split_size: 65536\n"
+                + "disable_cache: false\n"
+                + "cache_dir: "
+                + cacheDir.toAbsolutePath()
+                + "\n"
+                + "include:\n"
+                + "  - "
+                + rootDir.toAbsolutePath()
+                + "\n");
 
     AtomicInteger listCalls = new AtomicInteger();
     CloudFileStorage countingStorage =
@@ -482,13 +480,13 @@ public class ListObjectsCommandTest {
         };
 
     Instant t0 = Instant.parse("2026-06-01T00:00:00Z");
-    TestCommandContext backupCtx = new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    TestCommandContext backupCtx = new TestCommandContext(fs, countingStorage);
     backupCtx.clock = Clock.fixed(t0, ZoneOffset.UTC);
     new GletscherMain(backupCtx).run("backup", "-c", configPath.toString());
     assertThat(backupCtx.status).isEqualTo(0);
 
     // First list_objects (live) scans GCS and warms cache.mv.
-    TestCommandContext liveCtx = new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    TestCommandContext liveCtx = new TestCommandContext(fs, countingStorage);
     liveCtx.clock = Clock.fixed(t0, ZoneOffset.UTC);
     new GletscherMain(liveCtx).run("list_objects", "-c", configPath.toString(), "--type", "data");
     assertThat(liveCtx.status).isEqualTo(0);
@@ -496,7 +494,7 @@ public class ListObjectsCommandTest {
     assertThat(callsAfterLive).isGreaterThan(0);
 
     // Second list_objects with --max-listing-age 1h at t0 + 30m makes 0 live list calls.
-    TestCommandContext cachedCtx = new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    TestCommandContext cachedCtx = new TestCommandContext(fs, countingStorage);
     cachedCtx.clock = Clock.fixed(t0.plusSeconds(1800), ZoneOffset.UTC);
     new GletscherMain(cachedCtx)
         .run(
@@ -512,8 +510,7 @@ public class ListObjectsCommandTest {
     assertThat(listCalls.get()).isEqualTo(callsAfterLive);
 
     // Past max-listing-age (t0 + 30m > 15m), it refreshes from GCS cleanly.
-    TestCommandContext expiredCtx =
-        new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    TestCommandContext expiredCtx = new TestCommandContext(fs, countingStorage);
     expiredCtx.clock = Clock.fixed(t0.plusSeconds(1800), ZoneOffset.UTC);
     new GletscherMain(expiredCtx)
         .run(

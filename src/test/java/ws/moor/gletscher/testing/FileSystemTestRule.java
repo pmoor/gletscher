@@ -42,14 +42,31 @@ public class FileSystemTestRule extends ExternalResource {
 
   private FileSystemTestRule(Configuration configuration) {
     this.fs = Jimfs.newFileSystem(configuration);
+    FileSystemFilePath.register(this.fs);
   }
 
-  public void createDirectories(String path) throws Exception {
-    Files.createDirectories(getPath(path));
+  @Override
+  protected void after() {
+    FileSystemFilePath.unregister(fs);
+    try {
+      if (fs.isOpen()) {
+        fs.close();
+      }
+    } catch (IOException ignored) {
+      // Best-effort cleanup in test teardown.
+    }
   }
 
-  public void writeFile(String path, String contents) throws Exception {
-    Files.writeString(getPath(path), contents);
+  public Path createDirectories(String path) throws Exception {
+    return Files.createDirectories(getPath(path));
+  }
+
+  public Path writeFile(String path, String contents) throws Exception {
+    return Files.writeString(getPath(path), contents);
+  }
+
+  public void delete(String path) throws Exception {
+    Files.delete(getPath(path));
   }
 
   public FileSystem getFileSystem() {

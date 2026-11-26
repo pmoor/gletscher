@@ -16,15 +16,16 @@
 
 package ws.moor.gletscher.commands;
 
-import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import ws.moor.gletscher.GletscherMain;
 import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
+import ws.moor.gletscher.testing.FileSystemTestRule;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
@@ -33,11 +34,12 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 
-import static com.google.common.jimfs.Configuration.unix;
 import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class StatsCommandTest {
+
+  @Rule public FileSystemTestRule fsRule = FileSystemTestRule.unix();
 
   private TestCommandContext context;
   private GletscherMain main;
@@ -46,26 +48,27 @@ public class StatsCommandTest {
 
   @Before
   public void setUp() throws Exception {
-    fs = Jimfs.newFileSystem(unix());
+    fs = fsRule.getFileSystem();
     inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
 
-    Files.write(
-        fs.getPath("/config.properties"),
-        ("version: 1\n"
-                + "max_split_size: 65536\n"
-                + "disable_cache: true\n"
-                + "include:\n"
-                + "  - /home\n")
-            .getBytes(StandardCharsets.UTF_8));
+    fsRule.writeFile(
+        "/config.properties",
+        """
+        version: 1
+        max_split_size: 65536
+        disable_cache: true
+        include:
+          - /home
+        """);
 
     // files to back-up
-    Files.createDirectories(fs.getPath("/home"));
-    Files.newBufferedWriter(fs.getPath("/home/file.txt")).append("Hello World").close();
-    Files.newBufferedWriter(fs.getPath("/home/me-1.jpg")).append("xyz").close();
-    Files.newBufferedWriter(fs.getPath("/home/me-2.jpg")).append("qwert").close();
-    Files.newBufferedWriter(fs.getPath("/home/me-3.identical.gif")).append("qwert").close();
-    Files.newBufferedWriter(fs.getPath("/home/no-extension")).append("0000").close();
-    Files.newBufferedWriter(fs.getPath("/home/some.superlongextension")).append("99").close();
+    fsRule.createDirectories("/home");
+    fsRule.writeFile("/home/file.txt", "Hello World");
+    fsRule.writeFile("/home/me-1.jpg", "xyz");
+    fsRule.writeFile("/home/me-2.jpg", "qwert");
+    fsRule.writeFile("/home/me-3.identical.gif", "qwert");
+    fsRule.writeFile("/home/no-extension", "0000");
+    fsRule.writeFile("/home/some.superlongextension", "99");
 
     context = new TestCommandContext(fs, inMemoryStorage);
     main = new GletscherMain(context);

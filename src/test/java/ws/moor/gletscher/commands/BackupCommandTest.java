@@ -22,7 +22,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import ws.moor.gletscher.GletscherMain;
@@ -32,10 +31,7 @@ import ws.moor.gletscher.commands.testing.FileReadFailureInjector;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
 import ws.moor.gletscher.testing.FileSystemTestRule;
 
-import java.nio.charset.StandardCharsets;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.FileSystem;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -50,7 +46,6 @@ public class BackupCommandTest {
 
   @Rule public FileSystemTestRule unix = FileSystemTestRule.unix();
   @Rule public FileSystemTestRule windows = FileSystemTestRule.windows();
-  @Rule public TemporaryFolder tempFolder = new TemporaryFolder();
   private InMemoryCloudFileStorage inMemoryStorage;
 
   @Before
@@ -154,17 +149,19 @@ public class BackupCommandTest {
 
   @Test
   public void testBackupNeverUsesCachedListingsOrAcceptsMaxListingAge() throws Exception {
-    Path root = tempFolder.newFolder("backup-live-list").toPath();
-    Path cacheDir = Files.createDirectories(root.resolve("cache"));
-    Path homeDir = Files.createDirectories(root.resolve("home"));
-    Files.writeString(homeDir.resolve("a.txt"), "hello");
-    Path configPath = root.resolve("config.yaml");
-    Files.writeString(
-        configPath,
-        String.format(
-            "version: 1%nmax_split_size: 65536%ndisable_cache: false%ncache_dir: %s%ninclude:%n  - %s%n",
-            cacheDir, homeDir),
-        StandardCharsets.UTF_8);
+    unix.createDirectories("/cache");
+    unix.createDirectories("/home");
+    unix.writeFile("/home/a.txt", "hello");
+    unix.writeFile(
+        "/cached-config.yaml",
+        """
+        version: 1
+        max_split_size: 65536
+        disable_cache: false
+        cache_dir: /cache
+        include:
+          - /home
+        """);
 
     AtomicInteger listCalls = new AtomicInteger();
     CloudFileStorage countingStorage =
@@ -201,26 +198,26 @@ public class BackupCommandTest {
           }
         };
 
+    FileSystem fs = unix.getFileSystem();
+
     // Rejects --max-listing-age on backup.
-    TestCommandContext badUsage = new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    TestCommandContext badUsage = new TestCommandContext(fs, countingStorage);
     new GletscherMain(badUsage)
-        .run("backup", "-c", configPath.toString(), "--max-listing-age", "1h");
+        .run("backup", "-c", "/cached-config.yaml", "--max-listing-age", "1h");
     assertThat(badUsage.status).isEqualTo(-1);
     assertThat(badUsage.stdErrString()).contains("Unrecognized option: --max-listing-age");
 
     // First backup warms the backups/ listing cache; second backup must still list live.
     Instant t0 = Instant.parse("2026-06-01T00:00:00Z");
-    TestCommandContext firstBackup =
-        new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    TestCommandContext firstBackup = new TestCommandContext(fs, countingStorage);
     firstBackup.clock = Clock.fixed(t0, ZoneOffset.UTC);
-    new GletscherMain(firstBackup).run("backup", "-c", configPath.toString());
+    new GletscherMain(firstBackup).run("backup", "-c", "/cached-config.yaml");
     assertThat(firstBackup.status).isEqualTo(0);
 
     int callsBeforeSecondBackup = listCalls.get();
-    TestCommandContext secondBackup =
-        new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    TestCommandContext secondBackup = new TestCommandContext(fs, countingStorage);
     secondBackup.clock = Clock.fixed(t0.plusSeconds(60), ZoneOffset.UTC);
-    new GletscherMain(secondBackup).run("backup", "-c", configPath.toString());
+    new GletscherMain(secondBackup).run("backup", "-c", "/cached-config.yaml");
     assertThat(secondBackup.status).isEqualTo(0);
     assertThat(listCalls.get()).isEqualTo(callsBeforeSecondBackup + 1);
   }

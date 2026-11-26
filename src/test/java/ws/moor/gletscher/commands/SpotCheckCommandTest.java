@@ -19,24 +19,20 @@ package ws.moor.gletscher.commands;
 import com.google.common.base.Strings;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
-import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import ws.moor.gletscher.GletscherMain;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
+import ws.moor.gletscher.testing.FileSystemTestRule;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -44,13 +40,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.google.common.jimfs.Configuration.unix;
 import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class SpotCheckCommandTest {
 
-  @Rule public TemporaryFolder tempFolder = new TemporaryFolder();
+  @Rule public FileSystemTestRule fsRule = FileSystemTestRule.unix();
 
   private TestCommandContext context;
   private GletscherMain main;
@@ -59,24 +54,25 @@ public class SpotCheckCommandTest {
 
   @Before
   public void setUp() throws Exception {
-    fs = Jimfs.newFileSystem(unix());
+    fs = fsRule.getFileSystem();
     inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
 
-    Files.write(
-        fs.getPath("/config.properties"),
-        ("version: 1\n"
-                + "max_split_size: 65536\n"
-                + "disable_cache: true\n"
-                + "include:\n"
-                + "  - /home\n")
-            .getBytes(StandardCharsets.UTF_8));
+    fsRule.writeFile(
+        "/config.properties",
+        """
+        version: 1
+        max_split_size: 65536
+        disable_cache: true
+        include:
+          - /home
+        """);
 
     // files to back-up
-    Files.createDirectories(fs.getPath("/home"));
+    fsRule.createDirectories("/home");
     for (int i = 0; i < 20; i++) {
       String fileName = String.format("/home/file-%04d.txt", i);
       String contents = Strings.repeat(String.format("%04d", i), i * i * 1000);
-      Files.newBufferedWriter(fs.getPath(fileName)).append(contents).close();
+      fsRule.writeFile(fileName, contents);
     }
 
     context = new TestCommandContext(fs, inMemoryStorage);
@@ -103,7 +99,7 @@ public class SpotCheckCommandTest {
     int i = 17;
     String fileName = String.format("/home/file-%04d.txt", i);
     String contents = Strings.repeat(String.format("%04d", i * i), i * i * 1000);
-    Files.newBufferedWriter(fs.getPath(fileName)).append(contents).close();
+    fsRule.writeFile(fileName, contents);
 
     main.run("spot_check", "-c", "/config.properties", "--max_blocks", "10");
     assertThat(context.status).isEqualTo(-1);
@@ -114,42 +110,41 @@ public class SpotCheckCommandTest {
 
   @Test
   public void testSpotCheckBypassesCacheForDataButCachesMetadata() throws Exception {
-    Path tempRoot = tempFolder.newFolder("spot-check-cache").toPath();
-    Path cacheDir = Files.createDirectories(tempRoot.resolve("cache"));
-    Path homeDir = Files.createDirectories(tempRoot.resolve("home"));
+    fsRule.createDirectories("/spot-check-cache");
+    Path cacheDir = fsRule.createDirectories("/spot-check-cache/cache");
+    Path homeDir = fsRule.createDirectories("/spot-check-cache/home2");
     for (int i = 0; i < 20; i++) {
       String contents = Strings.repeat(String.format("%04d", i), i * i * 1000);
-      Files.writeString(homeDir.resolve(String.format("file-%04d.txt", i)), contents);
+      fsRule.writeFile(String.format("/spot-check-cache/home2/file-%04d.txt", i), contents);
     }
 
-    Path uncachedConfig = tempRoot.resolve("uncached.properties");
-    Files.writeString(
-        uncachedConfig,
-        "version: 1\n"
-            + "max_split_size: 65536\n"
-            + "disable_cache: true\n"
-            + "include:\n"
-            + "  - "
-            + homeDir.toAbsolutePath()
-            + "\n");
+    Path uncachedConfig =
+        fsRule.writeFile(
+            "/spot-check-cache/uncached.properties",
+            "version: 1\n"
+                + "max_split_size: 65536\n"
+                + "disable_cache: true\n"
+                + "include:\n"
+                + "  - "
+                + homeDir.toAbsolutePath()
+                + "\n");
 
-    Path cachedConfig = tempRoot.resolve("cached.properties");
-    Files.writeString(
-        cachedConfig,
-        "version: 1\n"
-            + "max_split_size: 65536\n"
-            + "disable_cache: false\n"
-            + "cache_dir: "
-            + cacheDir.toAbsolutePath()
-            + "\n"
-            + "include:\n"
-            + "  - "
-            + homeDir.toAbsolutePath()
-            + "\n");
+    Path cachedConfig =
+        fsRule.writeFile(
+            "/spot-check-cache/cached.properties",
+            "version: 1\n"
+                + "max_split_size: 65536\n"
+                + "disable_cache: false\n"
+                + "cache_dir: "
+                + cacheDir.toAbsolutePath()
+                + "\n"
+                + "include:\n"
+                + "  - "
+                + homeDir.toAbsolutePath()
+                + "\n");
 
     // Backup directly to inMemoryStorage (no local cache populated yet).
-    FileSystem defaultFs = FileSystems.getDefault();
-    TestCommandContext backupContext = new TestCommandContext(defaultFs, inMemoryStorage);
+    TestCommandContext backupContext = new TestCommandContext(fs, inMemoryStorage);
     new GletscherMain(backupContext).run("backup", "-c", uncachedConfig.toString());
     assertThat(backupContext.status).isEqualTo(0);
 
@@ -192,7 +187,7 @@ public class SpotCheckCommandTest {
         };
 
     // First spot_check warms metadata cache, and fetches 10 sampled data blocks from storage.
-    TestCommandContext ctx1 = new TestCommandContext(defaultFs, recordingStorage);
+    TestCommandContext ctx1 = new TestCommandContext(fs, recordingStorage);
     new GletscherMain(ctx1)
         .run("spot_check", "-c", cachedConfig.toString(), "--max_blocks", "10");
     assertThat(ctx1.status).isEqualTo(0);
@@ -204,7 +199,7 @@ public class SpotCheckCommandTest {
     // Second spot_check reads metadata from cache (0 remote metadata fetches),
     // but still fetches all 10 sampled data blocks from remote storage (cache bypassed).
     fetchedObjects.clear();
-    TestCommandContext ctx2 = new TestCommandContext(defaultFs, recordingStorage);
+    TestCommandContext ctx2 = new TestCommandContext(fs, recordingStorage);
     new GletscherMain(ctx2)
         .run("spot_check", "-c", cachedConfig.toString(), "--max_blocks", "10");
     assertThat(ctx2.status).isEqualTo(0);
