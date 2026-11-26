@@ -22,9 +22,7 @@ import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import ws.moor.gletscher.Configuration;
@@ -40,7 +38,6 @@ import ws.moor.gletscher.util.Signer;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -60,8 +57,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class ListObjectsCommandTest {
-
-  @Rule public TemporaryFolder tempFolder = new TemporaryFolder();
 
   private FileSystem fs;
   private InMemoryCloudFileStorage storage;
@@ -429,9 +424,9 @@ public class ListObjectsCommandTest {
 
   @Test
   public void maxListingAgeReusesPersistentCacheAcrossInvocations() throws Exception {
-    Path cacheDir = tempFolder.newFolder("cache").toPath();
-    Path configPath = tempFolder.newFile("config.properties").toPath();
-    Path rootDir = tempFolder.newFolder("home").toPath();
+    Path cacheDir = Files.createDirectories(fs.getPath("/cache"));
+    Path configPath = fs.getPath("/cached-config.properties");
+    Path rootDir = Files.createDirectories(fs.getPath("/cached-home"));
     Files.writeString(rootDir.resolve("one.txt"), "first-file-payload");
     Files.writeString(
         configPath,
@@ -482,13 +477,13 @@ public class ListObjectsCommandTest {
         };
 
     Instant t0 = Instant.parse("2026-06-01T00:00:00Z");
-    TestCommandContext backupCtx = new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    TestCommandContext backupCtx = new TestCommandContext(fs, countingStorage);
     backupCtx.clock = Clock.fixed(t0, ZoneOffset.UTC);
     new GletscherMain(backupCtx).run("backup", "-c", configPath.toString());
     assertThat(backupCtx.status).isEqualTo(0);
 
     // First list_objects (live) scans GCS and warms cache.mv.
-    TestCommandContext liveCtx = new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    TestCommandContext liveCtx = new TestCommandContext(fs, countingStorage);
     liveCtx.clock = Clock.fixed(t0, ZoneOffset.UTC);
     new GletscherMain(liveCtx).run("list_objects", "-c", configPath.toString(), "--type", "data");
     assertThat(liveCtx.status).isEqualTo(0);
@@ -496,7 +491,7 @@ public class ListObjectsCommandTest {
     assertThat(callsAfterLive).isGreaterThan(0);
 
     // Second list_objects with --max-listing-age 1h at t0 + 30m makes 0 live list calls.
-    TestCommandContext cachedCtx = new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    TestCommandContext cachedCtx = new TestCommandContext(fs, countingStorage);
     cachedCtx.clock = Clock.fixed(t0.plusSeconds(1800), ZoneOffset.UTC);
     new GletscherMain(cachedCtx)
         .run(
@@ -512,8 +507,7 @@ public class ListObjectsCommandTest {
     assertThat(listCalls.get()).isEqualTo(callsAfterLive);
 
     // Past max-listing-age (t0 + 30m > 15m), it refreshes from GCS cleanly.
-    TestCommandContext expiredCtx =
-        new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    TestCommandContext expiredCtx = new TestCommandContext(fs, countingStorage);
     expiredCtx.clock = Clock.fixed(t0.plusSeconds(1800), ZoneOffset.UTC);
     new GletscherMain(expiredCtx)
         .run(

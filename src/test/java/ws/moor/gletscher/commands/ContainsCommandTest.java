@@ -21,9 +21,7 @@ import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import ws.moor.gletscher.GletscherMain;
@@ -34,7 +32,6 @@ import ws.moor.gletscher.commands.testing.TestCommandContext;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -55,8 +52,6 @@ import static java.lang.System.lineSeparator;
 public class ContainsCommandTest {
 
   private static final ZoneId ZURICH = ZoneId.of("Europe/Zurich");
-
-  @Rule public TemporaryFolder tempFolder = new TemporaryFolder();
 
   private FileSystem fs;
   private InMemoryCloudFileStorage inMemoryStorage;
@@ -331,14 +326,13 @@ public class ContainsCommandTest {
 
   @Test
   public void testMaxListingAgeCachesBackupsScanForLatestNCatalogs() throws Exception {
-    Path root = tempFolder.newFolder("contains-cache").toPath();
-    Path cacheDir = Files.createDirectories(root.resolve("cache"));
-    Path includeDir = Files.createDirectories(root.resolve("home"));
-    Path checkFile = Files.createDirectories(root.resolve("check")).resolve("sample.txt");
+    Path cacheDir = Files.createDirectories(fs.getPath("/cache"));
+    Path includeDir = fs.getPath("/home");
+    Path checkFile = fs.getPath("/check/sample.txt");
     Files.writeString(includeDir.resolve("sample.txt"), "cached-backup-data");
     Files.writeString(checkFile, "cached-backup-data");
 
-    Path configPath = root.resolve("config.yaml");
+    Path configPath = fs.getPath("/cached-config.yaml");
     Files.writeString(
         configPath,
         String.format(
@@ -384,12 +378,12 @@ public class ContainsCommandTest {
         };
 
     Instant t0 = Instant.parse("2026-06-01T00:00:00Z");
-    TestCommandContext backup1 = new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    TestCommandContext backup1 = new TestCommandContext(fs, countingStorage);
     backup1.clock = Clock.fixed(t0, ZoneOffset.UTC);
     new GletscherMain(backup1).run("backup", "-c", configPath.toString());
     assertThat(backup1.status).isEqualTo(0);
 
-    TestCommandContext backup2 = new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    TestCommandContext backup2 = new TestCommandContext(fs, countingStorage);
     backup2.clock = Clock.fixed(t0.plusSeconds(60), ZoneOffset.UTC);
     Files.writeString(includeDir.resolve("sample2.txt"), "second-snapshot");
     new GletscherMain(backup2).run("backup", "-c", configPath.toString());
@@ -397,8 +391,7 @@ public class ContainsCommandTest {
 
     // Live contains (-n 1) scans backups/ once and warms cache.mv.
     int callsBeforeLive = listCalls.get();
-    TestCommandContext liveContains =
-        new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    TestCommandContext liveContains = new TestCommandContext(fs, countingStorage);
     liveContains.clock = Clock.fixed(t0.plusSeconds(120), ZoneOffset.UTC);
     new GletscherMain(liveContains)
         .run("contains", "-c", configPath.toString(), checkFile.toString());
@@ -406,8 +399,7 @@ public class ContainsCommandTest {
     assertThat(listCalls.get()).isEqualTo(callsBeforeLive + 1);
 
     // Within max-listing-age (t0+30m <= 1h), contains -n 1 makes 0 remote list calls!
-    TestCommandContext cachedContains =
-        new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    TestCommandContext cachedContains = new TestCommandContext(fs, countingStorage);
     cachedContains.clock = Clock.fixed(t0.plusSeconds(1800), ZoneOffset.UTC);
     new GletscherMain(cachedContains)
         .run(
@@ -422,10 +414,9 @@ public class ContainsCommandTest {
     assertThat(listCalls.get()).isEqualTo(callsBeforeLive + 1);
 
     // Asking for -n 2 exceeds the cached limit=1 -> refreshes from remote storage.
-    TestCommandContext missingInSnap2 =
-        new TestCommandContext(FileSystems.getDefault(), countingStorage);
+    TestCommandContext missingInSnap2 = new TestCommandContext(fs, countingStorage);
     missingInSnap2.clock = Clock.fixed(t0.plusSeconds(1800), ZoneOffset.UTC);
-    Path onlyMissing = Files.writeString(root.resolve("check/missing.txt"), "not-in-backup");
+    Path onlyMissing = Files.writeString(fs.getPath("/check/missing.txt"), "not-in-backup");
     new GletscherMain(missingInSnap2)
         .run(
             "contains",

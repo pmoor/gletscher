@@ -17,12 +17,12 @@
 package ws.moor.gletscher.commands;
 
 import com.google.common.hash.HashCode;
+import com.google.common.jimfs.Configuration;
+import com.google.common.jimfs.Jimfs;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import ws.moor.gletscher.GletscherMain;
@@ -31,7 +31,6 @@ import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
 
 import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -47,8 +46,6 @@ import static com.google.common.truth.Truth.assertThat;
 @RunWith(JUnit4.class)
 public class PurgeCacheCommandTest {
 
-  @Rule public TemporaryFolder tempFolder = new TemporaryFolder();
-
   private FileSystem fs;
   private InMemoryCloudFileStorage inMemoryStorage;
   private Path tempRoot;
@@ -59,9 +56,9 @@ public class PurgeCacheCommandTest {
 
   @Before
   public void setUp() throws Exception {
-    fs = FileSystems.getDefault();
+    fs = Jimfs.newFileSystem(Configuration.unix());
     inMemoryStorage = new InMemoryCloudFileStorage(MoreExecutors.newDirectExecutorService());
-    tempRoot = tempFolder.newFolder("purge-cache-cmd").toPath();
+    tempRoot = Files.createDirectories(fs.getPath("/purge-cache-cmd"));
     cacheDir = Files.createDirectories(tempRoot.resolve("cache"));
     homeDir = Files.createDirectories(tempRoot.resolve("home"));
 
