@@ -59,56 +59,108 @@ class RealCatalogReader implements CatalogReader {
     return new CatalogDirectory(dirPath, cacheEntry.address, cacheEntry.directory);
   }
 
+  @Override
   public Iterator<CatalogFile> walk() {
-    final Deque<PathAndBlock> stack = new ArrayDeque<>();
-    for (Map.Entry<CatalogPath, PersistedBlock> entry : catalog.getRoots().entrySet()) {
-      stack.add(new PathAndBlock(entry.getKey(), entry.getValue()));
-    }
-    return new AbstractIterator<>() {
-      private CatalogPath currentPath;
-      private Iterator<Gletscher.DirectoryEntry> currentDir;
-
-      @Override
-      protected CatalogFile computeNext() {
-        while (currentDir != null && currentDir.hasNext()) {
-          Gletscher.DirectoryEntry next = currentDir.next();
-          switch (next.getTypeCase()) {
-            case FILE:
-              return new CatalogFile(currentPath.makeChild(next.getFile().getName()), next.getFile());
-            case DIRECTORY:
-              stack.push(
-                  new PathAndBlock(
-                      currentPath.makeChild(next.getDirectory().getName()),
-                      PersistedBlock.fromProto(next.getDirectory().getBlock())));
-              break;
-            case SYMLINK:
-              // TODO(pmoor): implement
-              break;
-            default:
-              throw new IllegalArgumentException(next.getTypeCase().toString());
-          }
-        }
-
-        if (stack.isEmpty()) {
-          return endOfData();
-        }
-
-        PathAndBlock nextPair = stack.pop();
-        Gletscher.Directory nextDir = fetchDir(nextPair.block);
-        currentPath = nextPair.path;
-        currentDir = nextDir.getEntryList().iterator();
-        return computeNext();
-      }
-    };
+    return new CatalogWalker(new Visitor() {});
   }
 
-  private static class PathAndBlock {
+  @Override
+  public void walk(Visitor visitor) {
+    CatalogWalker walker = new CatalogWalker(visitor);
+    while (walker.hasNext()) {
+      walker.next();
+    }
+  }
+
+  private final class CatalogWalker extends AbstractIterator<CatalogFile> {
+    private final Visitor visitor;
+    private final Iterator<Map.Entry<CatalogPath, PersistedBlock>> roots =
+        catalog.getRoots().entrySet().iterator();
+    private final Deque<WalkFrame> stack = new ArrayDeque<>();
+    private boolean terminated = false;
+
+    private CatalogWalker(Visitor visitor) {
+      this.visitor = visitor;
+    }
+
+    @Override
+    protected CatalogFile computeNext() {
+      while (!terminated) {
+        if (stack.isEmpty()) {
+          if (!roots.hasNext()) {
+            return endOfData();
+          }
+          Map.Entry<CatalogPath, PersistedBlock> root = roots.next();
+          VisitResult rootResult = visitor.preVisitDirectory(root.getKey(), root.getValue());
+          if (rootResult == VisitResult.TERMINATE) {
+            terminated = true;
+            return endOfData();
+          }
+          if (rootResult == VisitResult.CONTINUE) {
+            stack.push(
+                new WalkFrame(
+                    root.getKey(),
+                    root.getValue(),
+                    fetchDir(root.getValue()).getEntryList().iterator()));
+          }
+          continue;
+        }
+
+        WalkFrame frame = stack.peek();
+        if (!frame.entries.hasNext()) {
+          stack.pop();
+          if (visitor.postVisitDirectory(frame.path, frame.block) == VisitResult.TERMINATE) {
+            terminated = true;
+            return endOfData();
+          }
+          continue;
+        }
+
+        Gletscher.DirectoryEntry next = frame.entries.next();
+        switch (next.getTypeCase()) {
+          case FILE -> {
+            CatalogFile file =
+                new CatalogFile(frame.path.makeChild(next.getFile().getName()), next.getFile());
+            if (visitor.visitFile(file) == VisitResult.TERMINATE) {
+              terminated = true;
+              return endOfData();
+            }
+            return file;
+          }
+          case DIRECTORY -> {
+            CatalogPath childPath = frame.path.makeChild(next.getDirectory().getName());
+            PersistedBlock childBlock = PersistedBlock.fromProto(next.getDirectory().getBlock());
+            VisitResult dirResult = visitor.preVisitDirectory(childPath, childBlock);
+            if (dirResult == VisitResult.TERMINATE) {
+              terminated = true;
+              return endOfData();
+            }
+            if (dirResult == VisitResult.CONTINUE) {
+              stack.push(
+                  new WalkFrame(
+                      childPath, childBlock, fetchDir(childBlock).getEntryList().iterator()));
+            }
+          }
+          case SYMLINK -> {
+            // TODO(pmoor): implement
+          }
+          default -> throw new IllegalArgumentException(next.getTypeCase().toString());
+        }
+      }
+      return endOfData();
+    }
+  }
+
+  private static class WalkFrame {
     final CatalogPath path;
     final PersistedBlock block;
+    final Iterator<Gletscher.DirectoryEntry> entries;
 
-    private PathAndBlock(CatalogPath path, PersistedBlock block) {
+    private WalkFrame(
+        CatalogPath path, PersistedBlock block, Iterator<Gletscher.DirectoryEntry> entries) {
       this.path = path;
       this.block = block;
+      this.entries = entries;
     }
   }
 
