@@ -21,6 +21,7 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import ws.moor.gletscher.blocks.PersistedBlock;
 import ws.moor.gletscher.catalog.Catalog;
+import ws.moor.gletscher.catalog.CatalogPath;
 import ws.moor.gletscher.catalog.CatalogReader;
 import ws.moor.gletscher.catalog.CatalogReaders;
 import ws.moor.gletscher.cloud.CloudFileStorage;
@@ -35,8 +36,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -168,6 +172,7 @@ class ContainsCommand extends AbstractCommand {
       Map<List<PersistedBlock>, List<Integer>> pendingByBlocks,
       MatchResult[] matchResults,
       DateTimeFormatter timestampFormatter) {
+    Set<PersistedBlock> skippedDirs = new HashSet<>();
     List<CloudFileStorage.FileHeader> headers = catalogStore.listSnapshotHeaders(snapshotLimit);
     for (CloudFileStorage.FileHeader header : headers) {
       if (pendingByBlocks.isEmpty()) {
@@ -179,16 +184,48 @@ class ContainsCommand extends AbstractCommand {
           .printf("Searching snapshot %s...%n", timestampFormatter.format(catalog.getStartTime()));
 
       Map<List<PersistedBlock>, Set<String>> matchesInCatalog = new HashMap<>();
+      Set<PersistedBlock> matchedDirsInSnapshot = new HashSet<>();
+      Deque<boolean[]> matchedStack = new ArrayDeque<>();
+
       CatalogReader catalogReader = CatalogReaders.fromBlockStore(blockStore, catalog);
-      Iterator<CatalogReader.CatalogFile> it = catalogReader.walk();
-      while (it.hasNext()) {
-        CatalogReader.CatalogFile file = it.next();
-        if (pendingByBlocks.containsKey(file.blockList)) {
-          matchesInCatalog
-              .computeIfAbsent(file.blockList, ignored -> new TreeSet<>())
-              .add(file.path.getHumanReadableString());
-        }
-      }
+      catalogReader.walk(
+          new CatalogReader.Visitor() {
+            @Override
+            public CatalogReader.VisitResult preVisitDirectory(
+                CatalogPath path, PersistedBlock block) {
+              if (skippedDirs.contains(block)) {
+                return CatalogReader.VisitResult.SKIP_SUBTREE;
+              }
+              matchedStack.push(new boolean[1]);
+              return CatalogReader.VisitResult.CONTINUE;
+            }
+
+            @Override
+            public CatalogReader.VisitResult visitFile(CatalogReader.CatalogFile file) {
+              if (pendingByBlocks.containsKey(file.blockList)) {
+                matchesInCatalog
+                    .computeIfAbsent(file.blockList, ignored -> new TreeSet<>())
+                    .add(file.path.getHumanReadableString());
+                matchedStack.peek()[0] = true;
+              }
+              return CatalogReader.VisitResult.CONTINUE;
+            }
+
+            @Override
+            public CatalogReader.VisitResult postVisitDirectory(
+                CatalogPath path, PersistedBlock block) {
+              boolean hadMatch = matchedStack.pop()[0];
+              if (hadMatch) {
+                matchedDirsInSnapshot.add(block);
+                if (!matchedStack.isEmpty()) {
+                  matchedStack.peek()[0] = true;
+                }
+              } else {
+                skippedDirs.add(block);
+              }
+              return CatalogReader.VisitResult.CONTINUE;
+            }
+          });
 
       for (Map.Entry<List<PersistedBlock>, Set<String>> entry : matchesInCatalog.entrySet()) {
         List<Integer> matchedIndices = pendingByBlocks.remove(entry.getKey());
@@ -198,6 +235,7 @@ class ContainsCommand extends AbstractCommand {
           matchResults[idx] = result;
         }
       }
+      skippedDirs.addAll(matchedDirsInSnapshot);
     }
   }
 

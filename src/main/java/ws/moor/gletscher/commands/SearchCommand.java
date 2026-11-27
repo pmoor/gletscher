@@ -20,14 +20,20 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import ws.moor.gletscher.blocks.PersistedBlock;
+import ws.moor.gletscher.catalog.CatalogPath;
 import ws.moor.gletscher.catalog.CatalogReader;
 import ws.moor.gletscher.catalog.CatalogReaders;
 import ws.moor.gletscher.catalog.CatalogStore;
 import ws.moor.gletscher.cloud.CloudFileStorage;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -52,6 +58,16 @@ class SearchCommand extends AbstractCommand {
     addMaxListingAgeOption(options);
   }
 
+  private record DirKey(CatalogPath path, PersistedBlock block) {}
+
+  private record CachedDirMatches(
+      List<CatalogReader.CatalogFile> directMatches, List<DirKey> matchingChildren) {}
+
+  private static final class DirFrame {
+    final List<CatalogReader.CatalogFile> directMatches = new ArrayList<>();
+    final List<DirKey> matchingChildren = new ArrayList<>();
+  }
+
   @Override
   protected int runInternal(CommandLine commandLine, List<String> args) throws Exception {
     int snapshotLimit = parseSnapshotsOption(this, commandLine, Integer.MAX_VALUE);
@@ -74,31 +90,69 @@ class SearchCommand extends AbstractCommand {
     }
 
     boolean found = false;
+    Set<DirKey> emptyDirs = new HashSet<>();
+    Map<DirKey, CachedDirMatches> matchedDirs = new HashMap<>();
+
     List<CloudFileStorage.FileHeader> headers = catalogStore.listSnapshotHeaders(snapshotLimit);
     for (CloudFileStorage.FileHeader header : headers) {
       CatalogStore.Snapshot snapshot = catalogStore.loadSnapshot(header);
+      String label =
+          snapshot.catalogBlock().map(PersistedBlock::toString).orElse(snapshot.pointerName());
+      SnapshotMatchPrinter printer = new SnapshotMatchPrinter(label);
+      Deque<DirFrame> frameStack = new ArrayDeque<>();
+
       CatalogReader catalogReader = CatalogReaders.fromBlockStore(blockStore, snapshot.catalog());
-      Iterator<CatalogReader.CatalogFile> iterator = catalogReader.walk();
-      boolean matchedInSnapshot = false;
-      while (iterator.hasNext()) {
-        CatalogReader.CatalogFile file = iterator.next();
-        String humanReadablePath = file.path.getHumanReadableString();
-        if (matches(humanReadablePath, positive, negative)) {
-          if (!matchedInSnapshot) {
-            String label =
-                snapshot.catalogBlock().map(PersistedBlock::toString).orElse(snapshot.pointerName());
-            context.getStdOut().printf("Backup %s:\n", label);
-            matchedInSnapshot = true;
-            found = true;
-          }
-          context
-              .getStdOut()
-              .printf(
-                  "\t%s: %s (%d bytes)\n",
-                  humanReadablePath, file.lastModifiedTime, file.getOriginalSize());
-        }
-      }
-      if (matchedInSnapshot) {
+      catalogReader.walk(
+          new CatalogReader.Visitor() {
+            @Override
+            public CatalogReader.VisitResult preVisitDirectory(
+                CatalogPath path, PersistedBlock block) {
+              DirKey key = new DirKey(path, block);
+              if (emptyDirs.contains(key)) {
+                return CatalogReader.VisitResult.SKIP_SUBTREE;
+              }
+              if (matchedDirs.containsKey(key)) {
+                replayCachedMatches(key, matchedDirs, printer);
+                if (!frameStack.isEmpty()) {
+                  frameStack.peek().matchingChildren.add(key);
+                }
+                return CatalogReader.VisitResult.SKIP_SUBTREE;
+              }
+              frameStack.push(new DirFrame());
+              return CatalogReader.VisitResult.CONTINUE;
+            }
+
+            @Override
+            public CatalogReader.VisitResult visitFile(CatalogReader.CatalogFile file) {
+              if (matches(file.path.getHumanReadableString(), positive, negative)) {
+                printer.printMatch(file);
+                frameStack.peek().directMatches.add(file);
+              }
+              return CatalogReader.VisitResult.CONTINUE;
+            }
+
+            @Override
+            public CatalogReader.VisitResult postVisitDirectory(
+                CatalogPath path, PersistedBlock block) {
+              DirFrame frame = frameStack.pop();
+              DirKey key = new DirKey(path, block);
+              if (frame.directMatches.isEmpty() && frame.matchingChildren.isEmpty()) {
+                emptyDirs.add(key);
+              } else {
+                matchedDirs.put(
+                    key,
+                    new CachedDirMatches(
+                        List.copyOf(frame.directMatches), List.copyOf(frame.matchingChildren)));
+                if (!frameStack.isEmpty()) {
+                  frameStack.peek().matchingChildren.add(key);
+                }
+              }
+              return CatalogReader.VisitResult.CONTINUE;
+            }
+          });
+
+      if (printer.matchedInSnapshot) {
+        found = true;
         context.getStdOut().println();
         if (!searchAllSnapshots) {
           break;
@@ -107,6 +161,43 @@ class SearchCommand extends AbstractCommand {
     }
 
     return found ? 0 : -1;
+  }
+
+  private final class SnapshotMatchPrinter {
+    private final String label;
+    private boolean matchedInSnapshot = false;
+
+    private SnapshotMatchPrinter(String label) {
+      this.label = label;
+    }
+
+    void printMatch(CatalogReader.CatalogFile file) {
+      if (!matchedInSnapshot) {
+        context.getStdOut().printf("Backup %s:\n", label);
+        matchedInSnapshot = true;
+      }
+      context
+          .getStdOut()
+          .printf(
+              "\t%s: %s (%d bytes)\n",
+              file.path.getHumanReadableString(), file.lastModifiedTime, file.getOriginalSize());
+    }
+  }
+
+  private static void replayCachedMatches(
+      DirKey rootKey, Map<DirKey, CachedDirMatches> matchedDirs, SnapshotMatchPrinter printer) {
+    Deque<DirKey> stack = new ArrayDeque<>();
+    stack.push(rootKey);
+    while (!stack.isEmpty()) {
+      CachedDirMatches cached = matchedDirs.get(stack.pop());
+      for (CatalogReader.CatalogFile file : cached.directMatches()) {
+        printer.printMatch(file);
+      }
+      List<DirKey> children = cached.matchingChildren();
+      for (int i = children.size() - 1; i >= 0; i--) {
+        stack.push(children.get(i));
+      }
+    }
   }
 
   private static boolean matches(

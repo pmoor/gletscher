@@ -37,6 +37,9 @@ public final class CatalogReaders {
       public Iterator<CatalogFile> walk() {
         return emptyIterator();
       }
+
+      @Override
+      public void walk(Visitor visitor) {}
     };
   }
 

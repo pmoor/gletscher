@@ -24,12 +24,24 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import ws.moor.gletscher.Configuration;
 import ws.moor.gletscher.GletscherMain;
+import ws.moor.gletscher.blocks.BlockStore;
+import ws.moor.gletscher.catalog.CatalogPath;
+import ws.moor.gletscher.catalog.CatalogReader;
+import ws.moor.gletscher.catalog.CatalogReaders;
+import ws.moor.gletscher.catalog.CatalogStore;
 import ws.moor.gletscher.cloud.CloudFileStorage;
+import ws.moor.gletscher.cloud.CompressingCloudFileStorage;
+import ws.moor.gletscher.cloud.EncryptingCloudFileStorage;
+import ws.moor.gletscher.cloud.SigningCloudFileStorage;
 import ws.moor.gletscher.cloud.testing.InMemoryCloudFileStorage;
 import ws.moor.gletscher.commands.testing.FileReadFailureInjector;
 import ws.moor.gletscher.commands.testing.TestCommandContext;
 import ws.moor.gletscher.testing.FileSystemTestRule;
+import ws.moor.gletscher.util.Compressor;
+import ws.moor.gletscher.util.Cryptor;
+import ws.moor.gletscher.util.Signer;
 
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
@@ -38,6 +50,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -430,6 +443,106 @@ public class ContainsCommandTest {
             onlyMissing.toString());
     assertThat(missingInSnap2.status).isEqualTo(-1);
     assertThat(listCalls.get()).isEqualTo(callsBeforeLive + 2);
+  }
+
+  @Test
+  public void testSkipsVisitedUnchangedDirectoriesAcrossSnapshotsAndReportsDuplicateDirsInSameSnapshot()
+      throws Exception {
+    fsRule.createDirectories("/home/unchanged/nested");
+    fsRule.writeFile("/home/unchanged/nested/a.txt", "unchanged-a");
+    fsRule.createDirectories("/home/dup1");
+    fsRule.createDirectories("/home/dup2");
+    fsRule.writeFile("/home/dup1/shared.txt", "dup-content");
+    fsRule.writeFile("/home/dup2/shared.txt", "dup-content");
+    fsRule.writeFile("/home/changing.txt", "v1");
+    takeBackupAt(Instant.parse("2024-01-01T00:00:00Z"));
+
+    fsRule.writeFile("/home/changing.txt", "v2");
+    takeBackupAt(Instant.parse("2025-01-01T00:00:00Z"));
+
+    fsRule.writeFile("/home/changing.txt", "v3");
+    takeBackupAt(Instant.parse("2026-01-01T00:00:00Z"));
+
+    Configuration config = Configuration.fromFile(fs.getPath("/config.properties"));
+    CloudFileStorage transformedBacking =
+        new CompressingCloudFileStorage(
+            new EncryptingCloudFileStorage(
+                new SigningCloudFileStorage(inMemoryStorage, new Signer(config.getSigningKey())),
+                new Cryptor(config.getEncryptionKey(), config.getSigningKey())),
+            new Compressor());
+    BlockStore blockStore =
+        new BlockStore(transformedBacking, new Signer(config.getSigningKey()));
+    CatalogStore catalogStore = new CatalogStore(fs, transformedBacking, blockStore);
+    CatalogReader latestReader =
+        CatalogReaders.fromBlockStore(blockStore, catalogStore.getLatestCatalog().orElseThrow());
+    String unchangedDirObj =
+        BlockStore.toFileName(
+            latestReader
+                .findDirectory(CatalogPath.fromHumanReadableString("/home/unchanged"))
+                .getAddress());
+    String nestedDirObj =
+        BlockStore.toFileName(
+            latestReader
+                .findDirectory(CatalogPath.fromHumanReadableString("/home/unchanged/nested"))
+                .getAddress());
+
+    Map<String, Integer> getCounts = new HashMap<>();
+    CloudFileStorage countingStorage =
+        new CloudFileStorage() {
+          @Override
+          public ListenableFuture<?> store(
+              String name,
+              byte[] data,
+              HashCode md5,
+              Map<String, String> metadata,
+              StoreOptions options) {
+            return inMemoryStorage.store(name, data, md5, metadata, options);
+          }
+
+          @Override
+          public Iterator<FileHeader> listFiles(String prefix, int limit) {
+            return inMemoryStorage.listFiles(prefix, limit);
+          }
+
+          @Override
+          public ListenableFuture<Boolean> exists(String name) {
+            return inMemoryStorage.exists(name);
+          }
+
+          @Override
+          public ListenableFuture<byte[]> get(String name, GetOptions options) {
+            getCounts.merge(name, 1, Integer::sum);
+            return inMemoryStorage.get(name, options);
+          }
+
+          @Override
+          public void close() {
+            inMemoryStorage.close();
+          }
+        };
+
+    // Identical /home/dup1 and /home/dup2 in the same snapshot still both report matches,
+    // while searching for a missing file across all 3 snapshots only fetches unchanged dirs once.
+    Path dupCheck = fsRule.writeFile("/check/dup.txt", "dup-content");
+    Path missingCheck = fsRule.writeFile("/check/missing.txt", "never-backed-up");
+
+    TestCommandContext context = new TestCommandContext(fs, countingStorage);
+    context.clock = Clock.fixed(Instant.parse("2026-11-25T12:00:00Z"), ZoneOffset.UTC);
+    new GletscherMain(context)
+        .run(
+            "contains",
+            "-c",
+            "/config.properties",
+            "-n",
+            "all",
+            dupCheck.toString(),
+            missingCheck.toString());
+
+    assertThat(context.status).isEqualTo(-1);
+    assertThat(context.stdOutString()).contains("/home/dup1/shared.txt");
+    assertThat(context.stdOutString()).contains("/home/dup2/shared.txt");
+    assertThat(getCounts).containsEntry(unchangedDirObj, 1);
+    assertThat(getCounts).containsEntry(nestedDirObj, 1);
   }
 
   private void takeBackupAt(Instant instant) throws Exception {

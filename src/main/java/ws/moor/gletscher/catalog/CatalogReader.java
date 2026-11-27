@@ -27,10 +27,40 @@ import java.time.Instant;
 import java.util.Iterator;
 
 public interface CatalogReader {
+    enum VisitResult {
+        CONTINUE,
+        SKIP_SUBTREE,
+        TERMINATE
+    }
+
+    interface Visitor {
+        /**
+         * Consulted before descending into a directory (root or child).
+         * Return {@link VisitResult#SKIP_SUBTREE} to skip this directory and its descendants,
+         * {@link VisitResult#TERMINATE} to stop the walk immediately,
+         * or {@link VisitResult#CONTINUE} to descend into the directory.
+         */
+        default VisitResult preVisitDirectory(CatalogPath path, PersistedBlock block) {
+            return VisitResult.CONTINUE;
+        }
+
+        /** Called for each file in a visited directory. */
+        default VisitResult visitFile(CatalogFile file) {
+            return VisitResult.CONTINUE;
+        }
+
+        /** Called after all entries in a visited directory have been visited. */
+        default VisitResult postVisitDirectory(CatalogPath path, PersistedBlock block) {
+            return VisitResult.CONTINUE;
+        }
+    }
+
     @Nullable
     CatalogDirectory findDirectory(CatalogPath path);
 
     Iterator<CatalogFile> walk();
+
+    void walk(Visitor visitor);
 
     class CatalogFile {
         public final CatalogPath path;

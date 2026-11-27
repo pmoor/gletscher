@@ -55,4 +55,9 @@ class MappingCatalogReader implements CatalogReader {
   public Iterator<CatalogFile> walk() {
     return delegate.walk();
   }
+
+  @Override
+  public void walk(Visitor visitor) {
+    delegate.walk(visitor);
+  }
 }
